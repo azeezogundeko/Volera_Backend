@@ -11,7 +11,7 @@ class AgentClass:
         self.search_agent = "search_agent"
         self.shop_agent = "shop_agent"
         self.insights_agent = "insights_agent"
-        self.reviewier_agent = "reviewer_agent"
+        self.reviewer_agent = "reviewer_agent"
         self.comparison_agent = "comparison_agent"
 
 
@@ -29,6 +29,18 @@ class AgentClass:
         self.recommendation_mode = "recommendation"
         self.comparison_mode = "comparison"
 
+
+    def get_all_agents(self):
+        return [
+            self.meta_agent,
+            self.policy_agent,
+            self.comparison_agent,
+            self.reviewier_agent,
+            self.shop_agent,
+            self.human_node,
+            self.insights_agent,
+            self.search_agent
+        ]
 KnownModelName = Literal[
     'openai:gpt-4o',
     'openai:gpt-4o-mini',

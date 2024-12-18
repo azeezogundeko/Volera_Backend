@@ -1,10 +1,10 @@
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import List, Dict, Literal, Optional, Union, Any
+from typing import List, Dict, Literal, Optional, Union, Any, TypedDict
 
 
-@dataclass
-class UserContext:
+
+class UserContext(TypedDict):
     user_id: str
     session_id: Optional[str] = None
     focus_mode: Optional[str] = "default" 
@@ -12,21 +12,21 @@ class UserContext:
     history: Optional[List[Dict[str, str]]] = None 
     session_start_time: Optional[datetime] = None
 
-@dataclass
-class History:
+
+class History(TypedDict):
     speaker: Literal["assistant", "human"] 
     message: str
     timestamp: datetime
 
-@dataclass
-class Message:
+
+class Message(TypedDict):
     content: str
     chat_id: str
     message_id: str
     role: Literal["human", "assistant"] 
 
-@dataclass
-class WSMessage:
+
+class WSMessage(TypedDict):
     user_id: str
     focus_mode: str
     files: List[str]
@@ -35,43 +35,43 @@ class WSMessage:
     optimization_mode: Literal["fast", "balanced", "quality"] 
 
     
-@dataclass
-class Result:
+
+class Result(TypedDict):
     type: str
     content: str
     metadata: Dict[str, Any]  
 
-@dataclass
-class Timestamps:
+
+class Timestamps(TypedDict):
     created_at: datetime = field(default_factory=datetime.now)
 
-@dataclass
-class TaskInfo:
+
+class TaskInfo(TypedDict):
     task_id: str
     status: Literal["pending", "in_progress", "completed", "failed"]  # e.g., pending, in_progress, completed, failed
   
-@dataclass
-class Performance:
+
+class Performance(TypedDict):
     execution_time: Optional[float] = None  # in seconds
 
-@dataclass
-class TokenUsage:
+
+class TokenUsage(TypedDict):
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
 
-@dataclass
-class InputOutput:
+
+class InputOutput(TypedDict):
     tokens: TokenUsage = field(default_factory=TokenUsage)
 
-@dataclass
-class AgentMetadata:
+
+class AgentMetadata(TypedDict):
     task_info: TaskInfo
     performance: Performance = field(default_factory=Performance)
     input_output: InputOutput = field(default_factory=InputOutput)
 
-@dataclass
-class AgentResult:
+
+class AgentResult(TypedDict):
     name: str
     content: Dict[str, Any]
     metadata: Dict[str, AgentMetadata]

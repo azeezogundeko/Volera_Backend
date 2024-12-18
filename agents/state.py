@@ -16,11 +16,13 @@ class State(TypedDict):
     final_result: Dict[str,  Result]
     chat_limit: int
     chat_finished: bool
+    previous_node: str
     previous_search_queries: Annotated[List[dict], add_messages]
     ws_message: Annotated[List[WSMessage], add_messages]
     agent_results: Dict[str, AgentResult]
     message_history: List[ModelMessage]  # Add message history to the state
 
+# def get_agent_result(state: State, agent_name)-> AgentResult:
 
 # Helper function to get a key's value from the state
 def get_from_state(state: State, key: str, default: Any = None) -> Any:

@@ -1,9 +1,11 @@
 from typing import Literal
 import asyncio
 
+from pydantic_ai import agent
+
 from .config import agent_manager
-from prompts import meta_prompt
-from .legacy.base import create_meta_agent
+from prompts import policy_prompt
+from .legacy.base import create_policy_agent
 from schema import extract_agent_results
 from .state import State, get_current_request, flatten_history
 from utils.logging import logger
@@ -14,8 +16,8 @@ from pydantic_ai.result import RunResult
 
 
 # Secure meta agent function with proper exception handling
-@extract_agent_results(agent_manager.meta_agent)
-async def meta_agent(state: State) -> RunResult: 
+@extract_agent_results(agent_manager.policy_agent)
+async def policy_agent(state: State) -> RunResult: 
     try:
         # Safely get the current request and validate the presence of required fields
         current_request = get_current_request(state)
@@ -23,14 +25,10 @@ async def meta_agent(state: State) -> RunResult:
             raise ValueError("Invalid or missing request content.")
 
         query = current_request["message"]["content"]
-        history = current_request.get("history", [])
-        
-        # Flatten and slice history safely
-        mapped_history = flatten_history(history)[:5]
-        
+
         # Prepare the meta agent's prompt and initialize the LLM
-        prompt = meta_prompt(mapped_history)
-        llm = create_meta_agent(prompt)
+        prompt = policy_prompt([], query)
+        llm = create_policy_agent(prompt)
         
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(llm.run(query), timeout=10)
@@ -44,38 +42,40 @@ async def meta_agent(state: State) -> RunResult:
 
 
 # Meta agent node handling logic with validation and exception safety
-async def meta_agent_node(state: State) -> Command[Literal[
-    agent_manager.search_agent,
+async def policy_agent_node(state: State) -> Command[Literal[
+    agent_manager.meta_agent,
     agent_manager.human_node,
+    agent_manager.comparison_agent,
+    agent_manager.reviewer_agent,
+    agent_manager.insights_agent,
 ]]:
     try:
-        # Fetch all agents safely
-        all_agents = agent_manager.get_all_agents()
+        response = await policy_agent(state)
 
-        # Call the meta agent function
-        response = await meta_agent(state)
-        
-        # Ensure response is valid
-        if not response or not response.data or "next_node" not in response.data:
-            logger.error("Invalid response from meta agent.")
-            raise AgentInitializationError("No valid next node found in meta agent response.")
-
-        next_node = response.data.next_node
-
-        # Log and handle unrecognized next nodes
-        if next_node not in all_agents:
-            logger.error(f"Unknown next node: {next_node}")
-            raise AgentInintilaztionError(f"Unknown next node: {next_node}")
-
-        # Decide the next state transition based on next_node value
-        if next_node == agent_manager.human_node:
-            logger.info("Transitioning to human node.")
+        complaint = response.data.complaint
+        if complaint is False:
+            state["previous_node"] = agent_manager.policy_agent
             return Command(goto=agent_manager.human_node)
-        
+ 
         # Otherwise, set previous state and transition
-        state["previous_node"] = next_node
+
+        current_request = get_current_request(state)
+        if not current_request or "message" not in current_request or "content" not in current_request["message"]:
+            raise ValueError("Invalid or missing 'content' in current request.")
+
+        focus_mode = current_request["message"]["focus_mode"]
+        if focus_mode == "comparison":
+            state["previous_node"] = agent_manager.policy_agent
+            return Command(goto=agent_manager.comparison_agent)
+        elif focus_mode == "reviewer":
+            state["previous_node"] = agent_manager.policy_agent
+            return Command(goto=agent_manager.reviewer_agent)
+        elif focus_mode == "insights":
+            state["previous_node"] = agent_manager.policy_agent
+            return Command(goto=agent_manager.insights_agent)
+        
         logger.info("Transitioning to search agent node.")
-        return Command(goto=agent_manager.search_agent)
+        return Command(goto=agent_manager.meta_agent)
 
     except Exception as e:
         logger.error("Error encountered in meta agent node processing.", exc_info=True)

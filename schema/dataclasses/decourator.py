@@ -32,9 +32,9 @@ def extract_agent_results(agent_name: str):
                 response = await func(*args, **kwargs)
 
                 cost =  response.cost()
-                tokens.input_tokens = cost.request_tokens
-                tokens.output_tokens = cost.response_tokens
-                tokens.total_tokens = cost.total_tokens
+                tokens["input_tokens"] = cost.request_tokens
+                tokens["output_tokens"] = cost.response_tokens
+                tokens["total_tokens"] = cost.total_tokens
 
                 # Update Task Progress
                 task_info.progress = 100.0
@@ -54,17 +54,18 @@ def extract_agent_results(agent_name: str):
                 # Build and return AgentResult
                 agent_result = AgentResult(
                     name=agent_name,
-                    content={"result": response},
+                    content={"result": response.data},
                     metadata={"metadata": metadata}
                 )
                 state["agent_result"][agent_name] = agent_result
+                state["previous_node"] = agent_name
 
                 return response
 
             except Exception as e:
                 logger.error(f"Agent {agent_name} failed: {str(e)}")
-                task_info.status = "failed"
-                task_info.progress = 0.0
+                task_info["status"] = "failed"
+                task_info["progress"] = 0.0
                 raise AgentInintilaztionError(f"Agent {agent_name} failed: {str(e)}")
 
         return wrapper
