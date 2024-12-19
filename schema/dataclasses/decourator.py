@@ -29,7 +29,7 @@ def extract_agent_results(agent_name: str):
             
             try:
                 # Execute the wrapped async function
-                response = await func(*args, **kwargs)
+                response = await func(state, *args, **kwargs)
 
                 cost =  response.cost()
                 tokens["input_tokens"] = cost.request_tokens
@@ -37,8 +37,8 @@ def extract_agent_results(agent_name: str):
                 tokens["total_tokens"] = cost.total_tokens
 
                 # Update Task Progress
-                task_info.progress = 100.0
-                task_info.status = "completed"
+                # task_info["progress"] = 100.0
+                task_info["status"] = "completed"
                 
                 # Capture execution time
                 end_time = time.time()
@@ -57,9 +57,8 @@ def extract_agent_results(agent_name: str):
                     content={"result": response.data},
                     metadata={"metadata": metadata}
                 )
-                state["agent_result"][agent_name] = agent_result
+                state["agent_results"][agent_name] = agent_result
                 state["previous_node"] = agent_name
-
                 return response
 
             except Exception as e:

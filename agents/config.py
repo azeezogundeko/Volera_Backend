@@ -1,4 +1,5 @@
 from typing import Literal
+from langgraph.graph import END
 
 class AgentClass:
     def __init__(self):
@@ -16,10 +17,11 @@ class AgentClass:
 
 
         self.reader_agent = "ReaderAgent"
-        self.end = "END"
+        self.end = END
 
         # Modes
         self.shop_mode = "shop"
+        self.copilot_mode = "copilot"
         self.budget_mode = "budget"
         self.review_mode = "reviews"
         self.analytics_mode = "analytics"
@@ -35,7 +37,7 @@ class AgentClass:
             self.meta_agent,
             self.policy_agent,
             self.comparison_agent,
-            self.reviewier_agent,
+            self.reviewer_agent,
             self.shop_agent,
             self.human_node,
             self.insights_agent,

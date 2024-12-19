@@ -26,7 +26,7 @@ async def meta_agent(state: State) -> RunResult:
         history = current_request.get("history", [])
         
         # Flatten and slice history safely
-        mapped_history = flatten_history(history)[:5]
+        mapped_history = flatten_history(history)
         
         # Prepare the meta agent's prompt and initialize the LLM
         prompt = meta_prompt(mapped_history)
@@ -46,7 +46,7 @@ async def meta_agent(state: State) -> RunResult:
 # Meta agent node handling logic with validation and exception safety
 async def meta_agent_node(state: State) -> Command[Literal[
     agent_manager.search_agent,
-    agent_manager.human_node,
+    agent_manager.end,
 ]]:
     try:
         # Fetch all agents safely
@@ -54,11 +54,12 @@ async def meta_agent_node(state: State) -> Command[Literal[
 
         # Call the meta agent function
         response = await meta_agent(state)
+        print(response.data)
         
         # Ensure response is valid
-        if not response or not response.data or "next_node" not in response.data:
+        if not response:
             logger.error("Invalid response from meta agent.")
-            raise AgentInitializationError("No valid next node found in meta agent response.")
+            raise AgentInintilaztionError("No valid next node found in meta agent response.")
 
         next_node = response.data.next_node
 
@@ -70,10 +71,8 @@ async def meta_agent_node(state: State) -> Command[Literal[
         # Decide the next state transition based on next_node value
         if next_node == agent_manager.human_node:
             logger.info("Transitioning to human node.")
-            return Command(goto=agent_manager.human_node)
+            return Command(goto=agent_manager.end)
         
-        # Otherwise, set previous state and transition
-        state["previous_node"] = next_node
         logger.info("Transitioning to search agent node.")
         return Command(goto=agent_manager.search_agent)
 

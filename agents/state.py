@@ -1,15 +1,16 @@
 from typing import TypedDict, Annotated, List, Dict, Any
-from langgraph.graph.message import add_messages
 from schema import (
     WSMessage, 
     Result, 
     AgentResult, 
     ModelMessage, 
     ModelRequest, 
-    ModelResponse,
     SystemPromptPart, 
     UserPromptPart
 )
+
+from langgraph.graph.message import add_messages
+from fastapi import WebSocket
 
 class State(TypedDict):
     # ws: WebSocket
@@ -20,9 +21,8 @@ class State(TypedDict):
     previous_search_queries: Annotated[List[dict], add_messages]
     ws_message: Annotated[List[WSMessage], add_messages]
     agent_results: Dict[str, AgentResult]
-    message_history: List[ModelMessage]  # Add message history to the state
+    message_history: List[ModelMessage]  
 
-# def get_agent_result(state: State, agent_name)-> AgentResult:
 
 # Helper function to get a key's value from the state
 def get_from_state(state: State, key: str, default: Any = None) -> Any:
@@ -56,11 +56,6 @@ def get_last_system_prompt(state: State) -> SystemPromptPart | None:
     return None
 
 def get_last_user_prompt(state: State) -> UserPromptPart | None:
-    """
-    Retrieve the last user prompt from the message history.
-    :param state: The state dictionary
-    :return: The last UserPromptPart or None
-    """
     history = get_message_history(state)
     for message in reversed(history):
         if isinstance(message, ModelRequest):
@@ -74,4 +69,8 @@ def truncate_message_history(state: State, max_length: int = 10) -> None:
         state["message_history"] = state["message_history"][-max_length:]
 
 def flatten_history(history: List[ModelMessage]) -> List[str]:
-    return [f"[{h.speaker}]: {h.message}" for h in history]
+    history = [f"[{h.speaker}]: {h.message}" for h in history]
+    if history:
+        return history[:5]
+    else:
+        return [""]

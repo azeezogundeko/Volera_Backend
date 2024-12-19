@@ -8,11 +8,12 @@ class MetaAgentSchema(BaseModel):
     next_node: Literal[
         "human_node", 
         "comparison_agent", 
-        "shop_retrieval_agent",
-        "reviewer_agent",
-        "policy_agent",
-        "writer_agent",
-        "memory_agent"
+        "insights_agent",
+        "reviewer_agent", 
+        # "shop_retrieval_agent",
+        # "policy_agent",
+        # "writer_agent",
+        # "memory_agent"
         ]
     instructions: List[str]
 
@@ -35,6 +36,6 @@ class ReviewerSchema(BaseModel):
     content: str
 
 class PolicySchema(BaseModel):
-    complaint: bool
+    compliant: bool
     violation: str
-    message: str
+    reason: str | None = None

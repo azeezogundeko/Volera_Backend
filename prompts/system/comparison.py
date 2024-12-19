@@ -1,4 +1,9 @@
-def comparison_prompt(user_query, searched_results, user_related_memory):
+def comparison_prompt(
+user_query, 
+searched_results, 
+user_related_memory, 
+instructions,
+):
     expert_comparison_prompt = f"""
     You are an Expert Comparison Agent tasked with providing a comprehensive, professional, and visually appealing comparison based on search results provided by a web agent.
 
@@ -7,7 +12,8 @@ def comparison_prompt(user_query, searched_results, user_related_memory):
     You will receive the following:
     - **User Query**: A description of what the user wants to compare.
     - **Searched Results**: A structured summary of web search results, which may include product details, features, pricing, pros/cons, specifications, user reviews, and hyperlinks to sources.
-        - **User Related Memory**: Any relevant information the user has provided in the conversation history.
+    - **User Related Memory**: Any relevant information the user has provided in the conversation history.
+    - **Instructions**: Instructions provided by the user to guide the comparison.
 
     2. **Output**:
     Generate a **Markdown-formatted comparison** that:
@@ -96,6 +102,9 @@ def comparison_prompt(user_query, searched_results, user_related_memory):
 
     User Related Memory:
     {user_related_memory}
+
+    Instructions for Comparison:
+        {instructions}
     """
 
     return expert_comparison_prompt

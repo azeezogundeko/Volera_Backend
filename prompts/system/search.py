@@ -28,11 +28,11 @@ You will receive:
 Return all results in the following JSON structure:
 ```json
 {
-  "queries": [
+  "param": [
     {
       "query": "<Optimized Search Query>",
       "filter": "<Filter Expression (optional)>",
-      "n_k": <Number of Results (1-3)>,
+      "n_k": <Number of Results (3-7)>,
       "semantic_description": "<Semantic Search Description>"
     }
   ]
@@ -42,17 +42,17 @@ Instructions: "Find stylish smartphones under $500 with excellent cameras and go
 
 Example Output:
 {
-  "queries": [
+  "param": [
     {
       "query": "stylish smartphones with excellent cameras and good battery life under $500 with at least 20% discount",
       "filter": "price <= 500 AND discount >= 20",
-      "n_k": 3,
+      "n_k": 7,
       "semantic_description": "Stylish smartphones with excellent cameras, long battery life, under $500 with at least 20% discount."
     },
     {
       "query": "best budget-friendly smartphones under $500",
       "filter": "price <= 500",
-      "n_k": 1,
+      "n_k": 5,
       "semantic_description": "Affordable smartphones with excellent camera quality priced under $500."
     }
   ]

@@ -1,11 +1,14 @@
-from .config import agent_manager
 import asyncio
+from typing import Literal
+
+from utils.logging import logger
+from .config import agent_manager
 from prompts import comparison_prompt
-from .legacy.base import create_comparison_agent
 from schema import extract_agent_results
 from .state import State, get_current_request
-from utils.logging import logger
+from .legacy.base import create_comparison_agent
 from utils.exceptions import AgentProcessingError
+
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
 
@@ -23,16 +26,18 @@ async def comparison_agent(state: State) -> RunResult:
         query = current_request["message"]["content"]
         
         # Safely fetch search results
-        if agent_manager.search_agent not in state["agent_results"]:
-            raise KeyError("Search agent results not found in state.")
+        if agent_manager.scrape_mode not in state["agent_results"]:
+            raise KeyError("Comparison agent results not found in state.")
         
-        search_result = state["agent_results"][agent_manager.search_agent]
-        prompt = comparison_prompt(query, search_result, [])
+        search_result = state["agent_results"][agent_manager.scrape_mode]
+        instructions = state["agent_results"][agent_manager.meta_agent]["instructions"]
+        prompt = comparison_prompt(query, search_result, [], instructions)
         llm = create_comparison_agent(prompt)
 
         response = await asyncio.wait_for(llm.run(query), timeout=10)
 
         logger.info("Comparison agent successfully executed.")
+        print(response.data)
         return response
 
     except Exception as e:
@@ -41,7 +46,7 @@ async def comparison_agent(state: State) -> RunResult:
 
 
 # Secure and fault-tolerant meta agent node handling
-async def meta_agent_node(state: State) -> Command[agent_manager.end]:
+async def comparison_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
     try:
         # Run the comparison agent safely
         await comparison_agent(state)

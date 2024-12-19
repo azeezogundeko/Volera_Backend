@@ -1,8 +1,11 @@
+from typing import Literal
+
 from .config import agent_manager
-from .legacy.base import create_insights_agent
-from schema import extract_agent_results
 from utils.logging import logger
-from .state import State
+from schema import extract_agent_results
+from .legacy.base import create_insights_agent
+from .state import State, get_current_request
+
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
 
@@ -19,12 +22,12 @@ async def insight_agent(state: State) -> RunResult:
         query = current_request["message"]["content"]
         
         # Safely fetch search results
-        if agent_manager.search_agent not in state["agent_results"]:
+        if agent_manager.scrape_mode not in state["agent_results"]:
             raise KeyError("Search agent results not found in state.")
         
-        search_result = state["agent_results"][agent_manager.search_agent]
-        llm = create_insights_agent()
-        response = await llm.run(search_result)
+        search_result = state["agent_results"][agent_manager.scrape_mode]
+        llm = create_insights_agent(search_result)
+        response = await llm.run(user_prompt="write a detailed Insights")
         return response
 
     except Exception as e:
@@ -32,7 +35,7 @@ async def insight_agent(state: State) -> RunResult:
         raise RuntimeError(f"Failed to execute search agent: {e}")
 
 
-async def insights_agent_node(state: State) -> Command[agent_manager.end]:
+async def insights_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
     try:
         await insight_agent(state)
         logger.info("Processed agent results and transitioning to the next node.")
