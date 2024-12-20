@@ -6,7 +6,8 @@ from .config import agent_manager
 from schema import extract_agent_results
 from prompts import policy_prompt
 from .legacy.base import create_policy_agent
-from .state import State, get_current_request
+from .state import State
+from utils.helper_state import get_current_request
 from utils.exceptions import AgentProcessingError
 
 from langgraph.types import Command

@@ -3,7 +3,6 @@ from config import ApiKeyConfig
 from httpx import AsyncClient
 
 
-print(ApiKeyConfig.GROQ_API_KEY)
 @dataclass
 class BaseDependencies:
     http_client: AsyncClient 

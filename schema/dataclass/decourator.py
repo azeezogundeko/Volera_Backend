@@ -1,5 +1,5 @@
 import time
-from agents.state import State
+from typing import TypedDict
 from .state import ( 
     TaskInfo, 
     TokenUsage, 
@@ -12,6 +12,18 @@ from typing import Callable
 from functools import wraps
 from utils.exceptions import AgentInintilaztionError    
 from utils.logging import logger
+
+class State(TypedDict):
+    ws: dict
+    final_result: dict
+    chat_limit: int
+    chat_finished: bool
+    previous_node: str
+    previous_search_queries: list
+    ws_message: list
+    agent_results: dict
+    message_history: dict
+
 
 
 def extract_agent_results(agent_name: str):

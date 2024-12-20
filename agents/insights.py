@@ -4,7 +4,8 @@ from .config import agent_manager
 from utils.logging import logger
 from schema import extract_agent_results
 from .legacy.base import create_insights_agent
-from .state import State, get_current_request
+from .state import State
+from utils.helper_state import get_current_request
 
 from langgraph.types import Command
 from pydantic_ai.result import RunResult

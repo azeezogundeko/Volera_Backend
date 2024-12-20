@@ -4,13 +4,15 @@ from typing import Literal
 from utils.logging import logger
 from .config import agent_manager
 from prompts import comparison_prompt
-from schema import extract_agent_results
-from .state import State, get_current_request
+from .state import State
+from utils.helper_state import get_current_request
 from .legacy.base import create_comparison_agent
 from utils.exceptions import AgentProcessingError
+from schema.dataclass.decourator import extract_agent_results
 
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
+
 
 
 # Secure and validated comparison agent function

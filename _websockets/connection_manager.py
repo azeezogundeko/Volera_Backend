@@ -75,3 +75,6 @@ class ConnectionManager:
             signal_task.cancel()  # Cancel signal task if active
             self.disconnect(websocket)
             logger.info(f"Connection closed for user_id={user_id}")
+
+
+manager = ConnectionManager()

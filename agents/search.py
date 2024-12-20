@@ -10,7 +10,8 @@ from config import SEARCH_ENGINE_URL
 from .legacy.base import create_search_agent
 from schema import extract_agent_results, SearchAgentSchema, MetaAgentSchema
 from utils.logging import logger
-from .state import State, get_current_request
+from .state import State
+from utils.helper_state import get_current_request
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
 

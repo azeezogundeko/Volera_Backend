@@ -1,4 +1,4 @@
-from .dataclasses.state import (
+from .dataclass.state import (
     WSMessage, 
     UserContext, 
     History, 
@@ -24,8 +24,8 @@ from .validations.agents_schemas import (
     ReviewerSchema,
     PolicySchema,
     )
-from .dataclasses.decourator import extract_agent_results
-from .dataclasses.dependencies import GeminiDependencies, GroqDependencies
+from .dataclass.decourator import extract_agent_results
+from .dataclass.dependencies import GeminiDependencies, GroqDependencies
 
 __all__ = [
     "WSMessage",

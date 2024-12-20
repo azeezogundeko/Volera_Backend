@@ -1,47 +1,44 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from typing import Optional
-import uvicorn
-from _websockets.connection_manager import ConnectionManager  # Corrected import
-from _websockets.message_handler import handle_message
-import uuid
+from contextlib import asynccontextmanager
+
+from api import chat_router
+from db import prepare_database
+from _websockets import websocket_router
 from utils.logging import logger
 
-app = FastAPI()
+import uvicorn
+from fastapi import FastAPI
 
-# Initialize the connection manager
-manager = ConnectionManager()
 
-@app.websocket("")
-async def websocket_endpoint(websocket: WebSocket, path: Optional[str] = None):
-    """
-    WebSocket endpoint that uses the ConnectionManager to manage connections.
-
-    Args:
-        websocket (WebSocket): WebSocket connection instance.
-        path (Optional[str]): Optional path query parameters.
-    """
-    await manager.connect(websocket)
-    
-    # Generate a unique user ID for this connection
-    user_id = str(uuid.uuid4())
-    
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     try:
-        logger.info("Websocket Server is runing")
-        while True:
-            # Receive text message
-            data = await websocket.receive_text()
-            
-            # Handle the message using the message handler
-            await handle_message(data, websocket, user_id)
-    
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        logger.info("Preparing database...")
+        await prepare_database()
+        logger.info("Database preparation completed.")
+        yield
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        raise
+    finally:
+        # Shutdown logic
+        logger.info("Application is shutting down...")
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(chat_router, prefix="/chat", tags=["chat"])
+app.include_router(websocket_router, prefix="/websocet", tags=["WebSocket"])
+
+
+
+app.router.lifespan_context = lifespan
+
+
 
 if __name__ == "__main__":
     uvicorn.run(
             "main:app", 
             host="localhost", 
-            port=8000, 
+            port=8888, 
             reload=True,  # Enable auto-reload during development
             log_level="info"
         )

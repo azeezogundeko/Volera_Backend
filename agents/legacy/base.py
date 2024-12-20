@@ -1,9 +1,8 @@
 from ..config import agent_manager
 from prompts import search_agent_prompt
-from schema import( 
+from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies
+from schema.validations.agents_schemas import( 
     MetaAgentSchema, 
-    GroqDependencies, 
-    GeminiDependencies,
     SearchAgentSchema, 
     ComparisonSchema,
     InsightsSchema,

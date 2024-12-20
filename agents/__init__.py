@@ -8,7 +8,6 @@ from .reviewer import reviewer_agent_node
 from .config import agent_manager
 
 __all__ = [
-    "State",
     "agent_manager",
     "comparison_agent_node",
     "meta_agent_node",

@@ -5,7 +5,8 @@ from .config import agent_manager
 from prompts import meta_prompt
 from .legacy.base import create_meta_agent
 from schema import extract_agent_results
-from .state import State, get_current_request, flatten_history
+from .state import State
+from utils.helper_state import get_current_request, flatten_history
 from utils.logging import logger
 from utils.exceptions import AgentProcessingError, AgentInintilaztionError
 
