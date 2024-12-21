@@ -16,7 +16,7 @@ from pydantic_ai.result import RunResult
 
 # Secure meta agent function with proper exception handling
 @extract_agent_results(agent_manager.meta_agent)
-async def meta_agent(state: State) -> RunResult: 
+async def meta_agent(state: State, config={}) -> RunResult: 
     try:
         # Safely get the current request and validate the presence of required fields
         current_request = get_current_request(state)
@@ -51,11 +51,11 @@ async def meta_agent_node(state: State) -> Command[Literal[
 ]]:
     try:
         # Fetch all agents safely
+        state["previous_node"] = agent_manager.meta_agent
         all_agents = agent_manager.get_all_agents()
 
         # Call the meta agent function
         response = await meta_agent(state)
-        print(response.data)
         
         # Ensure response is valid
         if not response:
@@ -71,8 +71,9 @@ async def meta_agent_node(state: State) -> Command[Literal[
 
         # Decide the next state transition based on next_node value
         if next_node == agent_manager.human_node:
+            state["final_result"] = response.data
             logger.info("Transitioning to human node.")
-            return Command(goto=agent_manager.end)
+            return Command(goto=agent_manager.human_node, update=state)
         
         logger.info("Transitioning to search agent node.")
         return Command(goto=agent_manager.search_agent)

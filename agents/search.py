@@ -18,7 +18,7 @@ from pydantic_ai.result import RunResult
 
 # Secure wrapper to handle agent responses safely
 @extract_agent_results(agent_manager.search_agent)
-async def search_agent(state: State) -> RunResult:
+async def search_agent(state: State, config={}) -> RunResult:
     try:
         # Safeguard the extraction of instructions
         if "instructions" not in state["agent_results"][agent_manager.meta_agent]:

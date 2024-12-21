@@ -11,7 +11,7 @@ from pydantic_ai.result import RunResult
 
 # Secure wrapper to handle agent responses safely
 @extract_agent_results(agent_manager.reviewer_agent)
-async def reviewer_agent(state: State) -> RunResult:
+async def reviewer_agent(state: State, config={}) -> RunResult:
     try:
         # Safely fetch search results
         if agent_manager.scrape_mode not in state["agent_results"]:

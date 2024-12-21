@@ -35,6 +35,8 @@ def extract_agent_results(agent_name: str):
         async def wrapper(state: State, *args, **kwargs) -> AgentResult:
             start_time = time.time()
 
+            if 'agent_results' not in state:
+                state['agent_results'] = {}
             # Initialize TaskInfo and TokenUsage
             task_info = TaskInfo(task_id="task_001", status="in_progress", progress=0.0)
             tokens = TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)

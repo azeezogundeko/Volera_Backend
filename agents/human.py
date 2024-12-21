@@ -1,93 +1,85 @@
-# from typing import Dict, Any
-# from langgraph.types import Command, interrupt
-# from schema import History, Result, GroqDependencies
-# from .legacy.base import agent_manager
-# from pydantic_ai import Agent
-# from utils.logging import logger
-# from utils.exceptions import AgentProcessingError
+from typing import Literal
 
-# system_prompt = """
-# You are a helpful and professional assistant representing a company. 
-# When addressing issues or requests forwarded by another agent:
+import prompts
 
-# 1. **For Insufficient Requirements**:
-#    If the forwarded request lacks necessary details, politely ask the originating agent to provide the missing information.
+from .config import agent_manager
+from utils.logging import logger
+from schema import extract_agent_results
+from .legacy.base import create_human_agent
+from .state import State
+from utils.helper_state import get_current_request
 
-# 2. **For Policy Violations**:
-#    If the forwarded request violates a company policy, politely inform the originating agent of the violation.
+from langgraph.types import Command
+from pydantic_ai.result import RunResult
 
-# 3. **For Clear and Compliant Requests**:
-#    If the forwarded request is clear and complies with policies, provide a concise response.
+def get_prompt():
+    prompt = f"""
+        ### Role and Goal
+        You are a highly skilled, professional, and empathetic assistant. Your task is to transform the agent's instructions 
+        into a concise, engaging, and human-friendly response for the user. The response should be:
 
-# 4. **Response Format**:
-#    Always respond in valid JSON format with keys: 'type' and 'content'
-# """
+        - Polite and approachable.
+        - Helpful and actionable.
+        - Clear, with simplified explanations that avoid complex jargon.
 
-# human_response_agent = Agent(
-#     name="human_response_agent",
-#     model="groq:llama3-70b-8192",
-#     system_prompt=system_prompt,
-#     result_type=Result,
-#     deps_type=GroqDependencies,
-#     retries=2
-# )
+        ### Key Instructions
+        - **Simplify complex terms** without losing their meaning.
+        - **Use friendly language** to maintain a conversational tone.
+        - **Address the user directly** to create a personalized experience.
+        - Format your response **professionally in Markdown** for the best user experience.
 
-# async def human_node(state: Dict[str, Any], config: Dict[str, Any]) -> Command:
-#     """
-#     Handle human interaction node in the agent workflow.
+        ### Instructions for Response
+        Use headings, bullet points, or numbered lists when appropriate, and ensure the structure is clean and readable. 
+        Provide specific and actionable guidance that aligns with the agent's instructions.
+
+        ### Agent's Instructions
+        <>
+        
+        """
+    return prompt
+
+
+# Secure wrapper to handle agent responses safely
+@extract_agent_results(agent_manager.human_node)
+async def human_agent(state: State, config={}) -> RunResult:
+    try:
+        current_request = get_current_request(state)
+        if not current_request or "message" not in current_request or "content" not in current_request["message"]:
+            raise ValueError("Invalid or missing 'content' in current request.")
+        
+        if state["previous_node"] == agent_manager.meta_agent:
+            result = state["agent_results"][agent_manager.meta_agent]
+            result = result["content"]["result"].instructions
+
+            
+        elif state["previous_node"] == agent_manager.policy_agent:
+            result = state["agent_results"][agent_manager.policy_agent]
+            result = result.__dict__
+
+        if not isinstance(result, list):
+            result = [str(result)]
     
-#     Args:
-#         state (Dict[str, Any]): Current agent state
-#         config (Dict[str, Any]): Configuration for the current execution
-    
-#     Returns:
-#         Command: Next agent node to execute
-#     """
-#     try:
-#         # Validate configuration and triggers
-#         if not config or 'metadata' not in config:
-#             raise AgentProcessingError("Invalid configuration")
-        
-#         langgraph_triggers = config.get('metadata', {}).get('langgraph_triggers', [])
-        
-#         if len(langgraph_triggers) != 1:
-#             logger.warning(f"Unexpected number of triggers: {len(langgraph_triggers)}")
-#             raise AgentProcessingError("Expected exactly 1 trigger in human node")
+        # Prepare prompt with extracted instructions
+        prompts = get_prompt() + "\n" + "\n".join(result)
 
-#         # Extract active agent safely
-#         active_agent_trigger = langgraph_triggers[0]
-#         active_agent = active_agent_trigger.split(":")[-1] if ":" in active_agent_trigger else active_agent_trigger
+        llm = create_human_agent(prompts)
+        response = await llm.run(user_prompt=prompts)
+        return response
 
-#         # Safely retrieve agent response
-#         agent_results = state.get('agent_results', {})
-#         agent_response = agent_results.get(active_agent, {})
-        
-#         if not agent_response:
-#             logger.error(f"No response found for agent: {active_agent}")
-#             raise AgentProcessingError(f"Missing agent response for {active_agent}")
+    except Exception as e:
+        logger.error("Failed to execute search agent operation", exc_info=True)
+        raise RuntimeError(f"Failed to execute search agent: {e}")
 
-#         # Process response using human response agent
-#         interrupt_result = await human_response_agent.run(agent_response.get('content', ''))
-        
-#         # Prepare user interaction
-#         user_input = interrupt(value=interrupt_result)
-        
-#         # Update history safely
-#         history = state.get('message_history', [])
-#         history.extend([
-#             History(speaker="assistant", message=agent_response.get('content', '')),
-#             History(speaker="human", message=str(user_input))
-#         ])
-        
-#         # Update state with new history
-#         state['message_history'] = history
 
-#         # Return command to revisit the active agent
-#         return Command(
-#             goto=active_agent,
-#             config={"resume": user_input}
-#         )
+async def human_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
+    try:
+        r = await human_agent(state)
+        print(r.data)
+        logger.info("Processed agent results and transitioning to the next node.")
+        final = state["agent_results"][agent_manager.human_node]["content"]
+        state["final_result"] = final["result"].content
+        return Command(goto=agent_manager.end, update=state)
 
-#     except Exception as e:
-#         logger.error(f"Error in human node: {e}", exc_info=True)
-#         raise AgentProcessingError("Unexpected error in human interaction") from e
+    except Exception as e:
+        logger.error("Unexpected error during search agent node processing.", exc_info=True)
+        raise RuntimeError("Unexpected error occurred.") from e

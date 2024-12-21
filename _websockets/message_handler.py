@@ -1,10 +1,39 @@
 import json
+from pprint import pprint
 from typing import Dict, Any
 from fastapi import WebSocket
 
+from schema import History, WSMessage, Message
+
 from utils.logging import logger
 from typing import Optional
-from graph import agent_graph  
+from graph import agent_graph 
+
+def parse_data(data: dict, user_id)-> WSMessage:
+    message= Message(
+        message_id=data["message"]["messageId"],
+        chat_id=data["message"]["chatId"],
+        content=data["message"]["content"],
+        role="human"
+    )
+    histories = []
+    for h in data["history"]:
+        history = History(
+            speaker=h["speaker"],
+            message=h["message"],
+            timestamp=h["timestamp"]
+        )
+        histories.append(history)
+    ws_message = WSMessage(
+        user_id= user_id,
+        focus_mode="copilot",
+        files=data["files"],
+        optimization_mode=data["optimizationMode"],
+        history=histories,
+        message=message           
+    )
+    
+    return ws_message
 
 async def handle_message(message: str, websocket: WebSocket, user_id: str):
     """
@@ -18,26 +47,14 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
     try:
         # Parse and validate incoming message
         parsed_message = json.loads(message)
+        parsed_state = parse_data(parsed_message, user_id)
     except json.JSONDecodeError:
         await _send_error_response(
-        websocket, 
-        "Invalid JSON format", 
-        "JSON_DECODE_ERROR"
-    )
-        
-    # Validate message structure
-    if not _validate_message_structure(parsed_message):
-        await _send_error_response(
             websocket, 
-            "Invalid message format", 
-            "INVALID_FORMAT"
+            "Invalid JSON format", 
+            "JSON_DECODE_ERROR"
         )
         return
-
-    # Prepare message for agent processing
-    parsed_ws_message = _prepare_ws_message(parsed_message)
-    
-    logger.info(f"Processing message: {parsed_ws_message}")
 
     # Stream agent graph processing
     processing_config = {
@@ -46,25 +63,36 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
         }
     }
     try:
-        state = agent_graph.invoke(
-            {
-                "wsMessages": [parsed_ws_message],
-                "ws": websocket,
-            },
-            processing_config
+        # Use ainvoke to get the complete state
+        state = await agent_graph.ainvoke(
+            {"ws_message": [parsed_state]},
+            processing_config,
         )
-        return await websocket.send_json(
-                data ={
-                    "type": "message",
-                    "data": state["final_response"],
-                }
+        
+        # Extract final result safely
+        final_result = state.get("final_result", "No response generated")
+        
+        # Prepare the response
+        final_response = {
+            "type": "message",
+            "data": final_result
+        }
+        
+        # Send the final response
+        await websocket.send_json(data=final_response)
+        
+        # Send message end signal
+        await websocket.send_json(
+            data={
+                "type": "messageEnd"
+            }
         )
         
     except Exception as graph_error:
         logger.error(f"Agent graph processing error: {graph_error}", exc_info=True)
         await _send_error_response(
             websocket, 
-            "Error processing agent workflow", 
+            f"Error processing agent workflow: {str(graph_error)}", 
             "AGENT_PROCESSING_ERROR"
         )
 
@@ -82,12 +110,7 @@ async def _send_error_response(
         "key": error_key,
     })
 
-def _validate_message_structure(message: Dict[str, Any]) -> bool:
-    """Validate incoming message structure."""
-    return (
-        "message" in message and 
-        "content" in message["message"]
-    )
+
 
 def _prepare_ws_message(message: Dict[str, Any]) -> Dict[str, Any]:
     """Prepare WebSocket message for agent processing."""

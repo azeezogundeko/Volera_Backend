@@ -38,4 +38,7 @@ class ReviewerSchema(BaseModel):
 class PolicySchema(BaseModel):
     compliant: bool
     violation: str
-    reason: str | None = None
+    reason: str
+
+class HumanSchema(BaseModel):
+    content: str

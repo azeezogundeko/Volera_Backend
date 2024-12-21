@@ -6,7 +6,7 @@ class AgentClass:
         # Initialize the list of agents with their configurations
 
         # Public attributes for different agent modes and nodes
-        self.meta_agent = "comparison_agent"
+        self.meta_agent = "meta_agent"
         self.human_node = "human_node"
         self.policy_agent = "policy_agent"
         self.search_agent = "search_agent"

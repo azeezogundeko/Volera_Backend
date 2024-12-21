@@ -4,7 +4,7 @@ from typing import Literal
 from utils.logging import logger
 from .config import agent_manager
 from schema import extract_agent_results
-from prompts import policy_prompt
+# from prompts import policy_prompt
 from .legacy.base import create_policy_agent
 from .state import State
 from utils.helper_state import get_current_request
@@ -26,10 +26,8 @@ async def policy_agent(state: State) -> RunResult:
         query = current_request["message"]["content"]
 
         # Prepare the meta agent's prompt and initialize the LLM
-        prompt = policy_prompt(query)
-        llm = create_policy_agent(prompt)
+        llm = create_policy_agent()
  
-        
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(llm.run(query), timeout=10)
 
@@ -45,16 +43,18 @@ async def policy_agent(state: State) -> RunResult:
 # Meta agent node handling logic with validation and exception safety
 async def policy_agent_node(state: State) -> Command[Literal[
     agent_manager.meta_agent,
-    agent_manager.end,
+    agent_manager.human_node,
     agent_manager.search_agent
 ]]:
     try:
+        
+        state["previous_node"] = agent_manager.policy_agent
         response = await policy_agent(state)
 
         compliant = response.data.compliant
         if not compliant:
             state["previous_node"] = agent_manager.policy_agent
-            return Command(goto=agent_manager.end)
+            return Command(goto=agent_manager.human_node, update=state)
  
 
         current_request = get_current_request(state)
@@ -64,10 +64,10 @@ async def policy_agent_node(state: State) -> Command[Literal[
         focus_mode = current_request["focus_mode"]
         if focus_mode == agent_manager.copilot_mode:
 
-            logger.info("Transitioning to search agent node.")
-            return Command(goto=agent_manager.meta_agent)
+            logger.info("Transitioning to Meta agent node.")
+            return Command(goto=agent_manager.meta_agent, update=state)
 
-        return Command(goto=agent_manager.search_agent)
+        return Command(goto=agent_manager.search_agent, update=state)
 
     except Exception as e:
         logger.error("Error encountered in policy agent node processing.", exc_info=True)

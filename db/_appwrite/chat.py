@@ -20,7 +20,6 @@ async def create_chat(payload: Chat):
         document_data=payload.__dict__,
         document_id=async_appwrite.unique
     )
-
 async def prepare_database():
     try:
         # Chats Collection Preparation
@@ -70,27 +69,35 @@ async def prepare_database():
         except Exception as e:
             # If collection doesn't exist, create it
             if 'collection (404)' in str(e):
+                await async_appwrite.create_collection(
+                    collection_id=message_collection_id,
+                    name='Messages'
+                )
                 for attr in MESSAGE_ATTRIBUTES:
-                    if chat_attribute.get("type") == "array":
+                    if attr.get("type") == "array":
                         await async_appwrite.create_string_attribute(
-                            collection_id=chat_collection_id,
+                            collection_id=message_collection_id,
                             key=attr["key"],
                             size=attr["size"],
                             required=attr["required"],
                             array=True)
-                    elif chat_attribute.get("type") == "datetime":
+                    elif attr.get("type") == "datetime":
                         await async_appwrite.create_datetime_attribute(
-                            collection_id=chat_collection_id,
+                            collection_id=message_collection_id,
                             key=attr["key"],
                             default=datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
                             required=attr["required"])
                     else:
                         await async_appwrite.create_string_attribute(
-                            chat_collection_id,
+                            message_collection_id,
                             key=attr["key"],
                             size=attr["size"],
                             required=attr["required"]
                             )
+
+                logger.info('Created Messages collection with attributes')
+            else:
+                raise
 
     except Exception as e:
         raise DatabaseInintilaztionError(str(e))

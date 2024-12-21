@@ -151,6 +151,10 @@ class AsyncAppWriteClient:
         )
 
     async def get_collection(self, collection_id) -> Dict[str, Any]:
+        # Ensure collection_id is a string
+        if not isinstance(collection_id, str):
+            logger.error(f"Invalid collection_id type: {type(collection_id)}, value: {collection_id}")
+            raise ValueError(f"Collection ID must be a string, not {type(collection_id)}")
         
         return await self._run_in_executor(
             self.database.get_collection,

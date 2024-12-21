@@ -13,7 +13,7 @@ from pydantic_ai.result import RunResult
 
 # Secure wrapper to handle agent responses safely
 @extract_agent_results(agent_manager.insights_agent)
-async def insight_agent(state: State) -> RunResult:
+async def insight_agent(state: State, config={}) -> RunResult:
     try:
         current_request = get_current_request(state)
         if not current_request or "message" not in current_request or "content" not in current_request["message"]:

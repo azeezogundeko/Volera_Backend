@@ -37,9 +37,32 @@ def truncate_message_history(state: State, max_length: int = 10) -> None:
     if "message_history" in state:
         state["message_history"] = state["message_history"][-max_length:]
 
-def flatten_history(history: List[str]) -> List[str]:
-    history = [f"[{h.speaker}]: {h.message}" for h in history]
-    if history:
-        return history[-5]
-    else:
+def flatten_history(history: List[dict]) -> List[str]:
+    """
+    Flatten the history list into a list of formatted history strings.
+    
+    Args:
+        history (List[dict]): List of history dictionaries with 'speaker' and 'message' keys
+    
+    Returns:
+        List[str]: List of formatted history strings, limited to the last 5 entries
+    """
+    try:
+        # Print raw history for debugging
+        print("Raw history:", history)
+        
+        # Safely format history entries
+        formatted_history = []
+        for h in history:
+            # Ensure the history item is a dictionary and has required keys
+            if isinstance(h, dict) and 'speaker' in h and 'message' in h:
+                formatted_entry = f"[{h['speaker']}]: {h['message']}"
+                formatted_history.append(formatted_entry)
+        
+        # Return last 5 entries or all if less than 5
+        return formatted_history[-5:] if formatted_history else [""]
+    
+    except Exception as e:
+        # Log any unexpected errors
+        print(f"Error in flatten_history: {e}")
         return [""]

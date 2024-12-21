@@ -3,6 +3,7 @@ from .dataclass.state import (
     UserContext, 
     History, 
     Result, 
+    Message,
     AgentResult,
     ModelMessage,
     ModelRequest,
@@ -23,7 +24,9 @@ from .validations.agents_schemas import (
     InsightsSchema,
     ReviewerSchema,
     PolicySchema,
+    HumanSchema
     )
+from .validations.websocket import WebSocketSchema
 from .dataclass.decourator import extract_agent_results
 from .dataclass.dependencies import GeminiDependencies, GroqDependencies
 
@@ -35,12 +38,14 @@ __all__ = [
     "AgentResult",
     "MetaAgentSchema",
     "ModelMessage",
+    "Message",
     "ModelRequest",
     "ModelResponse",
     "SystemPromptPart",
     "UserPromptPart",
     "ToolReturnPart",
     "RetryPromptPart",
+    "HumanSchema",
     "TextPart",
     "ArgsJson",
     "ArgsDict",
@@ -53,4 +58,5 @@ __all__ = [
     "InsightsSchema",
     "ReviewerSchema",
     "PolicySchema",
+    "WebSocketSchema",
 ]

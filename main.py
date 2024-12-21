@@ -25,8 +25,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(chat_router, prefix="/chat", tags=["chat"])
-app.include_router(websocket_router, prefix="/websocet", tags=["WebSocket"])
+app.include_router(chat_router, prefix="/chats", tags=["chat"])
+app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
 
 
 

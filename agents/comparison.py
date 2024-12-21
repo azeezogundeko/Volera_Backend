@@ -17,7 +17,7 @@ from pydantic_ai.result import RunResult
 
 # Secure and validated comparison agent function
 @extract_agent_results(agent_manager.comparison_agent)
-async def comparison_agent(state: State) -> RunResult:
+async def comparison_agent(state: State, config={}) -> RunResult:
     try:
         # Safely fetch the current request from state
         current_request = get_current_request(state)
@@ -44,7 +44,7 @@ async def comparison_agent(state: State) -> RunResult:
 
     except Exception as e:
         logger.error("Unexpected error during comparison agent execution.", exc_info=True)
-        raise AgentProcessingError("Unexpected error occurred.", str(e)) from e
+        raise AgentProcessingError("Unexpected error occurred." + str(e)) 
 
 
 # Secure and fault-tolerant meta agent node handling
@@ -58,5 +58,5 @@ async def comparison_agent_node(state: State) -> Command[Literal[agent_manager.e
         return Command(goto=agent_manager.end)
 
     except Exception as e:
-        logger.error("Error encountered in meta agent node processing.", exc_info=True)
+        logger.error("Error encountered in comparison agent node processing.", exc_info=True)
         raise AgentProcessingError("Unexpected failure in meta agent transition.", str(e)) from e
