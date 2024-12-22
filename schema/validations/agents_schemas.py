@@ -1,11 +1,27 @@
-from typing import Literal, List, Optional, Dict, Any
+from typing import Literal, List, Dict, Any
 
 from pydantic import BaseModel, field_validator
+
 
 class BaseSchema(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump()
 
+class FilterAttrubuteSchema(BaseSchema):
+    features: List[str]
+    category: str
+    brand_preferences: List[str]
+
+class FilterSchema(BaseSchema):
+    price: dict
+    attributes : FilterAttrubuteSchema
+
+class SearchParamSchema(BaseSchema):
+    query: str
+    filter: FilterSchema
+    n_k: int
+    semantic_description: str
+    search_strategy: str
 
 class RequirementSchema(BaseSchema):
     product_category: str
@@ -44,15 +60,19 @@ class FeedbackResponseSchema(BaseSchema):
     reply: str
     requirements: RequirementSchema
 
-class MetaAgentSchema(BaseSchema):
+
+
+class PlannerAgentSchema(BaseSchema):
     search_query: str
     product_retrieval_query: str
-    filter: str 
+    filter: FilterSchema 
     n_k: int
     description: str
     writer_instructions: List[str]
+    search_strategy: str
+
 # class MetaAgentSchema(BaseModel):
-#     next_node: Literal[
+    #     next_node: Literal[
 #         "human_node", 
 #         "comparison_agent", 
 #         "insights_agent",
@@ -64,14 +84,9 @@ class MetaAgentSchema(BaseSchema):
 #         ]
 #     instructions: List[str]
 
-class SearchParamSchema(BaseSchema):
-    query: str
-    filter: str
-    n_k: int
-    semantic_description: str
 
 class SearchAgentSchema(BaseSchema):
-    params: List[SearchParamSchema]
+    param: List[SearchParamSchema]
 
 class ComparisonSchema(BaseSchema):
     content: str

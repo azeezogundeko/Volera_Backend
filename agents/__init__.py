@@ -1,6 +1,6 @@
 from .comparison import comparison_agent_node
 from .state import State
-from .meta import meta_agent_node
+from .planner import planner_agent_node
 from .human import copilot_agent_node, human_node
 from .policy import policy_agent_node
 from .search import search_agent_node
@@ -14,7 +14,7 @@ __all__ = [
     "State",
     "human_agent_node",
     "comparison_agent_node",
-    "meta_agent_node",
+    "planner_agent_node",
     "policy_agent_node",
     "copilot_agent_node",
     "human_node",

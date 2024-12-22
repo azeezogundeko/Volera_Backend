@@ -18,7 +18,7 @@ from .dataclass.state import (
     ToolCallPart
 )
 from .validations.agents_schemas import (
-    MetaAgentSchema, 
+    PlannerAgentSchema, 
     SearchAgentSchema, 
     ComparisonSchema, 
     InsightsSchema,
@@ -36,7 +36,7 @@ __all__ = [
     "History",
     "Result",
     "AgentResult",
-    "MetaAgentSchema",
+    "PlannerAgentSchema",
     "ModelMessage",
     "Message",
     "ModelRequest",

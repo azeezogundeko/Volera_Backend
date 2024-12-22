@@ -8,7 +8,7 @@ from utils.exceptions import AgentProcessingError
 from .config import agent_manager
 from config import SEARCH_ENGINE_URL
 from .legacy.base import create_search_agent
-from schema import extract_agent_results, SearchAgentSchema, MetaAgentSchema
+from schema import extract_agent_results, SearchAgentSchema
 from utils.logging import logger
 from .state import State
 from utils.helper_state import get_current_request
@@ -18,23 +18,17 @@ from pydantic_ai.result import RunResult
 
 # Secure wrapper to handle agent responses safely
 @extract_agent_results(agent_manager.search_agent)
-async def search_agent(state: State, config={}) -> RunResult:
+async def search_agent(state: State, focus_mode: str) -> RunResult:
     try:
-        # Safeguard the extraction of instructions
-        if "instructions" not in state["agent_results"][agent_manager.meta_agent]:
-            raise ValueError("Missing 'instructions' in the state data.")
-
         current_request = get_current_request(state)
-        focus_mode = current_request["focus_mode"]
-        if focus_mode == agent_manager.copilot_mode:
-            instructions = state["agent_results"][agent_manager.meta_agent]["instructions"]
-            llm = create_search_agent()
-            response = await llm.run(instructions)
-            return response
+        user_query = current_request["message"]["content"]
+        query = f"""
+                User Query:
+                    {user_query}
 
-        current_request = get_current_request(state)
-        query = current_request["message"]["content"]
-
+                Focus Mode:
+                    {focus_mode}
+        """
         llm = create_search_agent()
         response = await llm.run(query)
         return response
@@ -47,24 +41,26 @@ async def search_agent(state: State, config={}) -> RunResult:
 async def search_agent_node(state: State) -> Command[Literal[
     agent_manager.comparison_agent,
     agent_manager.insights_agent,
-    agent_manager.reviewer_agent
+    agent_manager.reviewer_agent,
+    agent_manager.web_search_agent
 ]]:
     try:
         # Call the search agent
-        response = await search_agent(state)
+        current_request = get_current_request(state)
+        focus_mode = current_request.get("focus_mode", agent_manager.web_search_mode)
+        response = await search_agent(state, focus_mode)
 
         # Validate the response data
         if not response or not response.data:
             raise ValueError("No valid data returned by search agent.")
 
         responses: SearchAgentSchema = response.data
-        current_request = get_current_request(state)
-        mode = current_request.get("optimization_mode", "fast")
         
+        mode = current_request.get("optimization_mode", "fast")
         # Prepare a list of tasks for concurrent execution with safe HTTP calls
         tasks = []
         async with AsyncClient(timeout=200) as client:  # Set a timeout for all network calls
-            for response_item in responses.params:
+            for response_item in responses.param:
                 # Validate query parameters to avoid injection
                 if not isinstance(response_item.query, str) or not response_item.query.strip():
                     logger.warning(f"Skipping invalid or empty query: {response_item.query}")
@@ -82,6 +78,7 @@ async def search_agent_node(state: State) -> Command[Literal[
                             "filter": response_item.filter,
                             "n_k": response_item.n_k,
                             "description": response_item.semantic_description,
+                            "search_strategy": response_item.search_strategy,
                             "mode": mode,
                     }
 
@@ -110,21 +107,18 @@ async def search_agent_node(state: State) -> Command[Literal[
         current_request = get_current_request(state)
         focus_mode = current_request["focus_mode"]
 
-        if focus_mode == agent_manager.copilot_mode:
-            response: MetaAgentSchema = state["agent_results"].get(agent_manager.meta_agent, {}).get("content", {})
-            next_node = response.get("next_node", "__end__")
-        elif focus_mode == agent_manager.comparison_mode:
+        if focus_mode == agent_manager.comparison_mode:
             next_node = agent_manager.comparison_agent        
         elif focus_mode == agent_manager.insights_mode:
             next_node = agent_manager.insights_agent
         elif focus_mode == agent_manager.review_mode:
             next_node = agent_manager.reviewer_agent  
         else: 
-            raise AgentProcessingError("Focus mode is not valid  "+ focus_mode)
+            next_node = agent_manager.web_search_agent
 
         # Log successful execution
         logger.info("Processed agent results and transitioning to the next node.")
-        return Command(goto=next_node)
+        return Command(goto=next_node, update=state)
 
     except TimeoutException:
         logger.error("Timeout occurred while querying search engine endpoints.")

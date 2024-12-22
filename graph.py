@@ -1,7 +1,7 @@
 from agents import (
     agent_manager,
     State,
-    meta_agent_node, 
+    planner_agent_node, 
     search_agent_node, 
     comparison_agent_node, 
     reviewer_agent_node, 
@@ -18,7 +18,7 @@ from langgraph.graph import StateGraph
 
 # Define node mapping with error handling
 nodes = {
-    agent_manager.meta_agent: meta_agent_node,
+    agent_manager.planner_agent: planner_agent_node,
     agent_manager.human_node: human_node,
     agent_manager.copilot_mode: copilot_agent_node,
     agent_manager.search_agent: search_agent_node,

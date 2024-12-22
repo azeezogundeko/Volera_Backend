@@ -17,6 +17,8 @@ class AgentClass:
         self.search_tool = "search_tool"
         self.writer_agent = "writer_agent"
         self.copilot_mode = "copilot"
+        self.planner_agent = "planner_agent"
+        self.web_search_agent = "web_search_agent"
 
 
         self.reader_agent = "ReaderAgent"
@@ -24,6 +26,7 @@ class AgentClass:
 
         # Modes
         self.shop_mode = "shop"
+        self.web_search_mode = "web_search"
         self.budget_mode = "budget"
         self.review_mode = "reviews"
         self.analytics_mode = "analytics"
@@ -102,4 +105,5 @@ KnownModelName = Literal[
     'test',
 ]
 
+agent_manager = AgentClass()
 agent_manager = AgentClass()

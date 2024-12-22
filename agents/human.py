@@ -1,18 +1,17 @@
 import json
 from typing import Literal
-from agents import meta
 from prompts import response_agent_prompt
 from schema.validations.agents_schemas import FeedbackResponseSchema
 
 from .state import State
 from utils.logging import logger
-from utils.helper_state import flatten_history, update_history, get_user_ai_history
+from utils.helper_state import flatten_history, update_history
 from .config import agent_manager
 from schema import extract_agent_results
 from .legacy.base import create_copilot_agent
 from utils.helper_state import get_current_request
 
-from langgraph.types import N, Command, interrupt
+from langgraph.types import Command
 from pydantic_ai.result import RunResult
 from fastapi import WebSocket
 
@@ -38,7 +37,7 @@ async def copilot_agent(state: State, user_input: str = None) -> RunResult:
 
 async def copilot_agent_node(state: State) -> Command[Literal[
     agent_manager.end,
-    agent_manager.meta_agent
+    agent_manager.planner_agent
 ]]:
     try:
         user_input = state["human_response"] if "human_response" in state else None
@@ -79,7 +78,7 @@ async def copilot_agent_node(state: State) -> Command[Literal[
                 }
         )
             
-        return Command(goto=agent_manager.meta_agent, update=state)
+        return Command(goto=agent_manager.planner_agent, update=state)
 
     except Exception as e:
         logger.error("Unexpected error during search agent node processing.", exc_info=True)

@@ -1,8 +1,12 @@
 from ..config import agent_manager
-from prompts import search_agent_prompt, policy_assistant_prompt, meta_prompt
+from prompts import (
+    search_agent_prompt, 
+    policy_assistant_prompt, 
+    planner_agent_prompt
+    )
 from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies
 from schema.validations.agents_schemas import( 
-    MetaAgentSchema, 
+    PlannerAgentSchema, 
     SearchAgentSchema, 
     ComparisonSchema,
     InsightsSchema,
@@ -19,10 +23,19 @@ def create_meta_agent()-> Agent:
     return Agent(
             name=agent_manager.meta_agent,
             retries=3,
-            system_prompt=meta_prompt,
+            system_prompt=planner_agent_prompt,
             model="gemini-1.5-flash",
             deps_type=GeminiDependencies,
-            result_type=MetaAgentSchema,
+            result_type=PlannerAgentSchema,
+        )
+def create_planner_agent()-> Agent:
+    return Agent(
+            name=agent_manager.meta_agent,
+            retries=3,
+            system_prompt=planner_agent_prompt,
+            model="gemini-1.5-flash",
+            deps_type=GeminiDependencies,
+            result_type=PlannerAgentSchema,
         )
 def create_copilot_agent(prompt)-> Agent:
     return Agent(
