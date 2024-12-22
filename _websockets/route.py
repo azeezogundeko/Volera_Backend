@@ -27,6 +27,7 @@ async def websocket_endpoint(websocket: WebSocket, path: Optional[str] = None):
         while True:
             # Receive text message
             data = await websocket.receive_text()
+            # await websocket.send_text(f"Received: {data}")
 
             # Handle the message using the message handler
             await handle_message(data, websocket, user_id)

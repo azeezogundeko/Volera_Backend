@@ -14,7 +14,7 @@ class UserContext(TypedDict):
 class History(TypedDict):
     speaker: Literal["assistant", "human"] 
     message: str
-    timestamp: datetime
+    timestamp: datetime = field(default_factory=datetime.now)
 
 
 class Message(TypedDict):
@@ -71,7 +71,7 @@ class AgentMetadata(TypedDict):
 
 class AgentResult(TypedDict):
     name: str
-    content: Dict[str, Any]
+    content: dict
     metadata: Dict[str, AgentMetadata]
 
 @dataclass

@@ -14,6 +14,9 @@ class AgentClass:
         self.insights_agent = "insights_agent"
         self.reviewer_agent = "reviewer_agent"
         self.comparison_agent = "comparison_agent"
+        self.search_tool = "search_tool"
+        self.writer_agent = "writer_agent"
+        self.copilot_mode = "copilot"
 
 
         self.reader_agent = "ReaderAgent"
@@ -21,7 +24,6 @@ class AgentClass:
 
         # Modes
         self.shop_mode = "shop"
-        self.copilot_mode = "copilot"
         self.budget_mode = "budget"
         self.review_mode = "reviews"
         self.analytics_mode = "analytics"

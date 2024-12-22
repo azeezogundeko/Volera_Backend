@@ -1,14 +1,13 @@
-from typing import Literal
 import asyncio
+from typing import Literal
 
 from .config import agent_manager
-from prompts import meta_prompt
+from .search_tool import search_internet_tool
 from .legacy.base import create_meta_agent
-from schema import extract_agent_results
+from schema import extract_agent_results, MetaAgentSchema
 from .state import State
-from utils.helper_state import get_current_request, flatten_history
 from utils.logging import logger
-from utils.exceptions import AgentProcessingError, AgentInintilaztionError
+from utils.exceptions import AgentProcessingError
 
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
@@ -16,68 +15,39 @@ from pydantic_ai.result import RunResult
 
 # Secure meta agent function with proper exception handling
 @extract_agent_results(agent_manager.meta_agent)
-async def meta_agent(state: State, config={}) -> RunResult: 
+async def meta_agent(state: State) -> RunResult: 
     try:
-        # Safely get the current request and validate the presence of required fields
-        current_request = get_current_request(state)
-        if not current_request or "message" not in current_request or "content" not in current_request["message"]:
-            raise ValueError("Invalid or missing request content.")
-
-        query = current_request["message"]["content"]
-        history = current_request.get("history", [])
-        
-        # Flatten and slice history safely
-        mapped_history = flatten_history(history)
-        
-        # Prepare the meta agent's prompt and initialize the LLM
-        prompt = meta_prompt(mapped_history)
-        llm = create_meta_agent(prompt)
-        
+        requirements = state["requirements"]
+        llm = create_meta_agent()
         # Call LLM with timeout to avoid hanging
-        response = await asyncio.wait_for(llm.run(query), timeout=10)
+        response = await asyncio.wait_for(llm.run(requirements), timeout=10)
 
         logger.info("Meta agent executed successfully.")
         return response
 
     except Exception as e:
         logger.error("Unexpected error in meta agent execution.", exc_info=True)
-        raise AgentProcessingError("Unexpected error during meta agent execution.") from e
+        raise AgentProcessingError("Unexpected error during meta agent execution."+str(e))
 
 
 # Meta agent node handling logic with validation and exception safety
-async def meta_agent_node(state: State) -> Command[Literal[
-    agent_manager.search_agent,
-    agent_manager.end,
-]]:
+async def meta_agent_node(state: State, config={}) -> Command[Literal[agent_manager.writer_agent]]:
     try:
-        # Fetch all agents safely
-        state["previous_node"] = agent_manager.meta_agent
-        all_agents = agent_manager.get_all_agents()
-
-        # Call the meta agent function
         response = await meta_agent(state)
-        
-        # Ensure response is valid
-        if not response:
-            logger.error("Invalid response from meta agent.")
-            raise AgentInintilaztionError("No valid next node found in meta agent response.")
+        mode = state["ws_message"]["focus_mode"]
+        result: MetaAgentSchema = response.data
+        await search_internet_tool(
+                search_query=result.product_retrieval_query,
+                description=result.description,
+                filter=result.filter,
+                n_k=result.n_k,
+                mode=mode
+        )
 
-        next_node = response.data.next_node
-
-        # Log and handle unrecognized next nodes
-        if next_node not in all_agents:
-            logger.error(f"Unknown next node: {next_node}")
-            raise AgentInintilaztionError(f"Unknown next node: {next_node}")
-
-        # Decide the next state transition based on next_node value
-        if next_node == agent_manager.human_node:
-            state["final_result"] = response.data
-            logger.info("Transitioning to human node.")
-            return Command(goto=agent_manager.human_node, update=state)
-        
-        logger.info("Transitioning to search agent node.")
-        return Command(goto=agent_manager.search_agent)
+        logger.info("Transitioning to writer agent node.")
+        return Command(goto=agent_manager.writer_agent, update=state)
 
     except Exception as e:
         logger.error("Error encountered in meta agent node processing.", exc_info=True)
         raise AgentProcessingError("Unexpected failure in meta agent node.") from e
+

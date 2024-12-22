@@ -1,5 +1,5 @@
 from ..config import agent_manager
-from prompts import search_agent_prompt, policy_assistant_prompt
+from prompts import search_agent_prompt, policy_assistant_prompt, meta_prompt
 from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies
 from schema.validations.agents_schemas import( 
     MetaAgentSchema, 
@@ -9,20 +9,31 @@ from schema.validations.agents_schemas import(
     ReviewerSchema,
     PolicySchema,
     HumanSchema,
+    FeedbackResponseSchema,
     )
 
 from pydantic_ai import Agent
 
 
-def create_meta_agent(prompt: str)-> Agent:
+def create_meta_agent()-> Agent:
     return Agent(
             name=agent_manager.meta_agent,
             retries=3,
-            system_prompt=prompt,
+            system_prompt=meta_prompt,
             model="gemini-1.5-flash",
             deps_type=GeminiDependencies,
             result_type=MetaAgentSchema,
         )
+def create_copilot_agent(prompt)-> Agent:
+    return Agent(
+            name=agent_manager.copilot_mode,
+            retries=3,
+            system_prompt=prompt,
+            model="gemini-1.5-flash",
+            deps_type=GeminiDependencies,
+            result_type=FeedbackResponseSchema,
+        )
+
 def create_search_agent():
     return Agent(
                 name=agent_manager.search_agent,
@@ -79,6 +90,15 @@ def create_reviewer_agent(prompt)-> Agent:
         system_prompt=prompt,
         model="groq:llama3-70b-8192",
         deps_type=GroqDependencies,
+        result_type=ReviewerSchema
+    )
+def create_writer_agent(prompt)-> Agent:
+    return Agent(
+        name=agent_manager.writer_agent,
+        retries=3,
+        system_prompt=prompt,
+        model="gemini-1.5-flash",
+        deps_type=GeminiDependencies,
         result_type=ReviewerSchema
     )
 

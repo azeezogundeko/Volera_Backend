@@ -31,8 +31,7 @@ async def policy_agent(state: State) -> RunResult:
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(llm.run(query), timeout=10)
 
-        logger.info("Meta policy executed successfully.")
-        print(response.data)
+        logger.info("Policy executed successfully.")
         return response
 
     except Exception as e:

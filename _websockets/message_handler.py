@@ -11,9 +11,9 @@ from graph import agent_graph
 
 def parse_data(data: dict, user_id)-> WSMessage:
     message= Message(
-        message_id=data["message"]["messageId"],
-        chat_id=data["message"]["chatId"],
-        content=data["message"]["content"],
+        message_id=data["data"]["messageId"],
+        chat_id=data["data"]["chatId"],
+        content=data["data"]["content"],
         role="human"
     )
     histories = []
@@ -27,7 +27,7 @@ def parse_data(data: dict, user_id)-> WSMessage:
     ws_message = WSMessage(
         user_id= user_id,
         focus_mode="copilot",
-        files=data["files"],
+        files=data["fileIds"],
         optimization_mode=data["optimizationMode"],
         history=histories,
         message=message           
@@ -63,39 +63,62 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
         }
     }
     try:
-        # Use ainvoke to get the complete state
         state = await agent_graph.ainvoke(
-            {"ws_message": [parsed_state]},
+            {
+                "ws": websocket,
+                "ws_message": parsed_state,
+                "human_response": "",
+                "ai_response": "",
+            },
             processing_config,
         )
-        
-        # Extract final result safely
-        final_result = state.get("final_result", "No response generated")
-        
-        # Prepare the response
-        final_response = {
-            "type": "message",
-            "data": final_result
-        }
-        
-        # Send the final response
-        await websocket.send_json(data=final_response)
-        
-        # Send message end signal
-        await websocket.send_json(
-            data={
-                "type": "messageEnd"
-            }
-        )
-        
-    except Exception as graph_error:
-        logger.error(f"Agent graph processing error: {graph_error}", exc_info=True)
-        await _send_error_response(
-            websocket, 
-            f"Error processing agent workflow: {str(graph_error)}", 
-            "AGENT_PROCESSING_ERROR"
-        )
+        #     print(chunk)
+        #     # Handle interrupts
+        #     if "copilot" in chunk:
+        #         await websocket.send_json({
+        #             "type": "message",
+        #             "content": chunk["copilot"]["ai_response"]
+        #         })
+        #         await websocket.send_json({
+        #             "type": "messageEnd",
+        #         })
+        #         print("====================================")
+        #         # Wait for user input
+        #         response = await websocket.receive_text()
+        #         # Update state with user response
+        #         print(response)
+        #         chunk["human_response"] = response["data"]["content"]
 
+        #     # Track the final state
+        #     if chunk:
+        #         state = chunk
+
+        # # Ensure state is not None
+        if state is None:
+            raise ValueError("No valid state generated")
+
+        # Extract final result safely
+        final_result = state.get("final_result", {
+            "content": "No response generated",
+            "sources": []
+        })
+
+        # Send sources if available
+        if final_result.get("sources"):
+            await websocket.send_json({
+                "type": "sources",
+                "data": final_result["sources"]
+            })
+
+        _stream_final_response(
+            websocket,
+            final_result.get("content", "No response generated"))
+    except Exception as e:
+        logger.error(f"Error in message handling: {e}", exc_info=True)
+        await websocket.send_json({
+            "type": "error",
+            "data": str(e)
+        })
 
 
 async def _send_error_response(
@@ -111,33 +134,9 @@ async def _send_error_response(
     })
 
 
-
-def _prepare_ws_message(message: Dict[str, Any]) -> Dict[str, Any]:
-    """Prepare WebSocket message for agent processing."""
-    ws_message = message.copy()
-    ws_message["focusMode"] = ws_message.get(
-        "focusMode", 
-        "default_mode"
-    )
-    ws_message["history"] = ws_message.get("history", [])
-    return ws_message
-
-async def _stream_chunk_to_client(
-    websocket: WebSocket, 
-    chunk: Dict[str, Any]
-):
-    """Stream processing chunks to WebSocket client."""
-    await websocket.send_text(chunk.get("message", "Processing"))
-
-def _extract_final_response(chunks: list) -> str:
-    """Extract final response from processing chunks."""
-    final_chunk = chunks[-1] if chunks else {}
-    return final_chunk.get("message", "No response generated")
-
 async def _stream_final_response(
     websocket: WebSocket, 
-    final_response: str, 
-    message_id: Optional[str] = None
+    final_response: str
 ):
     """
     Stream the final response to the WebSocket client with chunked delivery.
@@ -155,19 +154,15 @@ async def _stream_final_response(
         for i in range(0, len(final_response), chunk_size):
             chunk = final_response[i:i+chunk_size]
             await websocket.send_json({
-                "type": "message_chunk",
-                "data": chunk,
-                "messageId": message_id,
-                "is_final": i + chunk_size >= len(final_response)
+                "type": "message",
+                "content": chunk
             })
             await asyncio.sleep(0.05)  # Small delay to simulate natural typing
         
         # Send final message marker
         await websocket.send_json({
-            "type": "message",
-            "data": final_response,
-            "messageId": message_id,
-            "is_complete": True
+            "type": "messageEnd",
+            "content": final_response,
         })
 
     except Exception as e:

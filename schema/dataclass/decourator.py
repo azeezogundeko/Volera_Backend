@@ -24,6 +24,24 @@ class State(TypedDict):
     agent_results: dict
     message_history: dict
 
+def to_dict(schema):
+        def convert(obj):
+            if isinstance(obj, list):
+                return [convert(item) for item in obj]
+            elif hasattr(obj, "__dict__"):
+                return {key: convert(value) for key, value in obj.__dict__.items()}
+            else:
+                return obj
+
+        result = {}
+
+        if isinstance(schema, list):
+            result[schema[0].__class__.__name__.lower()] = [convert(item) for item in schema]
+        elif hasattr(schema, "__dict__"):
+            result[schema.__class__.__name__.lower()] = convert(schema)
+        else:
+            result[str(schema)] = schema
+        return result
 
 
 def extract_agent_results(agent_name: str):
@@ -68,7 +86,7 @@ def extract_agent_results(agent_name: str):
                 # Build and return AgentResult
                 agent_result = AgentResult(
                     name=agent_name,
-                    content={"result": response.data},
+                    content= response.data.to_dict(),
                     metadata={"metadata": metadata}
                 )
                 state["agent_results"][agent_name] = agent_result
