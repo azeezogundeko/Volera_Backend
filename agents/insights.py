@@ -1,14 +1,16 @@
 from typing import Literal
 
-from .config import agent_manager
-from utils.logging import logger
-from schema import extract_agent_results
-from .legacy.base import create_insights_agent
 from .state import State
-from utils.helper_state import get_current_request
+from utils.logging import logger
+from .config import agent_manager
+from schema import extract_agent_results
+from prompts import insights_agent_prompt
+from .legacy.base import create_insights_agent
+from utils.helper_state import get_current_request, stream_final_response
 
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
+from fastapi import WebSocket
 
 
 # Secure wrapper to handle agent responses safely
@@ -27,8 +29,9 @@ async def insight_agent(state: State, config={}) -> RunResult:
             raise KeyError("Search agent results not found in state.")
         
         search_result = state["agent_results"][agent_manager.scrape_mode]
-        llm = create_insights_agent(search_result)
-        response = await llm.run(user_prompt="write a detailed Insights")
+        prompts = insights_agent_prompt(query, search_result)
+        llm = create_insights_agent(prompts)
+        response = await llm.run(user_prompt=query)
         return response
 
     except Exception as e:
@@ -38,8 +41,20 @@ async def insight_agent(state: State, config={}) -> RunResult:
 
 async def insights_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
     try:
-        await insight_agent(state)
-        logger.info("Processed agent results and transitioning to the next node.")
+        response = await insight_agent(state)
+        ws: WebSocket = state["ws"]
+        result = response.data.content
+        sources = []
+        for r in results:
+            sources.append(
+                {
+                "product_url": r["metadata"]["product_url"],
+                "image_url": r["metadata"]["image_url"]
+                }
+            )
+        await ws.send_json({"type": "sources", "content": sources})
+        await stream_final_response(state["ws"], result)
+        logger.info("Processed Insights agent results and transitioning to the next node.")
         return Command(goto=agent_manager.end)
 
     except Exception as e:

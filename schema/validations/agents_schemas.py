@@ -1,24 +1,58 @@
+import math
 from typing import Literal, List, Dict, Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 
 
 class BaseSchema(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump()
 
-class FilterAttrubuteSchema(BaseSchema):
-    features: List[str]
-    category: str
-    brand_preferences: List[str]
+    def to_json(self) -> Dict[str, Any]:
+        return self.model_dump(mode='json')
+
+    class Config:
+        json_encoders = {
+            float: lambda v: float(v) if not math.isinf(v) else None
+        }
+
+
+class FilterAttributesSchema(BaseSchema):
+    features: List[str] = Field(default_factory=list)
+    category: str = ""
+    brand_preferences: List[str] = Field(default_factory=list)
+
+class PriceRangeSchema(BaseSchema):
+    min: float = Field(default=0.0)
+    max: float = Field(default=float('inf'))
+
+class DiscountRangeSchema(BaseSchema):
+    min: float = Field(default=0.0)
+    max: float = Field(default=100.0)
 
 class FilterSchema(BaseSchema):
-    price: dict
-    attributes : FilterAttrubuteSchema
+    price: PriceRangeSchema = Field(default_factory=PriceRangeSchema)
+    discount: DiscountRangeSchema = Field(default_factory=DiscountRangeSchema)
+    attributes: FilterAttributesSchema = Field(default_factory=FilterAttributesSchema)
+
+class PlannerAgentSchema(BaseSchema):
+    search_query: str = ""
+    product_retriever_query: str = Field(
+        ..., 
+        description="Must be in format 'product brand category', e.g. 'iPhone 15 Pro Apple Smartphones'"
+    )
+    filter: FilterSchema = Field(default_factory=FilterSchema)
+    n_k: int = 5
+    description: str = Field(
+        ..., 
+        description="Mandatory detailed description of search intent rich in semantic meanings"
+    )
+    writer_instructions: List[str] = Field(default_factory=list)
+    search_strategy: str = "adaptive"
 
 class SearchParamSchema(BaseSchema):
     query: str
-    filter: FilterSchema
+    filter: FilterAttributesSchema = Field(default_factory=FilterAttributesSchema)
     n_k: int
     semantic_description: str
     search_strategy: str
@@ -61,28 +95,10 @@ class FeedbackResponseSchema(BaseSchema):
     requirements: RequirementSchema
 
 
-
-class PlannerAgentSchema(BaseSchema):
-    search_query: str
-    product_retrieval_query: str
-    filter: FilterSchema 
-    n_k: int
-    description: str
-    writer_instructions: List[str]
-    search_strategy: str
-
-# class MetaAgentSchema(BaseModel):
-    #     next_node: Literal[
-#         "human_node", 
-#         "comparison_agent", 
-#         "insights_agent",
-#         "reviewer_agent", 
-#         # "shop_retrieval_agent",
-#         # "policy_agent",
-#         # "writer_agent",
-#         # "memory_agent"
-#         ]
-#     instructions: List[str]
+class MetaAgentSchema(BaseModel):
+    action: str
+    content: str
+    instructions: List[str]
 
 
 class SearchAgentSchema(BaseSchema):
@@ -92,6 +108,7 @@ class ComparisonSchema(BaseSchema):
     content: str
 
 class InsightsSchema(BaseSchema):
+
     content: str
 
 class ReviewerSchema(BaseSchema):
@@ -103,4 +120,9 @@ class PolicySchema(BaseSchema):
     reason: str
 
 class HumanSchema(BaseSchema):
+    content: str
+
+
+
+class WebSchema(BaseSchema):
     content: str

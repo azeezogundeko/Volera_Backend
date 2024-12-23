@@ -21,9 +21,11 @@ from .validations.agents_schemas import (
     PlannerAgentSchema, 
     SearchAgentSchema, 
     ComparisonSchema, 
+    MetaAgentSchema,
     InsightsSchema,
     ReviewerSchema,
     PolicySchema,
+    FilterSchema,
     HumanSchema
     )
 from .validations.websocket import WebSocketSchema
@@ -37,6 +39,8 @@ __all__ = [
     "Result",
     "AgentResult",
     "PlannerAgentSchema",
+    "FilterSchema",
+    "MetaAgentSchema",
     "ModelMessage",
     "Message",
     "ModelRequest",

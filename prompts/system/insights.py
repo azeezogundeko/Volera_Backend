@@ -1,58 +1,60 @@
-def insights_agent_prompt(search_results):
-    insights_prompt = f"""
-    You are an expert insights agent analyzing the provided search results to generate clear, 
-    actionable insights. Your response should adhere to the **Markdown** format, focusing 
-    on patterns, trends, comparisons, and discrepancies from the data.
-
-    Your response must include these sections:
-
-    1. **Trends & Patterns**: Summarize observable trends across the search results.
-    2. **Key Findings**: Highlight the most significant insights and observations.
-    3. **Comparisons**: Compare findings across perspectives or sources.
-    4. **Discrepancies**: Point out conflicting observations or data.
-    5. **Sources**: List and hyperlink all referenced sources.
-
-    Your analysis should:
-    - Remain professional, structured, and concise.
-    - Focus only on insights derived directly from the provided search results.
-    - Highlight trends, market signals, and actionable insights.
-    - Cite and hyperlink all sources for credibility.
-
-
-    ### Input JSON Format Example
-    The results will follow this JSON structure:
-
-    [
-      { "source": "https://source1.com", "content": "Insert content here." },
-      { "source": "https://source2.com", "content": "Insert content here." }
-    ]
-
-    ### Example Markdown Output
-    Respond with a response structured like this:
-
-    ```markdown
-    # Insights from Search Results
-
-    ## Trends & Patterns
-    1. **[Observation 1]**: Explanation ([Source1](https://source1.com)).
-    2. **[Observation 2]**: Explanation ([Source2](https://source2.com)).
-
-    ## Key Findings
-    - Insight 1.
-    - Insight 2.
-
-    ## Comparisons
-    - Source1 emphasizes **[observation]**, while Source2 focuses on **[another trend]**.
-
-    ## Discrepancies
-    - Conflicting observations between **Source1** and **Source2**.
-
-    ## Sources
-    1. [Source1](https://source1.com)
-    2. [Source2](https://source2.com)
-
-    Search results: {search_results}
-
+def insights_agent_prompt(search_query, search_results):
     """
+    Generate a comprehensive markdown insights generation prompt
+    
+    Args:
+        search_query (str): The original search query
+        search_results (list): Comprehensive search results to analyze
+    
+    Returns:
+        str: Markdown-focused insights generation prompt
+    """
+    insights_prompt = f"""
+    You are an Advanced Insights Generation Agent tasked with transforming search results into a compelling, informative markdown report.
 
+    ### Core Objectives
+    - Convert raw search data into a structured, narrative markdown document
+    - Provide deep, meaningful insights
+    - Maintain a balance between technical depth and storytelling
+
+    ### Markdown Report Requirements
+    1. Use markdown formatting throughout
+    2. Include emojis for visual engagement
+    3. Create clear, hierarchical sections
+    4. Focus on narrative flow and insights
+
+    ### Analytical Framework
+    - Identify overarching themes
+    - Extract key patterns and trends
+    - Provide strategic context
+    - Highlight potential future implications
+
+    ### Structural Guidelines
+    - **Title**: Use an engaging, descriptive h1 header
+    - **Sections**: Use h2 and h3 headers for clear organization
+    - **Content**: Blend analytical insights with narrative storytelling
+    - **Conclusion**: Provide forward-looking perspective
+
+    ### Processing Instructions
+    1. Analyze all provided search results comprehensively
+    2. Synthesize information into coherent insights
+    3. Create a markdown document that tells a compelling story
+    4. Ensure insights are actionable and meaningful
+
+    ### Search Context
+    - **Original Query**: "{search_query}"
+    - **Number of Sources**: {len(search_results)}
+
+    ### Search Results Corpus
+    {search_results}
+
+    ### Output Expectations
+    - Total length: 500-800 words
+    - Markdown formatted
+    - Engaging and informative
+    - Provides clear, actionable insights
+
+    ### Final Directive
+    Transform these search results into a markdown narrative that educates, inspires, and provides strategic understanding.
+    """
     return insights_prompt

@@ -18,6 +18,10 @@ from pydantic_ai.result import RunResult
 async def planner_agent(state: State) -> RunResult: 
     try:
         requirements = state["requirements"]
+        requirements["user_query"] = state["ws_message"]["message"]["content"]
+
+        requirements = str(requirements)
+
         llm = create_planner_agent()
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(llm.run(requirements), timeout=10)
@@ -26,7 +30,7 @@ async def planner_agent(state: State) -> RunResult:
         return response
 
     except Exception as e:
-        logger.error("Unexpected error in meta agent execution.", exc_info=True)
+        logger.error("Unexpected error in Planner agent execution.", exc_info=True)
         raise AgentProcessingError("Unexpected error during planner agent execution."+str(e))
 
 
@@ -34,10 +38,10 @@ async def planner_agent(state: State) -> RunResult:
 async def planner_agent_node(state: State, config={}) -> Command[Literal[agent_manager.writer_agent]]:
     try:
         response = await planner_agent(state)
-        mode = state["ws_message"]["focus_mode"]
+        mode = state["ws_message"]["optimization_mode"]
         result: PlannerAgentSchema = response.data
         await search_internet_tool(
-                search_query=result.product_retrieval_query,
+                search_query=result.product_retriever_query,
                 description=result.description,
                 filter=result.filter,
                 n_k=result.n_k,
@@ -49,5 +53,5 @@ async def planner_agent_node(state: State, config={}) -> Command[Literal[agent_m
 
     except Exception as e:
         logger.error("Error encountered in planner agent node processing.", exc_info=True)
-        raise AgentProcessingError("Unexpected failure in meta agent node.") from e
+        raise AgentProcessingError("Unexpected failure in planner agent node.") from e
 

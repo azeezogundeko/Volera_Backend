@@ -9,7 +9,7 @@ from utils.helper_state import flatten_history, update_history
 from .config import agent_manager
 from schema import extract_agent_results
 from .legacy.base import create_copilot_agent
-from utils.helper_state import get_current_request
+from utils.helper_state import get_current_request, stream_final_response
 
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
@@ -31,12 +31,11 @@ async def copilot_agent(state: State, user_input: str = None) -> RunResult:
         return response
 
     except Exception as e:
-        logger.error("Failed to execute search agent operation", exc_info=True)
+        logger.error("Failed to execute copilot agent operation", exc_info=True)
         raise RuntimeError(f"Failed to execute search agent: {e}")
 
 
 async def copilot_agent_node(state: State) -> Command[Literal[
-    agent_manager.end,
     agent_manager.planner_agent
 ]]:
     try:
@@ -46,10 +45,7 @@ async def copilot_agent_node(state: State) -> Command[Literal[
         if final.action == "__user__":
             state["ai_response"] = final.reply
             state["previous_node"] = agent_manager.copilot_mode
-            update_history(state, user_input, final.reply)
             return Command(goto=agent_manager.human_node, update=state)
-
-        # print("\n\n", state["history"], "\n\n")
 
         data = final.to_dict()
         requirements = data["requirements"]
@@ -64,24 +60,15 @@ async def copilot_agent_node(state: State) -> Command[Literal[
             user_input or "", 
             final.reply
         )
-
         ws: WebSocket = state["ws"]
-        await ws.send_json(
-            {
-                "type": "message",
-                "content": state["ai_response"]
-                }
-        )
-        await ws.send_json(
-            {
-                "type": "messageEnd",
-                }
-        )
+        await ws.send_json({"type": "message","content": state["ai_response"]})
+        await ws.send_json({"type": "messageEnd"})
+        state["human_response"] = None
             
         return Command(goto=agent_manager.planner_agent, update=state)
 
     except Exception as e:
-        logger.error("Unexpected error during search agent node processing.", exc_info=True)
+        logger.error("Unexpected error during copilot agent node processing.", exc_info=True)
         raise RuntimeError("Unexpected error occurred.") from e
 
 
@@ -96,17 +83,8 @@ async def human_node(
     ]]:
     try:
         ws: WebSocket = state["ws"]
-        await ws.send_json(
-            {
-                "type": "message",
-                "content": state["ai_response"]
-                }
-        )
-        await ws.send_json(
-            {
-                "type": "messageEnd",
-                }
-        )
+        
+        await stream_final_response(ws,state["ai_response"])
 
         # Receive and parse the response
         response_text = await ws.receive_text()
@@ -126,10 +104,10 @@ async def human_node(
         state["human_response"] = user_input
         
         # Determine next node based on previous context
-        next_node = state.get("previous_node", agent_manager.meta_agent)
+        next_node = state.get("previous_node", agent_manager.end)
         
         logger.info(f"User input collected: {user_input}. Routing to: {next_node}")
-        
+        update_history(state, user_input, state["ai_response"])
         return Command(
             update=state,
             goto=next_node

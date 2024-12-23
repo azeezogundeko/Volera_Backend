@@ -1,7 +1,10 @@
 from typing import Any, List
 from schema import WSMessage
+import asyncio
+from .logging import logger
 from agents.state import State
 from schema import History
+from fastapi import WebSocket
 
 # Helper function to get a key's value from the state
 def get_from_state(state: State, key: str, default: Any = None) -> Any:
@@ -38,7 +41,7 @@ def truncate_message_history(state: State, max_length: int = 10) -> None:
     if "message_history" in state:
         state["message_history"] = state["message_history"][-max_length:]
 
-def flatten_history(history: List[dict]) -> List[str]:
+def flatten_history(history: List[dict], n_k=30) -> List[str]:
     try:
         formatted_history = []
         for h in history:
@@ -48,7 +51,7 @@ def flatten_history(history: List[dict]) -> List[str]:
                 formatted_history.append(formatted_entry)
         
         # Return last 5 entries or all if less than 5
-        return formatted_history if formatted_history else [""]
+        return formatted_history[-n_k:] if formatted_history else [""]
     
     except Exception as e:
         # Log any unexpected errors
@@ -82,3 +85,53 @@ def get_user_ai_history(state: State) -> List[str]:
     
     return user_input, ai_response
    
+async def stream_final_response(
+    websocket: WebSocket, 
+    final_response: str,
+    delay: float = 0.1
+):
+    """
+    Stream the final response to the WebSocket client word by word.
+
+    Args:
+        websocket (WebSocket): Active WebSocket connection
+        final_response (str): Complete response to stream
+        delay (float): Delay between words to simulate natural typing
+    """
+    try:
+        # Preprocess the response
+        words = final_response.strip().split()
+        
+        # Stream response word by word
+        for word in words:
+            await websocket.send_json({
+                "type": "message",
+                "content": word + " "
+            })
+            await asyncio.sleep(delay)
+        
+        # Send final message marker
+        await websocket.send_json({
+            "type": "messageEnd",
+            "content": final_response,
+        })
+
+    except Exception as e:
+        logger.error(f"Error streaming final response: {e}", exc_info=True)
+        await send_error_response(
+            websocket, 
+            "Error streaming response", 
+            "STREAMING_ERROR"
+        )
+        
+async def send_error_response(
+    websocket: WebSocket, 
+    message: str, 
+    error_key: str
+):
+    """Send standardized error response to WebSocket client."""
+    await websocket.send_json({
+        "type": "error",
+        "data": message,
+        "key": error_key,
+    })

@@ -1,13 +1,16 @@
 from typing import Literal
+
+from .state import State
+from utils.logging import logger
 from .config import agent_manager
-from .legacy.base import create_reviewer_agent
 from schema import extract_agent_results
 from prompts import reviewer_agent_prompt
-from utils.logging import logger
-from .state import State
+from .legacy.base import create_reviewer_agent
+from utils.helper_state import stream_final_response
+
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
-
+from fastapi import WebSocket
 
 # Secure wrapper to handle agent responses safely
 @extract_agent_results(agent_manager.reviewer_agent)
@@ -32,9 +35,22 @@ async def reviewer_agent(state: State, config={}) -> RunResult:
 
 async def reviewer_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
     try:
-        await reviewer_agent(state)
-        logger.info("Processed agent results and transitioning to the next node.")
+        response = await reviewer_agent(state)
+        ws: WebSocket = state["ws"]
+        result = response.data.content
+        sources = []
+        for r in results:
+            sources.append(
+                {
+                "product_url": r["metadata"]["product_url"],
+                "image_url": r["metadata"]["image_url"]
+                }
+            )
+        await ws.send_json({"type": "sources", "content": sources})
+        await stream_final_response(state["ws"], result)
+        logger.info("Processed Reviewer agent results and transitioning to the next node.")
         return Command(goto=agent_manager.end)
+
 
     except Exception as e:
         logger.error("Unexpected error during search agent node processing.", exc_info=True)

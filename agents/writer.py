@@ -1,6 +1,9 @@
 from typing import Literal
+
+from fastapi import WebSocket
 from .state import State
 from .config import agent_manager
+from utils.helper_state import stream_final_response
 from .legacy.base import create_writer_agent
 from schema import extract_agent_results
 from prompts import blog_writer_agent_prompt
@@ -28,6 +31,7 @@ async def writer_agent(state: State) -> RunResult:
 
 async def writer_agent_node(state: State, config={}) -> Command[Literal[agent_manager.end]]:
     try:
+        ws: WebSocket = state["ws"]
         response = await writer_agent(state)
         request = state["agent_results"][agent_manager.search_tool]
         results = request["results"]
@@ -39,13 +43,13 @@ async def writer_agent_node(state: State, config={}) -> Command[Literal[agent_ma
                 "image_url": r["metadata"]["image_url"]
                 }
             )
+        #meta agent will reply to follow up questions
+        state["previous_node"] = agent_manager.meta_agent
 
-        state["final_result"] = {
-            "content":response.data.content, 
-            "sources":sources
-            }
+        await ws.send_json({"type": "sources", "content": sources})
+        state["ai_response"] = response.data.content
         logger.info("Processed writer agent results and transitioning to the end node.")
-        return Command(goto=agent_manager.end, update=state)
+        return Command(goto=agent_manager.human_node, update=state)
 
     except Exception as e:
         logger.error("Unexpected error during search agent node processing.", exc_info=True)

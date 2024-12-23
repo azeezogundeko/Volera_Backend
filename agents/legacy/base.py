@@ -6,34 +6,37 @@ from prompts import (
     )
 from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies
 from schema.validations.agents_schemas import( 
+    FeedbackResponseSchema,
     PlannerAgentSchema, 
     SearchAgentSchema, 
     ComparisonSchema,
+    MetaAgentSchema,
     InsightsSchema,
     ReviewerSchema,
     PolicySchema,
     HumanSchema,
-    FeedbackResponseSchema,
+    WebSchema,
     )
 
 from pydantic_ai import Agent
 
 
-def create_meta_agent()-> Agent:
+def create_meta_agent(prompt)-> Agent:
     return Agent(
             name=agent_manager.meta_agent,
             retries=3,
-            system_prompt=planner_agent_prompt,
+            system_prompt=prompt,
             model="gemini-1.5-flash",
             deps_type=GeminiDependencies,
-            result_type=PlannerAgentSchema,
+            result_type=MetaAgentSchema,
         )
+
 def create_planner_agent()-> Agent:
     return Agent(
-            name=agent_manager.meta_agent,
+            name=agent_manager.planner_agent,
             retries=3,
             system_prompt=planner_agent_prompt,
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-exp",
             deps_type=GeminiDependencies,
             result_type=PlannerAgentSchema,
         )
@@ -42,7 +45,7 @@ def create_copilot_agent(prompt)-> Agent:
             name=agent_manager.copilot_mode,
             retries=3,
             system_prompt=prompt,
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-exp",
             deps_type=GeminiDependencies,
             result_type=FeedbackResponseSchema,
         )
@@ -105,6 +108,17 @@ def create_reviewer_agent(prompt)-> Agent:
         deps_type=GroqDependencies,
         result_type=ReviewerSchema
     )
+
+def create_web_agent(prompt)-> Agent:
+    return Agent(
+        name=agent_manager.reviewer_agent,
+        retries=3,
+        system_prompt=prompt,
+        model="groq:llama3-70b-8192",
+        deps_type=GroqDependencies,
+        result_type=WebSchema
+    )
+
 def create_writer_agent(prompt)-> Agent:
     return Agent(
         name=agent_manager.writer_agent,

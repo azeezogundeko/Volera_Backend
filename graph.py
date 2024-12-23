@@ -9,7 +9,9 @@ from agents import (
     insights_agent_node,
     copilot_agent_node,
     human_node,
-    writer_agent_node 
+    meta_agent_node,
+    writer_agent_node,
+    web_agent_node
 )
 
 from langgraph.checkpoint.memory import MemorySaver
@@ -18,15 +20,17 @@ from langgraph.graph import StateGraph
 
 # Define node mapping with error handling
 nodes = {
-    agent_manager.planner_agent: planner_agent_node,
-    agent_manager.human_node: human_node,
-    agent_manager.copilot_mode: copilot_agent_node,
-    agent_manager.search_agent: search_agent_node,
-    agent_manager.writer_agent: writer_agent_node  ,
     agent_manager.comparison_agent: comparison_agent_node,
-    agent_manager.policy_agent: policy_agent_node,
     agent_manager.insights_agent: insights_agent_node,
     agent_manager.reviewer_agent: reviewer_agent_node,
+    agent_manager.planner_agent: planner_agent_node,
+    agent_manager.copilot_mode: copilot_agent_node,
+    agent_manager.web_search_agent: web_agent_node,
+    agent_manager.search_agent: search_agent_node,
+    agent_manager.writer_agent: writer_agent_node,
+    agent_manager.policy_agent: policy_agent_node,
+    agent_manager.meta_agent: meta_agent_node,
+    agent_manager.human_node: human_node,
 }
 
 # Create state graph with robust configuration

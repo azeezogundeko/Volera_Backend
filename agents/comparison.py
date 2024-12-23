@@ -5,13 +5,14 @@ from utils.logging import logger
 from .config import agent_manager
 from prompts import comparison_prompt
 from .state import State
-from utils.helper_state import get_current_request
 from .legacy.base import create_comparison_agent
 from utils.exceptions import AgentProcessingError
 from schema.dataclass.decourator import extract_agent_results
+from utils.helper_state import get_current_request, stream_final_response
 
 from langgraph.types import Command
 from pydantic_ai.result import RunResult
+from fastapi import WebSocket
 
 
 
@@ -39,7 +40,6 @@ async def comparison_agent(state: State, config={}) -> RunResult:
         response = await asyncio.wait_for(llm.run(query), timeout=10)
 
         logger.info("Comparison agent successfully executed.")
-        print(response.data)
         return response
 
     except Exception as e:
@@ -51,11 +51,23 @@ async def comparison_agent(state: State, config={}) -> RunResult:
 async def comparison_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
     try:
         # Run the comparison agent safely
-        await comparison_agent(state)
+        response = await comparison_agent(state)
 
-        # Log the transition
-        logger.info("Meta agent node transitioning to the end state.")
+        ws: WebSocket = state["ws"]
+        result = response.data.content
+        sources = []
+        for r in results:
+            sources.append(
+                {
+                "product_url": r["metadata"]["product_url"],
+                "image_url": r["metadata"]["image_url"]
+                }
+            )
+        await ws.send_json({"type": "sources", "content": sources})
+        await stream_final_response(state["ws"], result)
+        logger.info("Processed Comparisonagent results and transitioning to the next node.")
         return Command(goto=agent_manager.end)
+
 
     except Exception as e:
         logger.error("Error encountered in comparison agent node processing.", exc_info=True)
