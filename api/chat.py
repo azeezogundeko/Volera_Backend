@@ -1,11 +1,125 @@
+from datetime import datetime
+from typing import List, Optional
+
 from db import async_appwrite
 from appwrite.query import Query
 from utils.logging import logger
-from db._appwrite.chat import chat_collection_id, message_collection_id
+from db._appwrite.chat import chat_collection_id, message_collection_id, create_chat, create_message
+from schema.dataclass.database import Chat, Message, File
 
+from fastapi import Body
 from fastapi import HTTPException, APIRouter
 
+
 router = APIRouter()
+
+
+@router.post("/new")
+async def create_new_chat(
+    user_id: str = Body(...),
+    title: Optional[str] = Body(None),
+    focus_mode: str = Body("default", alias="focusMode"),
+    files: Optional[List[dict]] = Body(None)
+):
+    """
+    Create a new chat for a user.
+    
+    Args:
+        user_id (str): ID of the user creating the chat
+        title (str, optional): Title of the chat
+        focus_mode (str, optional): Focus mode for the chat
+        files (List[dict], optional): List of files associated with the chat
+    
+    Returns:
+        dict: Created chat details
+    """
+    try:
+        # Generate a default title if not provided
+        if not title:
+            title = f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        
+        # Convert files to File objects if provided
+        parsed_files = [File(**file) for file in files] if files else []
+        
+        # Create chat
+        chat = Chat(
+            title=title,
+            focus_mode=focus_mode,
+            files=parsed_files
+        )
+        
+        # Save chat to database
+        chat_result = await create_chat(chat)
+        
+        return {
+            "chat_id": chat_result['$id'],
+            "title": title,
+            "focus_mode": focus_mode
+        }
+    
+    except Exception as e:
+        logger.error(f"Error creating new chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Could not create chat: {str(e)}")
+
+@router.post("/{chat_id}/end")
+async def end_chat_session(
+    chat_id: str, 
+    final_messages: Optional[List[dict]] = Body(None)
+):
+    """
+    End a chat session and save final messages.
+    
+    Args:
+        chat_id (str): ID of the chat to end
+        final_messages (List[dict], optional): Messages to save at end of session
+    
+    Returns:
+        dict: Status of chat session ending
+    """
+    try:
+        # Update chat status to 'completed'
+        await async_appwrite.update_document(
+            chat_collection_id, 
+            chat_id, 
+            {"status": "completed"}
+        )
+        
+        # Save final messages if provided
+        if final_messages:
+            for msg in final_messages:
+                message = Message(
+                    content=msg.get('content', ''),
+                    chat_id=chat_id,
+                    message_id='',  # Will be auto-generated
+                    role=msg.get('role', 'assistant'),
+                    metadata=msg.get('metadata', {})
+                )
+                await create_message(message)
+        
+        return {
+            "status": "success", 
+            "message": "Chat session ended",
+            "chat_id": chat_id
+        }
+    
+    except Exception as e:
+        logger.error(f"Error ending chat session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Could not end chat session: {str(e)}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Route to get all chats
 @router.get("/")

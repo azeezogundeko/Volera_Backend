@@ -1,10 +1,21 @@
-from typing import Any, List
-from schema import WSMessage
 import asyncio
+from typing import Any, List, Dict
+
+from schema import (
+    History,
+    ModelMessage, 
+    ModelRequest, 
+    ModelResponse, 
+    UserPromptPart, 
+    TextPart,
+    SystemPromptPart
+)
 from .logging import logger
-from agents.state import State
-from schema import History
+from schema import WSMessage
 from fastapi import WebSocket
+from agents.state import State
+
+
 
 # Helper function to get a key's value from the state
 def get_from_state(state: State, key: str, default: Any = None) -> Any:
@@ -41,22 +52,26 @@ def truncate_message_history(state: State, max_length: int = 10) -> None:
     if "message_history" in state:
         state["message_history"] = state["message_history"][-max_length:]
 
-def flatten_history(history: List[dict], n_k=30) -> List[str]:
+def flatten_history(history: List[dict], n_k=30) -> List[ModelMessage]:
     try:
         formatted_history = []
         for h in history:
             # Ensure the history item is a dictionary and has required keys
             if isinstance(h, dict) and 'speaker' in h and 'message' in h:
-                formatted_entry = f"[{h['speaker']}]: {h['message']}"
+                formatted_entry = {
+                    'speaker': h['speaker'], 
+                    'message': h['message']
+                }
                 formatted_history.append(formatted_entry)
         
-        # Return last 5 entries or all if less than 5
-        return formatted_history[-n_k:] if formatted_history else [""]
+        # Return last n_k entries or all if less than n_k
+        history_subset = formatted_history[-n_k:] if formatted_history else []
+        return convert_history_to_model_messages(history_subset)
     
     except Exception as e:
         # Log any unexpected errors
         print(f"Error in flatten_history: {e}")
-        return [""]
+        return []
 
 def update_history(state: State, user_message: str, ai_message: str) -> None:
    user_history =  History(
@@ -135,3 +150,29 @@ async def send_error_response(
         "data": message,
         "key": error_key,
     })
+
+
+
+def convert_history_to_model_messages(history: List[Dict[str, str]]) -> List[ModelMessage]:
+    model_messages = []
+    for entry in history:
+        speaker = entry.get('speaker', '')
+        message = entry.get('message', '')
+        
+        if speaker == 'system':
+            # Convert system message to ModelRequest with SystemPromptPart
+            model_messages.append(ModelRequest(
+                parts=[SystemPromptPart(content=message)]
+            ))
+        elif speaker == 'user':
+            # Convert user message to ModelRequest with UserPromptPart
+            model_messages.append(ModelRequest(
+                parts=[UserPromptPart(content=message)]
+            ))
+        elif speaker == 'assistant':
+            # Convert AI message to ModelResponse with TextPart
+            model_messages.append(ModelResponse(
+                parts=[TextPart(content=message)]
+            ))
+    
+    return model_messages

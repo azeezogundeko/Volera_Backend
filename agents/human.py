@@ -1,11 +1,12 @@
 import json
+from pprint import pprint
 from typing import Literal
 from prompts import response_agent_prompt
 from schema.validations.agents_schemas import FeedbackResponseSchema
 
 from .state import State
 from utils.logging import logger
-from utils.helper_state import flatten_history, update_history
+from utils.helper_state import update_history
 from .config import agent_manager
 from schema import extract_agent_results
 from .legacy.base import create_copilot_agent
@@ -22,12 +23,14 @@ async def copilot_agent(state: State, user_input: str = None) -> RunResult:
     try:
         current_request = get_current_request(state)
         query = current_request["message"]["content"]
-        history = flatten_history(current_request["history"])
-        prompt = response_agent_prompt(history)
+        previous_messages = state.get("message_history", [])
+ 
+        prompt = response_agent_prompt()
         llm = create_copilot_agent(prompt)
         if user_input:
             query = user_input
-        response = await llm.run(user_prompt=query)
+        response = await llm.run(user_prompt=query, message_history=previous_messages)
+        state["message_history"] = previous_messages + response.new_messages()
         return response
 
     except Exception as e:

@@ -1,6 +1,6 @@
 from typing import List
 
-def agent_system_prompt(conversation_history: List[str])-> str:
+def agent_system_prompt()-> str:
     shopping_agent_prompt = f"""
     You are a highly intelligent AI shopping assistant with an exceptional ability to track and utilize conversation context.
 
@@ -118,10 +118,6 @@ def agent_system_prompt(conversation_history: List[str])-> str:
         }}
     }}
     ```
-
-    ### Current Conversation Context:
-    {conversation_history}
-
     Your goal: Provide intelligent, context-aware shopping assistance that knows exactly when to stop questioning and start recommending.
 
     """

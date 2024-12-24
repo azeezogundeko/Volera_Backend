@@ -23,5 +23,6 @@ class State(TypedDict):
     requirements: dict = {}
     human_response: str = ""
     ai_response: str = ""
+    message_history: List[ModelMessage] = []
     # message_history: List[ModelMessage]  
 # {'type': 'message', 'message': {'messageId': '68370b35c14288', 'chatId': '089fb9cbf72af36d77bb6c8f7af8c0b873c01147', 'content': 'Best phone to buy in 2024'}, 'files': [], 'focusMode': 'webSearch', 'optimizationMode': 'speed', 'history': [{'speaker': 'human', 'message': 'Best phone to buy in 2024', 'timestamp': '2024-12-20T16:22:59.710Z'}]}

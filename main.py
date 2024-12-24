@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from sys import prefix
 
 from api import chat_router
 from db import prepare_database
@@ -7,6 +8,8 @@ from utils.logging import logger
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 
 
 @asynccontextmanager
@@ -24,8 +27,16 @@ async def lifespan(app: FastAPI):
         logger.info("Application is shutting down...")
 
 app = FastAPI(lifespan=lifespan)
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
-app.include_router(chat_router, prefix="/chats", tags=["chat"])
+app.include_router(chat_router, prefix="/api/chats", tags=["chat"])
 app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
 
 

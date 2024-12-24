@@ -1,0 +1,80 @@
+## HP Laptop Specifications and Prices
+
+Here's a summary of the specifications and prices for various HP laptops:
+
+### 1. HP Chromebook Series
+
+These Chromebooks share similar specs:
+
+*   **Processor:** Intel Celeron N2846
+*   **Memory:** 4 GB LPDDR3-2400 SDRAM
+*   **Internal Storage:** 16 GB eMMC
+*   **Display:** 11.0-inch HD (1366 x 768) micro-edge, BrightView
+*   **Graphics:** Intel UHD Graphics 600
+*   **Battery life:** Up to 12 hours and 30 minutes (mixed usage)
+*   **Wireless:** Realtek RTL8822CE 802.11a/b/g/n/ac (2x2) Wi-Fi and Bluetooth 5.0 combo
+*   **Camera:** HP Wide Vision 720p HD camera
+*   **Operating System**: Chrome OS
+
+   **Models and Prices:**
+    *   **Hp CHROMEBOOK, INTEL CELERON, 4GB RAM,16GB EMMC + BAG:**
+        *   **Current Price:** ₦ 120,000
+        *   **Old Price:** ₦ 140,000
+        *   **Discount:** 14%
+    *   **Hp CHROMEBOOK11, CELERON, 4GB RAM,16GB SSD + 32GBFLASH:**
+        *   **Current Price:** ₦ 120,000
+        *   **Old Price:** ₦ 240,000
+        *   **Discount:** 50%
+    *   **Hp CHROMEBOOK 11 G4, CELERON, 4GB RAM,16GB SSD + BAG:**
+        *   **Current Price:** ₦ 120,000
+        *   **Old Price:** ₦ 220,000
+        *   **Discount:** 45%
+    *   **Hp CHROMEBOOK INTEL CELERON ,4GB RAM,16GB WINDOWS 10:**
+        *   **Current Price:** ₦ 120,000
+        *    **Old Price:** ₦ 228,000
+        *   **Discount:** 47%
+
+### 2. HP Stream 11 Series
+
+These laptops have the following features:
+
+*   **Processor:** Intel Celeron
+*   **Memory:** 4GB RAM
+*   **Storage:** 64GB SSD
+*   **Operating System:** Windows 10 PRO
+*   **Additional Features:** Includes Mouse & USB Light For Keyboard, 1TB of OneDrive Cloud Storage.
+
+   **Models and Prices:**
+    *   **Hp Stream 11 Laptop- Intel Celeron - 64GB SSD 4GB RAM Windows 10 PRO+ Mouse & USB Light For Keyboard (Multiple Listings):**
+        *   **Current Price:** ₦ 190,000
+        *   **Old Price:** ₦ 300,000
+        *   **Discount:** 37%
+    *    **Hp STREAM 11 LAPTOP- CELERON-64GB 4D 4GB RAM Windows 10 PRO+ & USB Light For Keyboard:**
+        *   **Current Price:** ₦ 160,000
+        *   **Old Price:** ₦ 250,000
+         *   **Discount:** 36%
+
+
+### 3. HP Notebook 11 Pro G5
+
+*   **Processor:** Intel Celeron
+*   **Memory:** 4GB RAM
+*   **Storage:** 128GB SSD
+*   **Operating System:** Windows 10 Pro
+*   **Additional Features:** Touchscreen, includes a bag
+*   **Other Features**
+    *   **Weight:** 1.1 kg
+    *   **Color:** grey
+
+
+  **Prices:**
+    *   **Hp Notebook 11 Pro G5 TOUCHSCREEN-128GB SSD 4GB RAM- Intel Celeron - Windows 10 Pro + Bag:**
+        *   **Current Price:** ₦ 220,000
+        *   **Old Price:** ₦ 690,000
+        *  **Discount:** 68%
+
+
+### Conclusion
+
+These HP laptops offer a range of options with different features and price points. Whether you're looking for a budget-friendly Chromebook or a more feature-rich Windows laptop, there's a model to fit your needs.
+

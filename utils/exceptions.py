@@ -13,3 +13,7 @@ class AgentProcessingError(Exception):
 class WebSocketProcessingError(Exception):
     def __init__(self, message):
         super().__init__(message)
+
+class NoItemFound(Exception):
+    def __init__(self, message):
+        super().__init__(message)

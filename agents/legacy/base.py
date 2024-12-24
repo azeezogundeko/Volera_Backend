@@ -124,7 +124,7 @@ def create_writer_agent(prompt)-> Agent:
         name=agent_manager.writer_agent,
         retries=3,
         system_prompt=prompt,
-        model="gemini-1.5-flash",
+        model="gemini-2.0-flash-exp",
         deps_type=GeminiDependencies,
         result_type=ReviewerSchema
     )
