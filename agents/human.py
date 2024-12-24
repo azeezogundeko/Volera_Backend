@@ -1,15 +1,15 @@
 import json
-from pprint import pprint
 from typing import Literal
-from prompts import response_agent_prompt
-from schema.validations.agents_schemas import FeedbackResponseSchema
 
+from prompts import response_agent_prompt
 from .state import State
 from utils.logging import logger
 from utils.helper_state import update_history
 from .config import agent_manager
 from schema import extract_agent_results
 from .legacy.base import create_copilot_agent
+from db.sqlite.manager import session_manager
+from schema.validations.agents_schemas import FeedbackResponseSchema
 from utils.helper_state import get_current_request, stream_final_response
 
 from langgraph.types import Command
@@ -109,8 +109,11 @@ async def human_node(
         # Determine next node based on previous context
         next_node = state.get("previous_node", agent_manager.end)
         
-        logger.info(f"User input collected: {user_input}. Routing to: {next_node}")
+        session_manager.log_message(state["session_id"], 'human', state["human_response"])
+        session_manager.log_message(state["session_id"], 'assistant', state["ai_response"])
         update_history(state, user_input, state["ai_response"])
+        
+        logger.info(f"User input collected: {user_input}. Routing to: {next_node}")
         return Command(
             update=state,
             goto=next_node

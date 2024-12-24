@@ -15,11 +15,11 @@ async def save_chat(state: State):
         message = Message(
             content=history["message"],
             chat_id=chat_id,
-            message_id=async_appwrite.unique,
+            message_id=async_appwrite.get_unique_id(),
             role=history["speaker"],
-            metadata={
+            metadata= str({
                 "timestamp": history["timestamp"]
-            }
+            })
         )
         await create_message(message)
 
@@ -28,14 +28,14 @@ async def create_message(payload: Message):
     return await async_appwrite.create_document(
         message_collection_id,
         payload.__dict__,
-        async_appwrite.unique
+        async_appwrite.get_unique_id()
     )
 
 async def create_chat(payload: Chat):
     return await async_appwrite.create_document(
         chat_collection_id,
         document_data=payload.__dict__,
-        document_id=async_appwrite.unique
+        document_id=async_appwrite.get_unique_id()
     )
 
 async def prepare_database():
@@ -68,7 +68,6 @@ async def prepare_database():
                             await async_appwrite.create_datetime_attribute(
                                 collection_id=chat_collection_id,
                                 key=chat_attribute["key"],
-                                default=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                 required=chat_attribute.get("required", False))
                         elif chat_attribute.get("type") == "json":
                             await async_appwrite.create_string_attribute(

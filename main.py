@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from sys import prefix
 
 from api import chat_router
-from db import prepare_database
+from db import prepare_database, start_session_sync_task
 from _websockets import websocket_router
 from utils.logging import logger
 
@@ -11,13 +11,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         logger.info("Preparing database...")
         await prepare_database()
         logger.info("Database preparation completed.")
+        # await start_session_sync_task()
         yield
     except Exception as e:
         logger.error(f"Error during startup: {e}")

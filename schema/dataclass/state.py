@@ -19,8 +19,8 @@ class History(TypedDict):
 
 class Message(TypedDict):
     content: str
-    chat_id: str
     message_id: str
+    title: str
     role: Literal["human", "assistant"] 
 
 

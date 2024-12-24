@@ -29,8 +29,10 @@ class AsyncAppWriteClient:
         self.storage = Storage(self.client)
         self.users = Users(self.client)
         self._executor = ThreadPoolExecutor(max_workers=10)
-        self.unique = ID.unique()
         # self.initialize_collection(["jobs", "users", "cv_metadata", "scholarships", "internships"])
+
+    def get_unique_id():
+        return ID.unique()
 
     def _run_in_executor(self, func, *args, **kwargs):
         """
@@ -136,7 +138,7 @@ class AsyncAppWriteClient:
     ):
         return await self._run_in_executor(
             self.database.create_datetime_attribute,
-            collection_id, key, required, default, array
+            self.database_id, collection_id, key, required, default, array
         )
 
     async def create_collection(
