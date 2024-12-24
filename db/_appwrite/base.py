@@ -31,7 +31,7 @@ class AsyncAppWriteClient:
         self._executor = ThreadPoolExecutor(max_workers=10)
         # self.initialize_collection(["jobs", "users", "cv_metadata", "scholarships", "internships"])
 
-    def get_unique_id():
+    def get_unique_id(self):
         return ID.unique()
 
     def _run_in_executor(self, func, *args, **kwargs):
