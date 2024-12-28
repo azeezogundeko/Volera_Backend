@@ -62,7 +62,10 @@ class ConnectionManager:
                 "human_response": ws_message.content,
                 "ai_response": "",
                 "session_id": session_id,
-                "ws_id": websocket_id 
+                "ws_id": websocket_id,
+                "chat_count": 0,
+                "chat_finished": False,
+                "chat_limit": 5
             }
             
             await copilot_agent_graph.ainvoke(

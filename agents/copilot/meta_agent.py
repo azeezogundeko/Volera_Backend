@@ -8,6 +8,7 @@ from ..legacy.base import BaseAgent
 from ..prompts.followup import meta_agent_prompt
 from schema import MetaAgentSchema, extract_agent_results
 from schema.dataclass.dependencies import GeminiDependencies
+from utils.decorator import async_retry
 # from utils.exceptions import AgentProcessingError
 
 from fastapi import WebSocket
@@ -33,7 +34,7 @@ class MetaAgent(BaseAgent):
             deps_type=deps_type
             )
 
-    
+    @async_retry(retries=2, delay=0.1)
     @extract_agent_results(agent_manager.meta_agent)
     async def run(self, state: State, user_input)-> RunResult:
         

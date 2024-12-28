@@ -2,6 +2,7 @@ import asyncio
 from typing import List, TypedDict, Dict, Optional
 from fastapi import WebSocket
 from utils.logging import logger
+import json
 
 class ImageMetadata(TypedDict):
     url: str
@@ -96,9 +97,43 @@ class WebSocketManager:
     async def send_json(self, ws_id: int, data: dict) -> None:
         return await self.get_websocket(ws_id).send_json(data)
 
-    async def receive_json(self, ws_id: int) -> dict:
-        return await self.get_websocket(ws_id).receive_json()
-
+    async def receive_json(self, ws_id: int) -> str:
+        """Receive a JSON message from a specific WebSocket connection with timeout"""
+        websocket = self.get_websocket(ws_id)
+        if not websocket:
+            logger.error(f"WebSocket {ws_id} not found")
+            return ""
+        
+        try:
+            # Set a timeout for receiving messages
+            data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+            
+            # Handle dictionary response
+            if isinstance(data, dict):
+                # Handle nested data structure
+                if 'data' in data:
+                    nested_data = data['data']
+                    if isinstance(nested_data, dict):
+                        return nested_data.get('content', '')
+                    return str(nested_data)
+                # Handle direct content
+                if 'content' in data:
+                    return data['content']
+                # Handle message field
+                if 'message' in data:
+                    return data['message']
+                # Return stringified dict if no known fields found
+                return json.dumps(data)
+            
+            # Handle non-dict response
+            return str(data)
+            
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout waiting for WebSocket {ws_id} response")
+            return ""
+        except Exception as e:
+            logger.error(f"Error receiving JSON from WebSocket {ws_id}: {e}", exc_info=True)
+            return ""
 
     async def send_images(self, ws_id: int, images: List[ImageMetadata]) -> None:
         websocket = self.get_websocket(ws_id)
