@@ -10,6 +10,7 @@ APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT", "https://cloud.appwrite.
 APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID")
 MESSAGE_COLLECTION_ID = "messages"
 CHAT_COLLECTION_ID = "chats"
+MONGODB_URL = str(os.getenv("MONGODB_URL"))
 
 
 class ApiKeyConfig:

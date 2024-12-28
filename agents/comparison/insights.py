@@ -42,20 +42,22 @@ async def insight_agent(state: State, config={}) -> RunResult:
 async def insights_agent_node(state: State) -> Command[Literal[agent_manager.end]]:
     try:
         response = await insight_agent(state)
-        ws: WebSocket = state["ws"]
-        result = response.data.content
-        sources = []
-        for r in results:
-            sources.append(
-                {
-                "product_url": r["metadata"]["product_url"],
-                "image_url": r["metadata"]["image_url"]
-                }
-            )
-        await ws.send_json({"type": "sources", "content": sources})
-        await stream_final_response(state["ws"], result)
-        logger.info("Processed Insights agent results and transitioning to the next node.")
-        return Command(goto=agent_manager.end)
+        # Get the WebSocket ID from the state
+        ws_id = state.get("ws_id")
+        if ws_id:
+            result = response.data.content
+            sources = []
+            for r in results:
+                sources.append(
+                    {
+                    "product_url": r["metadata"]["product_url"],
+                    "image_url": r["metadata"]["image_url"]
+                    }
+                )
+            await WebSocket(ws_id).send_json({"type": "sources", "content": sources})
+            await stream_final_response(ws_id, result)
+            logger.info("Processed Insights agent results and transitioning to the next node.")
+            return Command(goto=agent_manager.end)
 
     except Exception as e:
         logger.error("Unexpected error during search agent node processing.", exc_info=True)

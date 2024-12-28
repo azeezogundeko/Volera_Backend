@@ -106,7 +106,7 @@ class FeedbackResponseSchema(BaseSchema):
 class MetaAgentSchema(BaseSchema):
     action: str
     content: str
-    requirements: List[str]
+    requirements: RequirementSchema
 
 
 class SearchAgentSchema(BaseSchema):

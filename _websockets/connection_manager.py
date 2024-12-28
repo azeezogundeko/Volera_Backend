@@ -1,80 +1,142 @@
-import asyncio
-import uuid
-from fastapi import WebSocket
-from typing import List, Optional
-from urllib.parse import urlparse, parse_qs
+from typing import List
+
+from agents import copilot_agent_graph
+from db.sqlite.manager import session_manager
+from _websockets.schema import WebSocketMessage, MessageData
+from utils.websocket import WebSocketManager
+# from .message_handler import handle_message
 
 from utils.logging import logger
-from .message_handler import handle_message
+from fastapi import WebSocket
 
 
 class ConnectionManager:
-    def __init__(self):
+    def __init__(
+        self 
+    ):
+        self.websocket_manager = WebSocketManager()
         self.active_connections: List[WebSocket] = []
         self.connection_count: int = 0
 
+
     async def connect(self, websocket: WebSocket) -> None:
-        """
-        Accept a new WebSocket connection and add it to active connections.
-        
-        Args:
-            websocket (WebSocket): The incoming WebSocket connection
-        """
         await websocket.accept()
         self.active_connections.append(websocket)
         self.connection_count += 1
         logger.info(f"New connection established. Total active connections: {self.connection_count}")
 
     def disconnect(self, websocket: WebSocket) -> None:
-        """
-        Remove a WebSocket connection from active connections.
-        
-        Args:
-            websocket (WebSocket): The WebSocket connection to remove
-        """
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
             self.connection_count -= 1
             logger.info(f"Connection closed. Remaining active connections: {self.connection_count}")
+    
+    
+    def start_session(self, user_id: str, ws_message: MessageData):
+        metadata = {
+            "focus_mode": ws_message.focus_mode,
+            "optimization_mode": ws_message.optimization_mode,
+            "title": self.generate_title_from_content(ws_message.content),
+            "chat_id": ws_message.chat_id
+        }
+
+        session_id = session_manager.start_session(user_id, metadata)
+        return session_id
 
 
-    async def handle_connection(self, websocket: WebSocket, path: Optional[str]) -> None:
-        """
-        Handle a new WebSocket connection, including message processing.
-        
-        Args:
-            websocket (WebSocket): The incoming WebSocket connection
-            path (Optional[str]): The connection path with potential query parameters
-        """
-        user_id = str(uuid.uuid4())
-
+    async def copilot_mode(self, user_id ,ws_message: MessageData, websocket: WebSocket) -> None:
         try:
-            # Parse query parameters if path is provided
-            query_params = {}
-            if path:
-                parsed_url = urlparse(path)
-                query_params = parse_qs(parsed_url.query)
+            # result = await copilot_agent_graph()
+            processing_config = {
+                "configurable": {
+                    "thread_id": user_id,
+                }
+            }
+            session_id = self.start_session(user_id, ws_message)
 
-            logger.info(f"New connection: user_id={user_id}, query_params={query_params}")
-
-            # Handle incoming messages
-            async for message in websocket.iter_text():
-                await handle_message(message, websocket, user_id)
+            websocket_id = self.websocket_manager.add_connection(websocket)
+            # Create initial state
+            state = {
+                "agent_results": {},
+                "ws_message": ws_message.model_dump(),
+                "human_response": ws_message.content,
+                "ai_response": "",
+                "session_id": session_id,
+                "ws_id": websocket_id 
+            }
+            
+            await copilot_agent_graph.ainvoke(
+                state,
+                processing_config,
+            )
+            session_manager.end_session(session_id, status='completed')
+            self.websocket_manager.remove_connection(websocket_id)
 
         except Exception as e:
-            logger.error(f"WebSocket connection error for user_id={user_id}", exc_info=True)
-            try:
-                await websocket.send_json({
-                    "type": "error",
-                    "data": "Internal server error.",
-                    "key": "INTERNAL_SERVER_ERROR",
-                })
-            except Exception:
-                pass
-        finally:
-            signal_task.cancel()  # Cancel signal task if active
-            self.disconnect(websocket)
-            logger.info(f"Connection closed for user_id={user_id}")
+            self.websocket_manager.remove_connection(websocket_id)
+            logger.error(f"Error in message handling: {e}", exc_info=True)
+            session_manager.end_session(session_id, 'error')
+            import traceback
+            print(traceback.format_exc())
+            await websocket.send_json({
+                "type": "error",
+                "message": "Internal server error"
+            })
+        
+
+    async def comprison_mode(self, websocket: WebSocket) -> None:
+        ...
+
+    async def handle_message(
+        self, 
+        data: WebSocketMessage, 
+        websocket: WebSocket, 
+        user_id: str
+        ):
+        print(data.data.focus_mode)
+        if data.data.focus_mode == "copilot":
+            ws_message = data.data
+            await self.copilot_mode(user_id, ws_message, websocket)
+        elif data.data.focus_mode == "comparison":
+            await self.comprison_mode(websocket)
+        
+
+
+    def generate_title_from_content(self, content: str, max_length: int = 10) -> str:
+        """
+        Generate a concise title from the content
+        
+        Args:
+            content (str): Full content text
+            max_length (int): Maximum title length
+        
+        Returns:
+            str: Summarized title
+        """
+        # Remove extra whitespaces
+        content = ' '.join(content.split())
+        
+        # Strategy 1: Use first few words if content is short
+        if len(content) <= max_length:
+            return content[:max_length]
+        
+        # Strategy 2: Extract key phrases or first meaningful sentence
+        sentences = content.split('.')
+        
+        # Remove very short or empty sentences
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 5]
+        
+        if sentences:
+            # Use first sentence, truncated
+            first_sentence = sentences[0]
+            return first_sentence[:max_length] + ('...' if len(first_sentence) > max_length else '')
+        
+        # Fallback: truncate content
+        return content[:max_length] + '...'
+
+
+
+    
 
 
 manager = ConnectionManager()

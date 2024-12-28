@@ -7,12 +7,13 @@ from .system.reviewer import reviewer_agent_prompt
 from .system.policy import policy_assistant_prompt
 from .system.writer_prompt import writer_agent_prompt
 from .system.response import agent_system_prompt as response_agent_prompt
-# from .system.meta import meta_followup_agent_prompt as meta_prompt
+from .system.followup import followup_agent_prompt
+from .system.meta import meta_agent_prompt
 from .system.web import web_search_agent_prompt
 
 
 __all__ = [
-    "meta_prompt",
+    "meta_agent_prompt",
     "comparison_prompt",
     "search_agent_prompt",
     "planner_agent_prompt",
@@ -20,7 +21,7 @@ __all__ = [
     "reviewer_agent_prompt",
     "insights_agent_prompt",
     "policy_assistant_prompt",
-    "web_search_agent_prompt",
+    "followup_agent_prompt",
     "writer_agent_prompt",
     "web_search_summary_prompt",
 ]

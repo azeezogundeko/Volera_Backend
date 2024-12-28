@@ -26,10 +26,12 @@ from schema.dataclass.decourator import extract_agent_results
 from pydantic_ai.result import RunResult
 from schema.validations.agents_schemas import BaseSchema
 from pydantic_ai import Agent
+from langgraph.types import Command
+from utils.websocket import WebSocketManager
 
 BaseSchemaType = TypeVar('BaseSchemaType', bound=BaseSchema)
 
-class BaseAgent(ABC):
+class BaseAgent:
     def __init__(
         self, 
         name: str,
@@ -42,11 +44,12 @@ class BaseAgent(ABC):
     ):
         self.timeout = timeout
         self.agent_name = name
+        self.websocket_manager = WebSocketManager()
         self.llm = Agent(
             name=name,
             model=model,
             system_prompt=system_prompt,
-            dependencies=deps_type,
+            deps_type=deps_type,
             result_type=result_type,
             retries=retries
         )
@@ -57,6 +60,42 @@ class BaseAgent(ABC):
 
     async def __call__(self, state: State, config: dict = {}) -> BaseSchemaType:
         raise NotImplementedError
+
+    async def evaluate_chat_limit(self, state: State):
+        CHAT_LIMIT_MESSAGES = [
+        "Thank you for your engaging questions! We've reached the end of our session. Feel free to start a new conversation anytime.",
+        "I've enjoyed helping you today! For a fresh perspective, let's start a new conversation.",
+        "We've had a great discussion! To ensure the best experience, please start a new session for more questions.",
+        "Thanks for the wonderful interaction! To continue exploring, please begin a new chat session.",
+        "It's been a pleasure assisting you! For more questions, feel free to start a fresh conversation.",
+        "We've covered quite a bit today! For optimal assistance, let's continue in a new session.",
+        "Thank you for your thoughtful questions! To maintain quality, please start a new conversation.",
+        "I've enjoyed our productive session! For further assistance, let's begin anew.",
+        "We've had an informative exchange! For the best experience, please initiate a new chat.",
+        "Thanks for engaging with me! To continue our discussion, let's start fresh.",
+        "It's been great helping you today! For more insights, please begin a new session.",
+        "We've explored many topics! For continued assistance, let's start a new conversation.",
+        "Thank you for your interest! For optimal support, please initiate a fresh session.",
+        "I've enjoyed our discussion! For more questions, let's begin anew.",
+        "We've had a meaningful exchange! Please start a new session for further assistance.",
+        "Thanks for your questions! For the best experience, let's continue in a fresh conversation.",
+        "It's been a pleasure chatting! For more help, please start a new session.",
+        "We've covered several topics today! For continued support, let's begin fresh.",
+        "Thank you for your engagement! For optimal assistance, please start a new conversation.",
+        "I've enjoyed helping you! For more questions, let's start a new session together."
+    ]
+        chat_limit = state["chat_limit"]
+        chat_count = state["chat_count"]
+        chat_finished = state["chat_finished"]
+
+        if chat_count >= chat_limit or chat_finished:
+            import random
+            end_message = random.choice(CHAT_LIMIT_MESSAGES)
+            await self.websocket_manager.stream_final_response(state["ws_id"], end_message)
+            return Command(goto=agent_manager.end, update=state)
+
+        state["chat_count"] = chat_count + 1
+
 
 
 

@@ -12,7 +12,7 @@ from schema import (
 )
 from .logging import logger
 from schema import WSMessage
-from fastapi import WebSocket
+from .websocket import websocket_manager
 from agents.state import State
 
 
@@ -85,7 +85,7 @@ def get_user_ai_history(state: State) -> List[str]:
     return user_input, ai_response
    
 async def stream_final_response(
-    websocket: WebSocket, 
+    ws_id: int, 
     final_response: str,
     delay: float = 0.1
 ):
@@ -93,47 +93,28 @@ async def stream_final_response(
     Stream the final response to the WebSocket client word by word.
 
     Args:
-        websocket (WebSocket): Active WebSocket connection
+        ws_id (int): WebSocket ID
         final_response (str): Complete response to stream
         delay (float): Delay between words to simulate natural typing
     """
-    try:
-        # Preprocess the response
-        words = final_response.strip().split()
-        
-        # Stream response word by word
-        for word in words:
-            await websocket.send_json({
-                "type": "message",
-                "content": word + " "
-            })
-            await asyncio.sleep(delay)
-        
-        # Send final message marker
-        await websocket.send_json({
-            "type": "messageEnd",
-            "content": final_response,
-        })
+    await websocket_manager.stream_final_response(ws_id, final_response)
 
-    except Exception as e:
-        logger.error(f"Error streaming final response: {e}", exc_info=True)
-        await send_error_response(
-            websocket, 
-            "Error streaming response", 
-            "STREAMING_ERROR"
-        )
-        
 async def send_error_response(
-    websocket: WebSocket, 
+    ws_id: int, 
     message: str, 
     error_key: str
 ):
     """Send standardized error response to WebSocket client."""
-    await websocket.send_json({
+    error_payload = {
         "type": "error",
-        "data": message,
-        "key": error_key,
-    })
+        "error": {
+            "key": error_key,
+            "message": message
+        }
+    }
+    websocket = websocket_manager.get_websocket(ws_id)
+    if websocket:
+        await websocket.send_json(error_payload)
 
 
 

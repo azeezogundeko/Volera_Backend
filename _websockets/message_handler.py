@@ -1,55 +1,56 @@
 import json
 
-from graph import agent_graph 
+from agents import copilot_agent_graph
 from utils.logging import logger
-from uuid import uuid4
-from schema import History, WSMessage, MessageDict
+from schema import History, MessageDict
 from db.sqlite.manager import session_manager
-from db import push_sessions_to_appwrite, async_appwrite
+from db import push_sessions_to_appwrite
 
 from fastapi import WebSocket
 
-def parse_data(data: dict, user_id)-> WSMessage:
-    print(data)
+# def parse_data(data: dict, user_id)-> MessageDict:
+#     print(data)
     
-    message= MessageDict(
-        chat_id=data["data"].get("chatId", None),
-        message_id=data["data"]["messageId"],
-        content=data["data"]["content"],
-        title=generate_title_from_content(data["data"]["content"]),
-        role="human"
-    )
-    histories = []
-    for h in data["history"]:
-        history = History(
-            speaker=h["speaker"],
-            message=h["message"],
-            timestamp=h["timestamp"]
-        )
-        histories.append(history)
-    ws_message = WSMessage(
-        user_id= user_id,
-        focus_mode="copilot",
-        files=data["fileIds"],
-        optimization_mode=data["optimizationMode"],
-        history=histories,
-        message=message           
-    )
-    
-    return ws_message
+#     message= MessageDict(
+#         chat_id=data["data"].get("chatId", None),
+#         message_id=data["data"]["messageId"],
+#         content=data["data"]["content"],
+#         title=generate_title_from_content(data["data"]["content"]),
+#         role="human"
+#     )
+
+#     histories = []
+#     for h in data["history"]:
+#         history = History(
+#             speaker=h["speaker"],
+#             message=h["message"],
+#             timestamp=h["timestamp"]
+#         )
+#         histories.append(history)
+#     ws_message = MessageDict(
+#         user_id= user_id,
+#         focus_mode=data["data"]["focusMode"],
+#         files=data["fileIds"],
+#         optimization_mode=data["optimizationMode"],
+#         history=histories,
+#         message=message           
+#     )
+#     print(ws_message)
+#     return ws_message
 
 
 async def handle_message(message: str, websocket: WebSocket, user_id: str):
-    try:
-        # Parse and validate incoming message
-        parsed_message = json.loads(message)
-        parsed_state = parse_data(parsed_message, user_id)
-    except json.JSONDecodeError:
-        await websocket.send_json({
-            "type": "error",
-            "message": "Invalid JSON format"
-        })
-        return
+    # try:
+    #     # Parse and validate incoming message using Pydantic
+    #     ws_message = WebSocketMessage.parse_raw(message)
+    #     parsed_state = parse_data(ws_message.data.dict(), user_id)
+    # except Exception as e:
+    #     print(str(e))
+    #     await websocket.send_json({
+    #         "type": "error",
+    #         "message": "Invalid JSON format"
+    #     })
+    #     return
 
     # Stream agent graph processing
     processing_config = {
@@ -66,7 +67,8 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
     session_id = session_manager.start_session(user_id, metadata)
     session_manager.log_message(session_id, 'human', parsed_state["message"]["content"])
     try:
-        await agent_graph.ainvoke(
+        result = await copilot_agent_graph()
+        await result.ainvoke(
             {
                 "ws": websocket,
                 "ws_message": parsed_state,
@@ -81,7 +83,7 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
     except Exception as e:
         logger.error(f"Error in message handling: {e}", exc_info=True)
         session_manager.end_session(session_id, 'error')
-        await push_sessions_to_appwrite()
+        # await push_sessions_to_appwrite()
         await websocket.send_json({
             "type": "error",
             "message": "Internal server error"

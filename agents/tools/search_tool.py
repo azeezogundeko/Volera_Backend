@@ -12,7 +12,8 @@ async def search_internet_tool(
     filter: FilterSchema,
     n_k: int,
     description: str,
-    mode: str
+    mode: str,
+    type: str
     ):
     async with AsyncClient(timeout=200) as client:  # Set a timeout for all network calls
         # Add the task

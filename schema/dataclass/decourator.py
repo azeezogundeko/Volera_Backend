@@ -1,11 +1,11 @@
 import time
-from typing import TypedDict, TypeVar
+from typing import TypedDict, Callable
 from .state import ( 
     TaskInfo, 
     TokenUsage, 
     AgentMetadata,
     Performance, 
-    AgentResult, 
+    AgentResult,
     InputOutput,
     )
 from typing import Callable
@@ -25,37 +25,39 @@ class State(TypedDict):
     message_history: dict
 
 def to_dict(schema):
-        def convert(obj):
-            if isinstance(obj, list):
-                return [convert(item) for item in obj]
-            elif hasattr(obj, "__dict__"):
-                return {key: convert(value) for key, value in obj.__dict__.items()}
-            else:
-                return obj
-
-        result = {}
-
-        if isinstance(schema, list):
-            result[schema[0].__class__.__name__.lower()] = [convert(item) for item in schema]
-        elif hasattr(schema, "__dict__"):
-            result[schema.__class__.__name__.lower()] = convert(schema)
+    def convert(obj):
+        if isinstance(obj, list):
+            return [convert(item) for item in obj]
+        elif hasattr(obj, "__dict__"):
+            return {key: convert(value) for key, value in obj.__dict__.items()}
         else:
-            result[str(schema)] = schema
-        return result
+            return obj
 
+    result = {}
 
-# BaseStateType = TypeVar('BaseStateType', bound=State)
+    if isinstance(schema, list):
+        result[schema[0].__class__.__name__.lower()] = [convert(item) for item in schema]
+    elif hasattr(schema, "__dict__"):
+        result[schema.__class__.__name__.lower()] = convert(schema)
+    else:
+        result[str(schema)] = schema
+    return result
 
 
 def extract_agent_results(agent_name: str):
     """
     Decorator to extract agent execution metadata, including timing, tokens, and status.
+    Can be used with both regular functions and class methods.
     """
     def decorator(func: Callable):
         @wraps(func)
-        async def wrapper(state: State, *args, **kwargs) -> AgentResult:
-            start_time = time.time()
+        async def wrapper(*args, **kwargs) -> AgentResult:
+            # For class methods, first arg is self
+            self = args[0] if args else None
+            # For class methods, state will be the second argument
+            state = args[1] if len(args) > 1 else kwargs.get('state')
 
+            start_time = time.time()
             if 'agent_results' not in state:
                 state['agent_results'] = {}
             # Initialize TaskInfo and TokenUsage
@@ -64,9 +66,14 @@ def extract_agent_results(agent_name: str):
             
             try:
                 # Execute the wrapped async function
-                response = await func(state, *args, **kwargs)
+                if self:
+                    # If it's a class method
+                    response = await func(self, state, *(args[2:]), **kwargs)
+                else:
+                    # If it's a regular function
+                    response = await func(state, *args[1:], **kwargs)
 
-                cost =  response.cost()
+                cost = response.cost()
                 tokens["input_tokens"] = cost.request_tokens
                 tokens["output_tokens"] = cost.response_tokens
                 tokens["total_tokens"] = cost.total_tokens

@@ -6,7 +6,7 @@ from utils.logging import logger
 from utils.helper_state import update_history
 from .config import agent_manager
 from db.sqlite.manager import session_manager
-from utils.websocket import stream_ai_response
+from utils.websocket import websocket_manager
 
 from langgraph.types import Command
 from fastapi import WebSocket
@@ -15,20 +15,18 @@ from fastapi import WebSocket
 async def human_node(
     state: State, config = {}
 ) -> Command[Literal[
-    agent_manager.copilot_mode,
+    agent_manager.planner_agent,
     agent_manager.meta_agent,
     agent_manager.writer_agent,
-    agent_manager.search_agent,
-    agent_manager.policy_agent,
     ]]:
     try:
-        ws: WebSocket = state["ws"]
         next_node = state.get("next_node", agent_manager.end)
-        
-        await stream_ai_response(ws,state["ai_response"])
+        ws_id = state["ws_id"]
+        await websocket_manager.stream_final_response(ws_id, state["ai_response"])
+        # await stream_ai_response(ws,state["ai_response"])
 
         # Receive and parse the response
-        response_text = await ws.receive_text()
+        response_text = await websocket_manager.receive_json(ws_id)
         
         # Try to parse the response, fallback to raw text
         try:

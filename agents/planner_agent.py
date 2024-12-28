@@ -31,7 +31,7 @@ class PlannerAgent(BaseAgent):
             retries=3,
             model=model,
             timeout=timeout,
-            dependencies=deps_type,
+            deps_type=deps_type,
             result_type=result_type,
             system_prompt=system_prompt,
         )
@@ -62,12 +62,17 @@ class PlannerAgent(BaseAgent):
         )
 
     async def __call__(self, state: State, config: dict = {}) -> Command[Literal[agent_manager.writer_agent]]:
-        result = await self.run()
         try: 
+            ws_id = state["ws_id"]
+            result = await self.run(state)
+
             # started searching the internet
-            response = await self.search(result)
-            # searched ... no of websites
+            await self.websocket_manager.send_progress(ws_id, "searching", 0)
+            response = await self.search(result.data)
             
+            await self.websocket_manager.send_progress(ws_id, "searching", len(response))
+        
+
         except NoItemFound as e:
             state["ai_response"] = self.get_random_message()
             state["next_node"] = agent_manager.meta_agent
@@ -105,3 +110,6 @@ class PlannerAgent(BaseAgent):
         ]
         import random
         return random.choice(messages)
+
+
+planner_agent_node = PlannerAgent()
