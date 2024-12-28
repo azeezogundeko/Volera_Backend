@@ -2,14 +2,18 @@ import json
 
 from graph import agent_graph 
 from utils.logging import logger
-from schema import History, WSMessage, Message
+from uuid import uuid4
+from schema import History, WSMessage, MessageDict
 from db.sqlite.manager import session_manager
-from db import push_sessions_to_appwrite
+from db import push_sessions_to_appwrite, async_appwrite
 
 from fastapi import WebSocket
 
 def parse_data(data: dict, user_id)-> WSMessage:
-    message= Message(
+    print(data)
+    
+    message= MessageDict(
+        chat_id=data["data"].get("chatId", None),
         message_id=data["data"]["messageId"],
         content=data["data"]["content"],
         title=generate_title_from_content(data["data"]["content"]),
@@ -57,6 +61,7 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
         "focus_mode": parsed_state["focus_mode"],
         "optimization_mode": parsed_state["optimization_mode"],
         "title": parsed_state["message"]["title"],
+        "chat_id": parsed_state["message"]["chat_id"]
     }
     session_id = session_manager.start_session(user_id, metadata)
     session_manager.log_message(session_id, 'human', parsed_state["message"]["content"])
@@ -72,11 +77,11 @@ async def handle_message(message: str, websocket: WebSocket, user_id: str):
             processing_config,
         )
         session_manager.end_session(session_id, status='completed')
+        await push_sessions_to_appwrite()
     except Exception as e:
         logger.error(f"Error in message handling: {e}", exc_info=True)
         session_manager.end_session(session_id, 'error')
         await push_sessions_to_appwrite()
-
         await websocket.send_json({
             "type": "error",
             "message": "Internal server error"

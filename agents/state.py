@@ -9,14 +9,13 @@ from schema import (
 
 from fastapi import WebSocket
 
-
-
 class State(TypedDict):
     ws: WebSocket
     final_result: Dict[str,  Result]
     chat_limit: int = 5
     chat_finished: bool = False
     previous_node: str = ""
+    next_node: str = ""
     previous_search_queries: List[str] = []
     ws_message: WSMessage
     agent_results: Dict[str, AgentResult] = {}

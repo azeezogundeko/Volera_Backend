@@ -4,8 +4,9 @@ from typing import List, Optional
 from db import async_appwrite
 from appwrite.query import Query
 from utils.logging import logger
-from db._appwrite.chat import chat_collection_id, message_collection_id, create_chat, create_message
+from db._appwrite.chat import create_chat, create_message
 from schema.dataclass.database import Chat, Message, File
+from config import CHAT_COLLECTION_ID, MESSAGE_COLLECTION_ID
 
 from fastapi import Body
 from fastapi import HTTPException, APIRouter
@@ -125,17 +126,41 @@ async def end_chat_session(
 @router.get("/")
 async def get_chats():
     response = await async_appwrite.list_documents(
-        chat_collection_id,
+        CHAT_COLLECTION_ID,
         queries=[Query.order_desc("$createdAt")]
     )
-    return {"chats": response["documents"]}
+    response = {"chats": response["documents"]}
+    return response
+
+def format_to_markdown(content):
+    import re
+
+    formatted_content = content.replace('\\n', '\n')
+    
+    # Optional: Additional markdown cleanup and formatting
+    # Remove any excessive whitespace
+    formatted_content = re.sub(r'\n{3,}', '\n\n', formatted_content)
+    
+    # Ensure consistent list formatting
+    formatted_content = re.sub(r'^(\s*)\*\s*', r'\1- ', formatted_content, flags=re.MULTILINE)
+    print(formatted_content)
+    
+    return formatted_content
+
+def format_dt(data):
+    for message in data['messages']:
+        original_content = message.get('content', '')
+        markdown_content = format_to_markdown(original_content)
+        message['formatted_markdown'] = markdown_content
+
+    return data
 
 # Route to get specific chat by ID
 @router.get("/{chat_id}")
 async def get_chat(chat_id: str):
     # Get the chat document
     chat_exists = await async_appwrite.get_document(
-        chat_collection_id, 
+        CHAT_COLLECTION_ID, 
         chat_id)
     
     # If the chat doesn't exist, return a 404 error
@@ -144,22 +169,26 @@ async def get_chat(chat_id: str):
 
     # Get all messages related to the chat
     chat_messages = await async_appwrite.list_documents(
-        chat_collection_id,
-        queries=[Query.equal("chatId", chat_id)]
+        MESSAGE_COLLECTION_ID,  # Use the correct collection for messages
+        queries=[Query.equal("chat_id", chat_id)]
     )
 
-    return {"chat": chat_exists, "messages": chat_messages["documents"]}
+    response = {
+        "chat": chat_exists, 
+        "messages": chat_messages["documents"]
+    }
+    return format_dt(response)
 
 # Route to delete a chat by ID
 @router.delete("/{chat_id}")
 async def delete_chat(chat_id: str):
 
     # Delete chat document
-    await async_appwrite.delete_document(chat_collection_id, chat_id)
+    await async_appwrite.delete_document(CHAT_COLLECTION_ID, chat_id)
 
     # Get all related messages and delete them
     messages = await async_appwrite.list_documents(
-        message_collection_id,
+        MESSAGE_COLLECTION_ID,
         queries=[Query.equal("chatId", chat_id)]
     )
     

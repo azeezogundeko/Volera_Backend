@@ -1,10 +1,13 @@
+from abc import ABC
+from typing import TypeVar
+
 from ..config import agent_manager
 from prompts import (
     search_agent_prompt, 
     policy_assistant_prompt, 
     planner_agent_prompt
     )
-from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies
+from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies, BaseDependencies
 from schema.validations.agents_schemas import( 
     FeedbackResponseSchema,
     PlannerAgentSchema, 
@@ -17,8 +20,64 @@ from schema.validations.agents_schemas import(
     HumanSchema,
     WebSchema,
     )
+from ..state import State
 
+from schema.dataclass.decourator import extract_agent_results
+from pydantic_ai.result import RunResult
+from schema.validations.agents_schemas import BaseSchema
 from pydantic_ai import Agent
+
+BaseSchemaType = TypeVar('BaseSchemaType', bound=BaseSchema)
+
+class BaseAgent(ABC):
+    def __init__(
+        self, 
+        name: str,
+        model: str,
+        system_prompt: str,
+        result_type: BaseSchemaType,
+        deps_type: BaseDependencies,
+        timeout:int = 10,
+        retries: int = 3,
+    ):
+        self.timeout = timeout
+        self.agent_name = name
+        self.llm = Agent(
+            name=name,
+            model=model,
+            system_prompt=system_prompt,
+            dependencies=deps_type,
+            result_type=result_type,
+            retries=retries
+        )
+
+    @extract_agent_results
+    async def run(self) -> RunResult:
+        raise NotImplementedError
+
+    async def __call__(self, state: State, config: dict = {}) -> BaseSchemaType:
+        raise NotImplementedError
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def create_meta_agent(prompt)-> Agent:
@@ -154,4 +213,3 @@ def create_comparison_agent(prompts)-> Agent:
         deps_type=GroqDependencies,
         result_type=ComparisonSchema
     )
-

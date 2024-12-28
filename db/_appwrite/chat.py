@@ -1,12 +1,13 @@
 from datetime import datetime
+
+from langgraph.channels.base import C
 from .base import async_appwrite
 from agents.state import State
 from schema.dataclass.database import Chat, Message, MESSAGE_ATTRIBUTES, CHAT_ATTRIBUTES
 from utils.logging import logger
 from utils.exceptions import DatabaseInintilaztionError
+from config import CHAT_COLLECTION_ID, MESSAGE_COLLECTION_ID
 
-message_collection_id = "messages"
-chat_collection_id = "chats"
 
 async def save_chat(state: State):
     chat_id = state["ws_message"]["message"]["chat_id"]
@@ -26,14 +27,14 @@ async def save_chat(state: State):
 
 async def create_message(payload: Message):
     return await async_appwrite.create_document(
-        message_collection_id,
-        payload.__dict__,
+        MESSAGE_COLLECTION_ID,
+        payload.to_dict(),
         async_appwrite.get_unique_id()
     )
 
 async def create_chat(payload: Chat):
     return await async_appwrite.create_document(
-        chat_collection_id,
+        CHAT_COLLECTION_ID,
         document_data=payload.__dict__,
         document_id=async_appwrite.get_unique_id()
     )
@@ -42,14 +43,14 @@ async def prepare_database():
     try:
         # Chats Collection Preparation
         try:
-            await async_appwrite.get_collection(chat_collection_id)
+            await async_appwrite.get_collection(CHAT_COLLECTION_ID)
             logger.info('Chats collection already exists')
         except Exception as e:
             logger.warning(f'Attempting to create Chats collection: {e}')
             try:
                 # Create collection
                 await async_appwrite.create_collection(
-                    collection_id=chat_collection_id,
+                    collection_id=CHAT_COLLECTION_ID,
                     name='Chats'
                 )
                 logger.info('Created Chats collection')
@@ -59,25 +60,25 @@ async def prepare_database():
                     try:
                         if chat_attribute.get("type") == "array":
                             await async_appwrite.create_string_attribute(
-                                collection_id=chat_collection_id,
+                                collection_id=CHAT_COLLECTION_ID,
                                 key=chat_attribute["key"],
                                 size=chat_attribute.get("size", 16384),  # Default size for arrays
                                 required=chat_attribute.get("required", False),
                                 array=True)
                         elif chat_attribute.get("type") == "datetime":
                             await async_appwrite.create_datetime_attribute(
-                                collection_id=chat_collection_id,
+                                collection_id=CHAT_COLLECTION_ID,
                                 key=chat_attribute["key"],
                                 required=chat_attribute.get("required", False))
                         elif chat_attribute.get("type") == "json":
                             await async_appwrite.create_string_attribute(
-                                collection_id=chat_collection_id,
+                                collection_id=CHAT_COLLECTION_ID,
                                 key=chat_attribute["key"],
                                 size=16384,  # Large size for JSON
                                 required=chat_attribute.get("required", False))
                         else:
                             await async_appwrite.create_string_attribute(
-                                collection_id=chat_collection_id,
+                                collection_id=CHAT_COLLECTION_ID,
                                 key=chat_attribute["key"],
                                 size=chat_attribute.get("size", 255),
                                 required=chat_attribute.get("required", False)
@@ -92,14 +93,14 @@ async def prepare_database():
 
         # Messages Collection Preparation
         try:
-            await async_appwrite.get_collection(message_collection_id)
+            await async_appwrite.get_collection(MESSAGE_COLLECTION_ID)
             logger.info('Messages collection already exists')
         except Exception as e:
             logger.warning(f'Attempting to create Messages collection: {e}')
             try:
                 # Create collection
                 await async_appwrite.create_collection(
-                    collection_id=message_collection_id,
+                    collection_id=MESSAGE_COLLECTION_ID,
                     name='Messages'
                 )
                 logger.info('Created Messages collection')
@@ -109,26 +110,26 @@ async def prepare_database():
                     try:
                         if attr.get("type") == "array":
                             await async_appwrite.create_string_attribute(
-                                collection_id=message_collection_id,
+                                collection_id=MESSAGE_COLLECTION_ID,
                                 key=attr["key"],
                                 size=attr.get("size", 16384),
                                 required=attr.get("required", False),
                                 array=True)
                         elif attr.get("type") == "datetime":
                             await async_appwrite.create_datetime_attribute(
-                                collection_id=message_collection_id,
+                                collection_id=MESSAGE_COLLECTION_ID,
                                 key=attr["key"],
                                 default=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                 required=attr.get("required", False))
                         elif attr.get("type") == "json":
                             await async_appwrite.create_string_attribute(
-                                collection_id=message_collection_id,
+                                collection_id=MESSAGE_COLLECTION_ID,
                                 key=attr["key"],
                                 size=16384,  # Large size for JSON
                                 required=attr.get("required", False))
                         else:
                             await async_appwrite.create_string_attribute(
-                                collection_id=message_collection_id,
+                                collection_id=MESSAGE_COLLECTION_ID,
                                 key=attr["key"],
                                 size=attr.get("size", 255),
                                 required=attr.get("required", False)

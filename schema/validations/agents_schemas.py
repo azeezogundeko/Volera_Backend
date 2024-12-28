@@ -35,6 +35,7 @@ class FilterSchema(BaseSchema):
     discount: DiscountRangeSchema = Field(default_factory=DiscountRangeSchema)
     attributes: FilterAttributesSchema = Field(default_factory=FilterAttributesSchema)
 
+
 class PlannerAgentSchema(BaseSchema):
     search_query: str = ""
     product_retriever_query: str = Field(
@@ -50,6 +51,10 @@ class PlannerAgentSchema(BaseSchema):
     writer_instructions: List[str] = Field(default_factory=list)
     search_strategy: str = "adaptive"
 
+
+
+
+    
 class SearchParamSchema(BaseSchema):
     query: str
     filter: FilterAttributesSchema = Field(default_factory=FilterAttributesSchema)
@@ -59,35 +64,38 @@ class SearchParamSchema(BaseSchema):
 
 class RequirementSchema(BaseSchema):
     product_category: str
-    product_type: str 
+    key_preferences: List[str] 
     purpose: str
-    preferred_brands: List[str]
-    specific_features: List[str] 
-    budget: str
 
-    @field_validator('preferred_brands', 'specific_features', mode='before')
-    @classmethod
-    def ensure_list(cls, v):
-        if isinstance(v, str):
-            return [v]
-        return v or []
 
-    @field_validator('product_type', mode='before')
-    @classmethod
-    def set_default_if_empty(cls, v):
-        return v if v else ""
+# class MetaAgentSchema(B)
+    # preferred_brands: List[str]
+    # specific_features: List[str] 
+    # budget: str
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-        k: v for k, v in self.model_dump().items() 
-        if v is not None and v != "" and v != []
-    }
+    # @field_validator('preferred_brands', 'specific_features', mode='before')
+    # @classmethod
+    # def ensure_list(cls, v):
+    #     if isinstance(v, str):
+    #         return [v]
+    #     return v or []
 
-    class Config:
-        # Allow population by alias
-        allow_population_by_field_name = True
-        # Extra fields will be ignored instead of raising an error
-        extra = 'ignore'
+    # @field_validator('product_type', mode='before')
+    # @classmethod
+    # def set_default_if_empty(cls, v):
+    #     return v if v else ""
+
+    # def to_dict(self) -> Dict[str, Any]:
+    #     return {
+    #     k: v for k, v in self.model_dump().items() 
+    #     if v is not None and v != "" and v != []
+    # }
+
+    # class Config:
+    #     # Allow population by alias
+    #     allow_population_by_field_name = True
+    #     # Extra fields will be ignored instead of raising an error
+    #     extra = 'ignore'
 
 class FeedbackResponseSchema(BaseSchema):
     action: Literal["__user__", "__stop__"]
@@ -95,10 +103,10 @@ class FeedbackResponseSchema(BaseSchema):
     requirements: RequirementSchema
 
 
-class MetaAgentSchema(BaseModel):
+class MetaAgentSchema(BaseSchema):
     action: str
     content: str
-    instructions: List[str]
+    requirements: List[str]
 
 
 class SearchAgentSchema(BaseSchema):
@@ -112,7 +120,7 @@ class InsightsSchema(BaseSchema):
     content: str
 
 class ReviewerSchema(BaseSchema):
-    content: str
+    content: str = Field(description="The content of the writing")
 
 class PolicySchema(BaseSchema):
     compliant: bool

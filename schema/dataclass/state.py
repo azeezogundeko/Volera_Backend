@@ -17,7 +17,8 @@ class History(TypedDict):
     timestamp: datetime = field(default_factory=datetime.now)
 
 
-class Message(TypedDict):
+class MessageDict(TypedDict):
+    chat_id: str | None
     content: str
     message_id: str
     title: str
@@ -28,7 +29,7 @@ class WSMessage(TypedDict):
     user_id: str
     focus_mode: str
     files: List[str]
-    message: Dict[str, Message]
+    message: Dict[str, MessageDict]
     history: List[Dict[str, History]]
     optimization_mode: Literal["fast", "balanced", "quality"] 
 

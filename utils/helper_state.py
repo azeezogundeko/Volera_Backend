@@ -31,22 +31,6 @@ def append_ws_message(state: State, message: Any) -> None:
         state["ws_message"] = []
     state["ws_message"].append(message)
 
-# def add_to_message_history(state: State, message: ModelMessage) -> None:
-#     if "message_history" not in state:
-#         state["message_history"] = []
-#     state["message_history"].append(message)
-
-
-
-
-# def get_last_user_prompt(state: State) -> UserPromptPart | None:
-#     history = get_message_history(state)
-#     for message in reversed(history):
-#         if isinstance(message, ModelRequest):
-#             for part in message.parts:
-#                 if isinstance(part, UserPromptPart):
-#                     return part
-#     return None
 
 def truncate_message_history(state: State, max_length: int = 10) -> None:
     if "message_history" in state:

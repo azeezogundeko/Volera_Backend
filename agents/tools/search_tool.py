@@ -16,26 +16,27 @@ async def search_internet_tool(
     ):
     async with AsyncClient(timeout=200) as client:  # Set a timeout for all network calls
         # Add the task
+        # try:
+        filter_dict = filter.to_json() if hasattr(filter, 'to_json') else filter
+        payload = {
+                "search_query": search_query,
+                "filter": filter_dict,
+                "n_k": n_k,
+                "description": description,
+                "mode": mode,
+        }
         try:
-            filter_dict = filter.to_json() if hasattr(filter, 'to_json') else filter
-            payload = {
-                    "search_query": search_query,
-                    "filter": filter_dict,
-                    "n_k": n_k,
-                    "description": description,
-                    "mode": mode,
-            }
-
             request = await client.post(
                 SEARCH_ENGINE_URL,
                 json=payload,
             )
-            if request.status_code != 200:
-                logger.error("Error creating request for search", exc_info=True)
-                raise NoItemFound("Error creating request for search")
-            request = request.json().get("results", [])
-   
         except Exception as e:
-            logger.error("Error creating request for search", exc_info=True)
+            raise NoItemFound("Error creating request for search")
+
+        if request.status_code != 200:
+            logger.error("Error creating request for search")
+            raise NoItemFound("Error creating request for search")
+
+        request = request.json().get("results", [])
 
         return request

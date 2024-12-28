@@ -1,78 +1,15 @@
 import json
 from typing import Literal
 
-from prompts import response_agent_prompt
 from .state import State
 from utils.logging import logger
 from utils.helper_state import update_history
 from .config import agent_manager
-from schema import extract_agent_results
-from .legacy.base import create_copilot_agent
 from db.sqlite.manager import session_manager
-from schema.validations.agents_schemas import FeedbackResponseSchema
-from utils.helper_state import get_current_request, stream_final_response
+from utils.websocket import stream_ai_response
 
 from langgraph.types import Command
-from pydantic_ai.result import RunResult
 from fastapi import WebSocket
-
-
-# Secure wrapper to handle agent responses safely
-@extract_agent_results(agent_manager.copilot_mode)
-async def copilot_agent(state: State, user_input: str = None) -> RunResult:
-    try:
-        current_request = get_current_request(state)
-        query = current_request["message"]["content"]
-        previous_messages = state.get("message_history", [])
- 
-        prompt = response_agent_prompt()
-        llm = create_copilot_agent(prompt)
-        if user_input:
-            query = user_input
-        response = await llm.run(user_prompt=query, message_history=previous_messages)
-        state["message_history"] = previous_messages + response.new_messages()
-        return response
-
-    except Exception as e:
-        logger.error("Failed to execute copilot agent operation", exc_info=True)
-        raise RuntimeError(f"Failed to execute search agent: {e}")
-
-
-async def copilot_agent_node(state: State) -> Command[Literal[
-    agent_manager.planner_agent
-]]:
-    try:
-        user_input = state["human_response"] if "human_response" in state else None
-        r = await copilot_agent(state, user_input)
-        final: FeedbackResponseSchema = r.data
-        if final.action == "__user__":
-            state["ai_response"] = final.reply
-            state["previous_node"] = agent_manager.copilot_mode
-            return Command(goto=agent_manager.human_node, update=state)
-
-        data = final.to_dict()
-        requirements = data["requirements"]
-
-        state["ai_response"] = final.reply
-        state["previous_node"] = agent_manager.copilot_mode
-        state["requirements"] = requirements
-            
-        # Update history with user input and AI reply
-        update_history(
-            state, 
-            user_input or "", 
-            final.reply
-        )
-        ws: WebSocket = state["ws"]
-        await ws.send_json({"type": "message","content": state["ai_response"]})
-        await ws.send_json({"type": "messageEnd"})
-        state["human_response"] = None
-            
-        return Command(goto=agent_manager.planner_agent, update=state)
-
-    except Exception as e:
-        logger.error("Unexpected error during copilot agent node processing.", exc_info=True)
-        raise RuntimeError("Unexpected error occurred.") from e
 
 
 async def human_node(
@@ -86,8 +23,9 @@ async def human_node(
     ]]:
     try:
         ws: WebSocket = state["ws"]
+        next_node = state.get("next_node", agent_manager.end)
         
-        await stream_final_response(ws,state["ai_response"])
+        await stream_ai_response(ws,state["ai_response"])
 
         # Receive and parse the response
         response_text = await ws.receive_text()
@@ -107,7 +45,6 @@ async def human_node(
         state["human_response"] = user_input
         
         # Determine next node based on previous context
-        next_node = state.get("previous_node", agent_manager.end)
         
         session_manager.log_message(state["session_id"], 'human', state["human_response"])
         session_manager.log_message(state["session_id"], 'assistant', state["ai_response"])

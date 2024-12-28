@@ -1,6 +1,5 @@
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Literal, Dict, Any, List
+from typing import Literal, List
+from dataclasses import asdict, dataclass
 
 
 @dataclass
@@ -10,6 +9,9 @@ class Message:
     message_id: str
     role: Literal["human", "assistant"]
     metadata: str
+
+    def to_dict(self):
+        return asdict(self)
 
 MESSAGE_ATTRIBUTES = [
     {"key": "content", "size": 65535, "required": True}, 
@@ -33,6 +35,9 @@ class Chat:
     start_time: str
     focus_mode: str
     files: List[File]
+
+    def to_dict(self):
+        return asdict(self)
 
 
 CHAT_ATTRIBUTES = [

@@ -19,6 +19,13 @@ class AgentClass:
         self.copilot_mode = "copilot"
         self.planner_agent = "planner_agent"
         self.web_search_agent = "web_search_agent"
+        self.followup = "followup_agent"
+
+
+        self.copilot_planner = "copilot_planner_agent"
+        self.copilot_followup = "copilot_followup_agent"
+        self.copilot_planner = "copilot_planner_agent"
+        self.copilot_planner = "copilot_planner_agent"
 
 
         self.reader_agent = "ReaderAgent"

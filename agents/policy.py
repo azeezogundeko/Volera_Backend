@@ -1,73 +1,73 @@
-import asyncio
-from typing import Literal
+# import asyncio
+# from typing import Literal
 
-from utils.logging import logger
-from .config import agent_manager
-from schema import extract_agent_results
-# from prompts import policy_prompt
-from .legacy.base import create_policy_agent
-from .state import State
-from utils.helper_state import get_current_request
-from utils.exceptions import AgentProcessingError
+# from utils.logging import logger
+# from .config import agent_manager
+# from schema import extract_agent_results
+# # from prompts import policy_prompt
+# from .legacy.base import create_policy_agent
+# from .state import State
+# from utils.helper_state import get_current_request
+# from utils.exceptions import AgentProcessingError
 
-from langgraph.types import Command
-from pydantic_ai.result import RunResult
+# from langgraph.types import Command
+# from pydantic_ai.result import RunResult
 
 
-# Secure meta agent function with proper exception handling
-@extract_agent_results(agent_manager.policy_agent)
-async def policy_agent(state: State) -> RunResult: 
-    try:
-        # Safely get the current request and validate the presence of required fields
-        current_request = get_current_request(state)
-        if not current_request or "message" not in current_request or "content" not in current_request["message"]:
-            raise ValueError("Invalid or missing request content.")
+# # Secure meta agent function with proper exception handling
+# @extract_agent_results(agent_manager.policy_agent)
+# async def policy_agent(state: State) -> RunResult: 
+#     try:
+#         # Safely get the current request and validate the presence of required fields
+#         current_request = get_current_request(state)
+#         if not current_request or "message" not in current_request or "content" not in current_request["message"]:
+#             raise ValueError("Invalid or missing request content.")
 
-        query = current_request["message"]["content"]
+#         query = current_request["message"]["content"]
 
-        # Prepare the meta agent's prompt and initialize the LLM
-        llm = create_policy_agent()
+#         # Prepare the meta agent's prompt and initialize the LLM
+#         llm = create_policy_agent()
  
-        # Call LLM with timeout to avoid hanging
-        response = await asyncio.wait_for(llm.run(query), timeout=10)
+#         # Call LLM with timeout to avoid hanging
+#         response = await asyncio.wait_for(llm.run(query), timeout=10)
 
-        logger.info("Policy executed successfully.")
-        return response
+#         logger.info("Policy executed successfully.")
+#         return response
 
-    except Exception as e:
-        logger.error("Unexpected error in meta agent execution.", exc_info=True)
-        raise AgentProcessingError("Unexpected error during meta agent execution.") from e
+#     except Exception as e:
+#         logger.error("Unexpected error in meta agent execution.", exc_info=True)
+#         raise AgentProcessingError("Unexpected error during meta agent execution.") from e
 
 
-# Meta agent node handling logic with validation and exception safety
-async def policy_agent_node(state: State) -> Command[Literal[
-    agent_manager.meta_agent,
-    agent_manager.human_node,
-    agent_manager.search_agent
-]]:
-    try:
+# # Meta agent node handling logic with validation and exception safety
+# async def policy_agent_node(state: State) -> Command[Literal[
+#     agent_manager.meta_agent,
+#     agent_manager.human_node,
+#     agent_manager.search_agent
+# ]]:
+#     try:
         
-        state["previous_node"] = agent_manager.policy_agent
-        response = await policy_agent(state)
+#         state["previous_node"] = agent_manager.policy_agent
+#         response = await policy_agent(state)
 
-        compliant = response.data.compliant
-        if not compliant:
-            state["previous_node"] = agent_manager.policy_agent
-            return Command(goto=agent_manager.human_node, update=state)
+#         compliant = response.data.compliant
+#         if not compliant:
+#             state["previous_node"] = agent_manager.policy_agent
+#             return Command(goto=agent_manager.human_node, update=state)
  
 
-        current_request = get_current_request(state)
-        if not current_request or "message" not in current_request or "content" not in current_request["message"]:
-            raise ValueError("Invalid or missing 'content' in current request.")
+#         current_request = get_current_request(state)
+#         if not current_request or "message" not in current_request or "content" not in current_request["message"]:
+#             raise ValueError("Invalid or missing 'content' in current request.")
 
-        focus_mode = current_request["focus_mode"]
-        if focus_mode == agent_manager.copilot_mode:
+#         focus_mode = current_request["focus_mode"]
+#         if focus_mode == agent_manager.copilot_mode:
 
-            logger.info("Transitioning to Meta agent node.")
-            return Command(goto=agent_manager.meta_agent, update=state)
+#             logger.info("Transitioning to Meta agent node.")
+#             return Command(goto=agent_manager.meta_agent, update=state)
 
-        return Command(goto=agent_manager.search_agent, update=state)
+#         return Command(goto=agent_manager.search_agent, update=state)
 
-    except Exception as e:
-        logger.error("Error encountered in policy agent node processing.", exc_info=True)
-        raise AgentProcessingError("Unexpected failure in meta agent node.") from e
+#     except Exception as e:
+#         logger.error("Error encountered in policy agent node processing.", exc_info=True)
+#         raise AgentProcessingError("Unexpected failure in meta agent node.") from e

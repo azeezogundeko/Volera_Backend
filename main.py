@@ -1,8 +1,7 @@
 from contextlib import asynccontextmanager
-from sys import prefix
 
 from api import chat_router
-from db import prepare_database, start_session_sync_task
+from db import prepare_database
 from _websockets import websocket_router
 from utils.logging import logger
 
@@ -26,6 +25,7 @@ async def lifespan(app: FastAPI):
         # Shutdown logic
         logger.info("Application is shutting down...")
 
+# app = FastAPI()
 app = FastAPI(lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
@@ -38,8 +38,6 @@ app.add_middleware(
 
 app.include_router(chat_router, prefix="/api/chats", tags=["chat"])
 app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
-
-
 
 app.router.lifespan_context = lifespan
 

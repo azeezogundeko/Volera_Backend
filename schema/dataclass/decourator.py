@@ -1,5 +1,5 @@
 import time
-from typing import TypedDict
+from typing import TypedDict, TypeVar
 from .state import ( 
     TaskInfo, 
     TokenUsage, 
@@ -42,6 +42,9 @@ def to_dict(schema):
         else:
             result[str(schema)] = schema
         return result
+
+
+# BaseStateType = TypeVar('BaseStateType', bound=State)
 
 
 def extract_agent_results(agent_name: str):
