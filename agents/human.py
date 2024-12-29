@@ -70,18 +70,19 @@ async def human_node(
         next_node = state.get("next_node", agent_manager.end)
         ws_id = state["ws_id"]
         
-        # Stream the AI's response if available
-        if "ai_response" in state:
-            try:
-                await websocket_manager.stream_final_response(ws_id, state["ai_response"])
-            except Exception as e:
-                logger.error(f"Error streaming AI response: {e}", exc_info=True)
+        # # Stream the AI's response if available
+        # if "ai_response" in state:
+        #     try:
+        #         await websocket_manager.stream_final_response(ws_id, state["ai_response"])
+        #     except Exception as e:
+        #         logger.error(f"Error streaming AI response: {e}", exc_info=True)
         
         # Receive user input with retries
         max_retries = 3
-        retry_delay = 1.0
+        retry_delay = 30
         response_text = None
         
+        update_history(state, state["human_response"], state["ai_response"])
         for attempt in range(max_retries):
             try:
                 response_text = await websocket_manager.receive_json(ws_id)
@@ -95,12 +96,16 @@ async def human_node(
                     retry_delay *= 2  # Exponential backoff
         
         if not response_text:
-            raise RuntimeError("Failed to receive user input after multiple attempts")
+            await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
+            return Command(goto=agent_manager.end, update=state)
+            # raise RuntimeError("Failed to receive user input after multiple attempts")
         
         # Extract user input from response
         user_input = await extract_message_content(response_text)
         if not user_input:
-            raise ValueError("Failed to extract valid user input from response")
+            await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
+            return Command(goto=agent_manager.end, update=state)
+            # raise ValueError("Failed to extract valid user input from response")
         
         # Update state with the user's input
         state["human_response"] = user_input
@@ -109,7 +114,7 @@ async def human_node(
         session_manager.log_message(state["session_id"], 'human', state["human_response"])
         if "ai_response" in state:
             session_manager.log_message(state["session_id"], 'assistant', state["ai_response"])
-            update_history(state, user_input, state["ai_response"])
+            
         
         logger.info(f"User input collected: {user_input}. Routing to: {next_node}")
         return Command(update=state, goto=next_node)

@@ -67,10 +67,6 @@ class WriterAgent(BaseAgent):
             ws_id: WebSocket = state["ws_id"]
             search_results = state["agent_results"][agent_manager.search_tool]
             
-            #meta agent will reply to follow up questions
-            state["previous_node"] = agent_manager.writer_agent
-            state["next_node"] = agent_manager.meta_agent
-
             images = []
             sources = []
             for r in search_results:

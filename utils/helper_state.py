@@ -58,16 +58,18 @@ def flatten_history(history: List[dict], n_k=30) -> List[ModelMessage]:
         return []
 
 def update_history(state: State, user_message: str, ai_message: str) -> None:
-   user_history =  History(
+    if "history" not in state["ws_message"]:
+        state["ws_message"]["history"] = []
+    user_history =  History(
         speaker="human", 
         message=user_message
-   )
-   state["ws_message"]["history"].append(user_history)
-   ai_history =  History(
+    )
+    state["ws_message"]["history"].append(user_history)
+    ai_history =  History(
         speaker="assistant", 
         message=ai_message
-   )
-   state["ws_message"]["history"].append(ai_history)
+    )
+    state["ws_message"]["history"].append(ai_history)
 
 def get_user_ai_history(state: State) -> List[str]:
     # Update state with user response

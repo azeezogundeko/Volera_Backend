@@ -25,6 +25,7 @@ async def websocket_endpoint(websocket: WebSocket, path: Optional[str] = None):
     try:
         while True:            
             raw_data = await websocket.receive_json()
+            print(raw_data)
             # Ensure required fields exist
             if "messageId" not in raw_data.get("data", {}):
                 await websocket.send_json({
@@ -33,7 +34,7 @@ async def websocket_endpoint(websocket: WebSocket, path: Optional[str] = None):
                 })
                 continue
                 
-            data = WebSocketMessage(data=raw_data.get("data", {}))
+            data = WebSocketMessage(**raw_data)
             await manager.handle_message(data, websocket, user_id)
             # print(dat)
             # metadata = MetadataWebsocket(

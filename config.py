@@ -11,9 +11,11 @@ APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID")
 MESSAGE_COLLECTION_ID = "messages"
 CHAT_COLLECTION_ID = "chats"
 MONGODB_URL = str(os.getenv("MONGODB_URL"))
+GOOGLE_SEARCH_ID = str(os.getenv("SEARCH_ENGINE_ID"))
 
 
 class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))
     GEMINI_API_KEY = str(os.getenv("GEMINI_API_KEY"))
+    GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY"))
