@@ -1,5 +1,9 @@
 from .chat import router as chat_router
+from .auth.route import router as auth_router
+
+
 
 __all__ = [
-    "chat_router"
+    "chat_router",
+    "auth_router",
 ]

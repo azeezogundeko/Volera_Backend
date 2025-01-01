@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 
@@ -17,6 +18,8 @@ from appwrite.services.storage import Storage
 from appwrite.services.databases import Databases
 
 
+
+
 class AsyncAppWriteClient:
     def __init__(self):
         self.client = Client()
@@ -29,7 +32,6 @@ class AsyncAppWriteClient:
         self.storage = Storage(self.client)
         self.users = Users(self.client)
         self._executor = ThreadPoolExecutor(max_workers=10)
-        # self.initialize_collection(["jobs", "users", "cv_metadata", "scholarships", "internships"])
 
     def get_unique_id(self):
         return ID.unique()
@@ -53,6 +55,7 @@ class AsyncAppWriteClient:
             *args, 
             **kwargs
         )
+
     async def create_document(
         self, 
         collection_id: str, 
@@ -206,3 +209,41 @@ class AsyncAppWriteClient:
 
 # Singleton instance
 async_appwrite = AsyncAppWriteClient()
+
+
+class AsyncUsersWrapper(Users):
+    def __init__(self):
+        self.client = AsyncAppWriteClient()
+        super().__init__(self.client)
+        self._executor = ThreadPoolExecutor(max_workers=10)
+
+
+    def _run_in_executor(self, func, *args, **kwargs):
+        loop = asyncio.get_event_loop()
+        return loop.run_in_executor(
+            self._executor, 
+            func, 
+            *args, 
+            **kwargs
+        )
+
+    def __getattr__(self, name):
+        # Check if the method exists in the sync class
+        sync_method = getattr(super(), name)
+
+        # If it's callable, wrap it in an async function
+        if callable(sync_method):
+            async def async_method(*args, **kwargs):
+                return await self._run_in_executor(sync_method, *args, **kwargs)
+            return async_method
+        else:
+            # If it's not a callable method (e.g., an attribute), return it directly
+            return sync_method
+
+    def __dir__(self):
+        # Use inspect to get all methods of the SyncClass
+        sync_methods = inspect.getmembers(self.sync_class_instance, predicate=inspect.ismethod)
+        # Return the list of method names from the SyncClass instance
+        return [method[0] for method in sync_methods]
+
+

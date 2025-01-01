@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from api import chat_router
+from api import chat_router, auth_router
 from db import prepare_database
 from _websockets import websocket_router
 from utils.logging import logger
@@ -37,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router, prefix="/api/chats", tags=["chat"])
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
 
 app.router.lifespan_context = lifespan
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     uvicorn.run(
             "main:app", 
             host="localhost", 
-            port=8888, 
+            port=3001, 
             reload=True,  # Enable auto-reload during development
             log_level="info"
         )

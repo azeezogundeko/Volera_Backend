@@ -71,18 +71,28 @@ class WebSocketManager:
         status: str, 
         searched_items: int
         ) -> WebSocket:
-        data = {
-            "type": "progress",
-            "progress": {
-                "status": status,
-                "searched": searched_items
+        if status == "searching":
+            data = {
+                "type": "progress",
+                "progress": {
+                    "status": status,
+                    "searched": searched_items
+                }
             }
-        }
-        return await self.get_websocket(ws_id).send_json(data)
+            return await self.get_websocket(ws_id).send_json(data)
+        elif status == "scraping":
+            data = {
+                "type": "progress",
+                "progress": {
+                    "status": status,
+                    "scraped": searched_items
+                }
+            }
+            return await self.get_websocket(ws_id).send_json(data)
 
 
     async def send_search_complete(
-        self, total_searched: int, total_scraped: int
+        self, ws_id, total_searched: int, total_scraped: int
         ) ->WebSocket:
         data = {
             "type": "search_complete",

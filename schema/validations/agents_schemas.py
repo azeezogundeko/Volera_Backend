@@ -108,6 +108,12 @@ class MetaAgentSchema(BaseSchema):
     content: str
     requirements: RequirementSchema
 
+class FollowAgentSchema(BaseSchema):
+    action: str
+    content: str
+    user_query: str
+
+
 
 class SearchAgentSchema(BaseSchema):
     param: List[SearchParamSchema]

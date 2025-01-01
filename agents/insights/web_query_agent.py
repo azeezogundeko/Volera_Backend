@@ -3,9 +3,10 @@ from typing import Literal
 
 from ..legacy.base import BaseAgent
 from ..tools.google import GoogleSearchTool
+from ..tools.search_tool import insights_search
 from ..config import agent_manager
 from ..state import State
-from .prompts.web_prompts import web_query_retrieval_prompt
+from .prompts.web_retriever import web_query_retrieval_prompt
 from .schema import WebQueryAgentSchema
 from utils.decorator import async_retry
 from utils.logging import logger
@@ -27,20 +28,26 @@ class WebQueryAgent(BaseAgent):
             *args, **kwargs
             )
         self.search_tool = GoogleSearchTool()
-    
-    async def search(self, result: WebQueryAgentSchema):
-        tasks = [
-            self.search_tool.search(query=result.search_query),
-            self.search_tool.search_images(query=result.search_query)
-        ]
 
 
-        tasks = await asyncio.gather(*tasks)
-        results = {
-            "search": tasks[0],
-            "image": tasks[1],
+    async def search(self, result: WebQueryAgentSchema, mode = "fast"):
+
+        tasks = []
+
+        if mode == "fast":
+            tasks.append(self.search_tool.search(result.search_query))
+        else:
+            tasks.append(insights_search(query=result.search_query,mode=mode))
+
+        tasks.append(self.search_tool.search_images(result.search_query))
+
+        results = await asyncio.gather(*tasks)
+
+        return {
+            "search": results[0],
+            "image": results[1],
         }
-        return results
+
 
     @async_retry(retries=2, delay=0.1)
     @extract_agent_results(agent_manager.web_query_agent)
@@ -57,11 +64,15 @@ class WebQueryAgent(BaseAgent):
         logger.info("Web Query Agent executed successfully.")
         return response
 
+
     async def __call__(
         self, 
         state: State, 
         config: dict = {}
-    )-> Command[Literal[agent_manager.human_node, agent_manager.writer_agent, agent_manager.end]]:
+    )-> Command[Literal[
+        agent_manager.human_node,
+        agent_manager.writer_agent,
+        agent_manager.end]]:
         try:
             user_input = state["human_response"] if "human_response" in state else None
             response = await self.run(state, user_input)
@@ -76,8 +87,18 @@ class WebQueryAgent(BaseAgent):
             
             ws_id = state["ws_id"]
             await self.websocket_manager.send_progress(ws_id, "searching", 0)
-            response = await asyncio.wait_for(self.search(response.data), timeout=self.timeout)
-            await self.websocket_manager.send_progress(ws_id, "searching", len(response["search"]))
+            await asyncio.sleep(0.5)
+            await self.websocket_manager.send_progress(
+                ws_id, "searching", 
+                20)
+            
+            mode = state["optimization_mode"]
+            response = await asyncio.wait_for(self.search(response.data, mode), timeout=400)
+            await self.websocket_manager.send_progress(
+                ws_id, "scraping", 
+                5)
+            await asyncio.sleep(0.5)
+            await self.websocket_manager.send_search_complete(ws_id, 20, 5)
 
             state["agent_results"][agent_manager.search_tool] = response
             logger.info("Transitioning to Writer agent node.")
@@ -91,3 +112,4 @@ class WebQueryAgent(BaseAgent):
 
 
 web_query_agent_node = WebQueryAgent()
+    

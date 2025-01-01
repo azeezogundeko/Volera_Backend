@@ -20,6 +20,7 @@ from .dataclass.state import (
 from .validations.agents_schemas import (
     PlannerAgentSchema, 
     SearchAgentSchema, 
+    FollowAgentSchema,
     ComparisonSchema, 
     MetaAgentSchema,
     InsightsSchema,
@@ -39,6 +40,7 @@ __all__ = [
     "Result",
     "AgentResult",
     "PlannerAgentSchema",
+    "FollowAgentSchema",
     "FilterSchema",
     "MetaAgentSchema",
     "ModelMessage",

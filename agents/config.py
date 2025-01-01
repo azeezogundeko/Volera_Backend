@@ -20,6 +20,7 @@ class AgentClass:
         self.planner_agent = "planner_agent"
         self.web_query_agent = "web_query_agent"
         self.followup = "followup_agent"
+        self.summary_agent = "summary_agent"
 
 
         self.copilot_planner = "copilot_planner_agent"
@@ -113,4 +114,4 @@ KnownModelName = Literal[
 ]
 
 agent_manager = AgentClass()
-agent_manager = AgentClass()
+# agent_manager = AgentClass()

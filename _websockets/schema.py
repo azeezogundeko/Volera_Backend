@@ -20,7 +20,7 @@ class WebSocketMessage(BaseModel):
     data: MessageData
     focus_mode: str = Field(alias="focusMode", default="all")
     parent_message_id: str = Field(alias="parentMessageId",default=None)
-    optimization_mode: str = Field(default="speed", alias="optimizationMode")
+    optimization_mode: str = Field(default="fast", alias="optimizationMode")
     file_ids: List[str] | None = Field(default_factory=list, alias="fileIds")
     # history: List[HistoryItem] | None = Field(default_factory=list)
 

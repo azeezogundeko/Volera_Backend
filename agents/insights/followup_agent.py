@@ -1,13 +1,12 @@
 import asyncio
 from typing import Literal
 
-from .state import State
+from ..state import State
 from utils.logging import logger
-from .config import agent_manager
-from .legacy.base import BaseAgent
-from prompts import followup_agent_prompt
-from schema import MetaAgentSchema, extract_agent_results
-from schema.dataclass.dependencies import GeminiDependencies
+from ..followup_agent import FollowUpAgent
+from ..config import agent_manager
+from .prompts.followup import followup_agent_prompt
+from schema import FollowAgentSchema, extract_agent_results
 # from utils.exceptions import AgentProcessingError
 
 from fastapi import WebSocket
@@ -15,22 +14,16 @@ from langgraph.types import Command
 from pydantic_ai.result import RunResult
 
 
-class FollowUpAgent(BaseAgent):
+class InsightsFollowUpAgent(FollowUpAgent):
     def __init__(
         self, 
-        model = "gemini-2.0-flash-exp",
-        deps_type = GeminiDependencies,
-        result_type = MetaAgentSchema,
-        system_prompt = followup_agent_prompt,
-        name: str = agent_manager.followup, 
+        result_type = FollowAgentSchema,
+        system_prompt = followup_agent_prompt, 
     
     ):
         super().__init__(
-            name=name,
-            model=model,
             system_prompt=system_prompt,
             result_type=result_type,
-            deps_type=deps_type
             )
 
     
@@ -39,9 +32,9 @@ class FollowUpAgent(BaseAgent):
         
         previous_messages = state.get("message_history", [])
         searched_results = state["agent_results"][agent_manager.search_tool]
-        prompt = f"Search results: {searched_results}, User Question: {user_input}"
+        searched_results = f"Search results: {searched_results}"
         # Call LLM with timeout to avoid hanging
-        response = await asyncio.wait_for(self.llm.run(prompt, message_history=previous_messages), timeout=10)
+        response = await asyncio.wait_for(self.llm.run(searched_results, message_history=previous_messages), timeout=10)
 
         state["message_history"] = previous_messages + response.new_messages()
         logger.info("Follow up agent executed successfully.")
@@ -52,16 +45,18 @@ class FollowUpAgent(BaseAgent):
         self, 
         state: State, 
         config: dict = {}
-        ) -> Command[Literal[agent_manager.planner_agent, agent_manager.human_node, agent_manager.end]]:
+        ) -> Command[Literal[agent_manager.web_query_agent, agent_manager.human_node, agent_manager.end]]:
         try:
             user_input = state["human_response"] if "human_response" in state else None
             response = await self.run(state, user_input)
-            data: MetaAgentSchema = response.data
+            data: FollowAgentSchema = response.data
             state["previous_node"] = agent_manager.followup
+            ws_id: WebSocket = state["ws_id"]
             # print(data)
             if data.action == "__user__":
                 state["ai_response"] = data.content
-                state["next_node"] = agent_manager.planner_agent
+                state["next_node"] = agent_manager.followup
+                await self.websocket_manager.stream_final_response(ws_id, state["ai_response"])
                 return Command(goto=agent_manager.human_node, update=state)
 
             elif data.action == "__stop__":
@@ -71,12 +66,11 @@ class FollowUpAgent(BaseAgent):
                 return Command(goto=agent_manager.end, update=state)
             
             state["ai_response"] = data.content
-            state["requirements"] = data.requirements
+            state["human_response"] = data.user_query
                 
-            ws_id: WebSocket = state["ws_id"]
             await self.websocket_manager.stream_final_response(ws_id, state["ai_response"])
-            logger.info("Transitioning to planner agent node.")
-            return Command(goto=agent_manager.planner_agent, update=state)
+            logger.info("Transitioning to web search agent node.")
+            return Command(goto=agent_manager.web_query_agent, update=state)
 
         except Exception as e:
             logger.error("Error encountered in followup agent node processing.", exc_info=True)
@@ -85,4 +79,4 @@ class FollowUpAgent(BaseAgent):
             return Command(goto=agent_manager.end, update=state)
 
 
-followup_agent_node = FollowUpAgent()
+followup_agent_node = InsightsFollowUpAgent()

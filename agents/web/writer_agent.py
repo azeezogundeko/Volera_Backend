@@ -14,13 +14,15 @@ from pydantic_ai.result import RunResult
 
 
 class WebWriterAgent(WriterAgent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(system_prompt=web_response_prompt,*args, **kwargs)
+    def __init__(self, system_prompt=web_response_prompt, *args, **kwargs):
+        super().__init__(system_prompt=system_prompt,*args, **kwargs)
 
     @extract_agent_results(agent_manager.writer_agent)
     async def run(self,state: State, user_input: str = None) -> RunResult:
         search_result = state["agent_results"][agent_manager.search_tool]
         search = search_result["search"]
+
+        previous_messages = state["message_history"]
 
         if user_input is None:
             user_input = state["ws_message"]["message"]["content"]
@@ -29,8 +31,11 @@ class WebWriterAgent(WriterAgent):
             "User Input": user_input,
             "Search Results": search
         }
+        state["previous_node"] = agent_manager.writer_agent
+        state["next_node"] = agent_manager.web_query_agent
 
         response = await self.llm.run(str(prompt))
+        state["message_history"] = previous_messages + response.new_messages()
         return response
 
     async def __call__(self, state: State, config={}) -> Command[
@@ -48,11 +53,6 @@ class WebWriterAgent(WriterAgent):
         await self.websocket_manager.send_json(ws_id, {"type":"messageEnd","content":content})
         
         state["ai_response"] = content
-        state["next_node"] = agent_manager.followup
-        state["previous_node"] = agent_manager.writer_agent
-
-        state["previous_node"] = agent_manager.writer_agent
-        state["next_node"] = agent_manager.web_query_agent
 
         await self.evaluate_chat_limit(state)
         logger.info("Continuing conversation for follow-up questions")
@@ -72,7 +72,7 @@ class WebWriterAgent(WriterAgent):
                     # favicon=r["metadata"].get("image_url", ""),
                 )
             )
-        for r in search_results["image"]:
+        for r in search_results["search"]:
             sources.append(
                 SourceMetadata(
                     url=r["link"],

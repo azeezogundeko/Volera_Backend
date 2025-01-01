@@ -25,6 +25,7 @@ class State(TypedDict):
     next_node: str = ""
     previous_search_queries: List[str] = []
     ws_message: WSMessage
+    optimization_mode: str
     agent_results: Dict[str, AgentResult] = {}
     requirements: dict = {}
     human_response: str = ""
