@@ -1,75 +1,36 @@
-from typing import Optional
-
 from .connection_manager import manager
-from .message_handler import handle_message
-from .schema import WebSocketMessage
 
-from fastapi import WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import WebSocket, APIRouter
+from utils.logging import logger
+from .services import authenticate_user, extract_token, handle_websocket_messages
+
 
 router = APIRouter()
 
 @router.websocket("")
-async def websocket_endpoint(websocket: WebSocket, path: Optional[str] = None):
-    """
-    WebSocket endpoint that uses the ConnectionManager to manage connections.
+async def websocket_endpoint(websocket: WebSocket):
 
-    Args:
-        websocket (WebSocket): WebSocket connection instance.
-        path (Optional[str]): Optional path query parameters.
-    """
-    await manager.connect(websocket)
-    
-    # Generate a unique user ID for this connection
-    user_id = "engr_ogundeko"
-    
     try:
-        while True:            
-            raw_data = await websocket.receive_json()
-            print(raw_data)
-            # Ensure required fields exist
-            if "messageId" not in raw_data.get("data", {}):
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Missing required field: messageId"
-                })
-                continue
-                
-            data = WebSocketMessage(**raw_data)
-            await manager.handle_message(data, websocket, user_id)
-            # print(dat)
-            # metadata = MetadataWebsocket(
-            #     url="https://www.jumia.com.ng//infinix-note-40-6.78-8gb-ram-256gb-rom-android-14-green-351680578.html",
-            #     img_url="https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/87/5086153/1.jpg?7405",
-            #     title="example"
-            # )
-            # await send_images(websocket, [metadata] * 8)
-            # # await stream_final_response(websocket, data)
-            # from asyncio import sleep
-
-            # await websocket.send_json({"type":"message","content":data})
-            # # Start searching
-            # await sleep(2)
-            # await websocket.send_json({"type": "message", "content": "Starting search..."})
-            # await sleep(2)
-
-            # await websocket.send_json({"type": "progress", "progress": {"status": "searching", "searched": 1}})
-            # await sleep(2)
-            # # Update progress
-            # await websocket.send_json({"type": "progress", "progress": {"status": "searching", "searched": 5}})
-            # await sleep(2)
-            # # Move to scraping
-            # await websocket.send_json({"type": "progress", "progress": {"status": "scraping", "scraped": 2}})
-            # await sleep(2)
-            # # await sleep(2)
-            # # Complete search
-            # await websocket.send_json({"type": "search_complete", "totalSearched": 10, "totalScraped": 5})
-            # await sleep(2)
-            # # Send final message
-            # await websocket.send_json({"type": "message", "content": {"content": "Here's what I found..."}})
-
-            # Handle the message using the message handler
-            # await handle_message(data, websocket, user_id)
-    
-    except WebSocketDisconnect as e:
-        print(str(e))
-        manager.disconnect(websocket)
+        # Extract and validate token before accepting connection
+        token = await extract_token(websocket)
+        if not token:
+            return
+            
+        # Authenticate user before accepting connection
+        user = await authenticate_user(websocket, token)
+        if not user:
+            return
+            
+        # Now that authentication is successful, accept connection
+        await websocket.accept()
+        logger.info(f"User authenticated and connected: {user.id}")
+        
+        # Handle messages
+        await handle_websocket_messages(websocket, user.id)
+        
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        try:
+            await websocket.close(code=1011)
+        except:
+            pass

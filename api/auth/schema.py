@@ -54,9 +54,10 @@ class UserIn(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    first_name: str
-    last_name: str
+    first_name: str = Field(alias="firstName")
+    last_name: str = Field(alias="lastName")
     password: str
+    country: str
 
     @field_validator('password')
     def password_strength(cls, v: str):

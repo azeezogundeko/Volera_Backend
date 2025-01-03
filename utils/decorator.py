@@ -86,88 +86,37 @@ def async_retry(
     return decorator
 
 
-# Example usage and tests
-if __name__ == "__main__":
-    class TestError(Exception):
-        pass
-    
-    # Example with a simple async function
-    @async_retry(retries=2, delay=0.1)
-    async def test_function():
-        raise TestError("Test error")
-    
-    # Example with multiple decorators
-    @async_retry(retries=2, delay=0.1)
-    @functools.lru_cache
-    async def cached_function():
-        raise TestError("Test error")
-    
-    # Example with a class method
-    class TestClass:
-        @async_retry(retries=2, delay=0.1)
-        async def test_method(self):
-            raise TestError("Test error")
-        
-        # Example with a static method
-        @staticmethod
-        @async_retry(retries=2, delay=0.1)
-        async def test_static_method():
-            raise TestError("Test error")
-        
-        # Example with a class method
-        @classmethod
-        @async_retry(retries=2, delay=0.1)
-        async def test_class_method(cls):
-            raise TestError("Test error")
-    
-    # Example with custom retry callback
-    def on_retry_callback(error: Exception, attempt: int):
-        print(f"Retry attempt {attempt} after error: {error}")
-    
-    @async_retry(retries=2, delay=0.1, on_retry=on_retry_callback)
-    async def test_callback():
-        raise TestError("Test error")
-    
-    async def run_tests():
-        # Test simple function
-        try:
-            await test_function()
-        except TestError:
-            print("Simple function test passed")
-        
-        # Test cached function
-        try:
-            await cached_function()
-        except TestError:
-            print("Cached function test passed")
-        
-        # Test class method
-        test_instance = TestClass()
-        try:
-            await test_instance.test_method()
-        except TestError:
-            print("Class method test passed")
-        
-        # Test static method
-        try:
-            await TestClass.test_static_method()
-        except TestError:
-            print("Static method test passed")
-        
-        # Test class method
-        try:
-            await TestClass.test_class_method()
-        except TestError:
-            print("Class method test passed")
-        
-        # Test callback
-        try:
-            await test_callback()
-        except TestError:
-            print("Callback test passed")
-    
-    # Run the tests
-    if asyncio.get_event_loop().is_running():
-        asyncio.create_task(run_tests())
+
+def logging_(func):
+    """
+    A decorator to log the execution of functions and methods.
+    Works with both synchronous and asynchronous functions.
+    Catches and logs any errors.
+    """
+    if inspect.iscoroutinefunction(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                result = await func(*args, **kwargs)
+                return result
+            except Exception as e:
+                logger.error(f"Error in async function {func.__qualname__}: {e}", exc_info=True)
+                raise
     else:
-        asyncio.run(run_tests())
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception as e:
+                logger.error(f"Error in function {func.__qualname__}: {e}", exc_info=True)
+                raise
+    return wrapper
+
+def log_class(cls):
+    """
+    A class decorator to log all methods of a class.
+    """
+    for name, method in inspect.getmembers(cls, predicate=inspect.isfunction):
+        setattr(cls, name, logging_(method))
+    return cls

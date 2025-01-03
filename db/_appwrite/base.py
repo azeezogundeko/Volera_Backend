@@ -115,10 +115,22 @@ class AsyncAppWriteClient:
             collection_id, 
             document_id
         )
+    async def create_float_attribute(
+        self, collection_id, key, required, min=None, max=None, default=None, array=None):
+            return await self._run_in_executor(
+                self.database.create_float_attribute,
+                self.database_id,
+                collection_id,
+                key,
+                required,
+                min,
+                max,
+                default,
+                array
+            )
 
     async def update_document(
         self, collection_id: str, document_id: str, document_data: Dict[str, Any]) -> Dict[str, Any]:
-
         return await self._run_in_executor(
             self.database.update_document,
             self.database_id, 
@@ -126,6 +138,20 @@ class AsyncAppWriteClient:
             document_id, 
             document_data
         )
+
+    async def create_boolean_attribute(
+        self, collection_id, key: str, required=True, default=None, array = None
+    ):
+        return await self._run_in_executor(
+            self.database.create_boolean_attribute,
+            self.database_id,
+            collection_id,
+            key,
+            required,
+            default,
+            array
+        )
+
 
     async def create_string_attribute(
         self, collection_id, key, size, required, default = None,  array = None,  encrypt = None

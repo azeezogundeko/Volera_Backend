@@ -52,7 +52,7 @@ class GoogleSearchTool:
                 response.raise_for_status()
                 
                 data = response.json()
-                print(data)
+                # print(data)
                 
                 if 'error' in data:
                     error_msg = data['error'].get('message', 'Unknown error in Google Search API')

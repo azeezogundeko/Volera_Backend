@@ -53,36 +53,36 @@ class FollowUpAgent(BaseAgent):
         state: State, 
         config: dict = {}
         ) -> Command[Literal[agent_manager.planner_agent, agent_manager.human_node, agent_manager.end]]:
-        try:
-            user_input = state["human_response"] if "human_response" in state else None
-            response = await self.run(state, user_input)
-            data: MetaAgentSchema = response.data
-            state["previous_node"] = agent_manager.followup
-            # print(data)
-            if data.action == "__user__":
-                state["ai_response"] = data.content
-                state["next_node"] = agent_manager.planner_agent
-                return Command(goto=agent_manager.human_node, update=state)
-
-            elif data.action == "__stop__":
-                state["ai_response"] = data.content
-                state["next_node"] = agent_manager.end
-                await self.websocket_manager.stream_final_response(ws_id, state["ai_response"])
-                return Command(goto=agent_manager.end, update=state)
-            
+        # try:
+        user_input = state["human_response"] if "human_response" in state else None
+        response = await self.run(state, user_input)
+        data: MetaAgentSchema = response.data
+        state["previous_node"] = agent_manager.followup
+        # print(data)
+        if data.action == "__user__":
             state["ai_response"] = data.content
-            state["requirements"] = data.requirements
-                
-            ws_id: WebSocket = state["ws_id"]
-            await self.websocket_manager.stream_final_response(ws_id, state["ai_response"])
-            logger.info("Transitioning to planner agent node.")
-            return Command(goto=agent_manager.planner_agent, update=state)
+            state["next_node"] = agent_manager.planner_agent
+            return Command(goto=agent_manager.human_node, update=state)
 
-        except Exception as e:
-            logger.error("Error encountered in followup agent node processing.", exc_info=True)
-            # send a response to notify an error has occurred
-            # use an error websocket message type
+        elif data.action == "__stop__":
+            state["ai_response"] = data.content
+            state["next_node"] = agent_manager.end
+            await self.websocket_manager.stream_final_response(ws_id, state["ai_response"])
             return Command(goto=agent_manager.end, update=state)
+        
+        state["ai_response"] = data.content
+        state["requirements"] = data.requirements
+            
+        ws_id: WebSocket = state["ws_id"]
+        await self.websocket_manager.stream_final_response(ws_id, state["ai_response"])
+        logger.info("Transitioning to planner agent node.")
+        return Command(goto=agent_manager.planner_agent, update=state)
+
+        # except Exception as e:
+        #     logger.error("Error encountered in followup agent node processing.", exc_info=True)
+        #     # send a response to notify an error has occurred
+        #     # use an error websocket message type
+        #     return Command(goto=agent_manager.end, update=state)
 
 
 followup_agent_node = FollowUpAgent()

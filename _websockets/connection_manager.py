@@ -1,8 +1,8 @@
 from typing import List
 
 from agents import copilot_agent_graph, web_agent_graph, insights_agent_graph
-from db.sqlite.manager import session_manager
-from _websockets.schema import WebSocketMessage, MessageData
+from db._appwrite.session import appwrite_session_manager
+from _websockets.schema import WebSocketMessage
 from utils.websocket import WebSocketManager
 # from .message_handler import handle_message
 
@@ -36,57 +36,28 @@ class ConnectionManager:
                 f"Connection closed. Remaining active connections: {self.connection_count}")
     
     
-    def start_session(self, user_id: str, data: WebSocketMessage):
+    async def start_session(self, user_id: str, data: WebSocketMessage):
         metadata = {
             "focus_mode": data.focus_mode,
             "optimization_mode": data.optimization_mode,
             "title": self.generate_title_from_content(data.data.content),
             "chat_id": data.data.chat_id
         }
-
-        session_id = session_manager.start_session(user_id, metadata)
+        session_id = await appwrite_session_manager.start_session(user_id, metadata)
         return session_id
 
-    async def web_search(
-        self, user_id , session_id: int, data: WebSocketMessage, websocket: WebSocket):
-        try:
-            ws_message = data.data
-            # result = await copilot_agent_graph()
-            processing_config = {
-                "configurable": {
-                    "thread_id": user_id,
-                }
-            }
-
-            websocket_id = self.websocket_manager.add_connection(websocket)
-            if websocket_id is None:
-                logger.error("Failed to add websocket connection.")
-            # Create initial state
-            state = {
-                "agent_results": {},
-                "ws_message": ws_message.model_dump(),
-                "human_response": ws_message.content,
-                "ai_response": "",
-                "optimization_mode": data.optimization_mode,
-                "session_id": session_id,
-                "ws_id": websocket_id,
-                "chat_count": 0,
-                "chat_finished": False,
-                "chat_limit": 5
-            }
+    async def QA_mode(
+        self, processing_config, state, websocket: WebSocket):
+        try:  
             
             await web_agent_graph.ainvoke(
                 state,
                 processing_config,
             )
-            session_manager.end_session(session_id, status='completed')
-            self.websocket_manager.remove_connection(websocket_id)
+            self.websocket_manager.remove_connection(state["ws_id"])
 
         except Exception as e:
-            print(str(e))
-            self.websocket_manager.remove_connection(websocket_id)
-            logger.error(f"Error in message handling: {e}", exc_info=True)
-            session_manager.end_session(session_id, 'error')
+            self.websocket_manager.remove_connection(state["ws_id"])
             import traceback
             print(traceback.format_exc())
             await websocket.send_json({
@@ -96,88 +67,34 @@ class ConnectionManager:
 
 
     async def copilot_mode(
-        self, user_id , session_id, data: WebSocketMessage, websocket: WebSocket) -> None:
+        self, processing_config , state, websocket: WebSocket) -> None:
         try:
-            ws_message = data.data
-            # result = await copilot_agent_graph()
-            processing_config = {
-                "configurable": {
-                    "thread_id": user_id,
-                }
-            }
-
-            websocket_id = self.websocket_manager.add_connection(websocket)
-            # Create initial state
-            state = {
-                "agent_results": {},
-                "ws_message": ws_message.model_dump(),
-                "optimization_mode": data.optimization_mode,
-                "human_response": ws_message.content,
-                "ai_response": "",
-                "session_id": session_id,
-                "ws_id": websocket_id,
-                "chat_count": 0,
-                "chat_finished": False,
-                "chat_limit": 5
-            }
-            
+  
             await copilot_agent_graph.ainvoke(
                 state,
                 processing_config,
             )
-            session_manager.end_session(session_id, status='completed')
-            self.websocket_manager.remove_connection(websocket_id)
+            self.websocket_manager.remove_connection(state["ws_id"])
 
         except Exception as e:
-            self.websocket_manager.remove_connection(websocket_id)
-            logger.error(f"Error in message handling: {e}", exc_info=True)
-            session_manager.end_session(session_id, 'error')
-            import traceback
-            print(traceback.format_exc())
+            self.websocket_manager.remove_connection(state["ws_id"])
             await websocket.send_json({
                 "type": "error",
                 "message": "Internal server error"
             })
         
 
-    async def insights_mode(self, user_id , session_id, data: WebSocketMessage, websocket: WebSocket) -> None:
+    async def insights_mode(self, processing_config, state, websocket: WebSocket) -> None:
         try:
-            # result = await copilot_agent_graph()
-            ws_message = data.data
-            processing_config = {
-                "configurable": {
-                    "thread_id": user_id,
-                }
-            }
-
-            websocket_id = self.websocket_manager.add_connection(websocket)
-            # Create initial state
-            state = {
-                "agent_results": {},
-                "ws_message": ws_message.model_dump(),
-                "human_response": ws_message.content,
-                "ai_response": "",
-                "optimization_mode": data.optimization_mode,
-                "session_id": session_id,
-                "ws_id": websocket_id,
-                "chat_count": 0,
-                "chat_finished": False,
-                "chat_limit": 5
-            }
             
             await insights_agent_graph.ainvoke(
                 state,
                 processing_config,
             )
-            session_manager.end_session(session_id, status='completed')
-            self.websocket_manager.remove_connection(websocket_id)
+            self.websocket_manager.remove_connection(state["ws_id"])
 
         except Exception as e:
-            self.websocket_manager.remove_connection(websocket_id)
-            logger.error(f"Error in message handling: {e}", exc_info=True)
-            session_manager.end_session(session_id, 'error')
-            import traceback
-            print(traceback.format_exc())
+            self.websocket_manager.remove_connection(state["ws_id"])
             await websocket.send_json({
                 "type": "error",
                 "message": "Internal server error"
@@ -190,19 +107,39 @@ class ConnectionManager:
         websocket: WebSocket, 
         user_id: str
         ):
-        print(data.focus_mode)
-        session_id = self.start_session(user_id, data)
+        websocket_id = self.websocket_manager.add_connection(websocket)
+        ws_message = data.data
+        session_id = await self.start_session(user_id, data)
+
+        state = {
+            "agent_results": {},
+            "ws_message": ws_message.model_dump(),
+            "human_response": ws_message.content,
+            "ai_response": "",
+            "optimization_mode": data.optimization_mode,
+            "session_id": session_id,
+            "ws_id": websocket_id,
+            "chat_count": 0,
+            "chat_finished": False,
+            "chat_limit": 5
+            }
+
+        processing_config = {
+                "configurable": {
+                    "thread_id": user_id,
+                }
+            }
         
         if data.focus_mode == "copilot":
-            await self.copilot_mode(user_id, session_id, data, websocket)
+            await self.copilot_mode(processing_config, state, websocket)
         elif data.focus_mode == "insights":
-            await self.insights_mode(user_id, session_id, data, websocket)
+            await self.insights_mode(processing_config, state, websocket)
         elif data.focus_mode == "all":
-            await self.web_search(user_id, session_id, data, websocket)
+            await self.QA_mode(processing_config, state, websocket)
         
 
 
-    def generate_title_from_content(self, content: str, max_length: int = 10) -> str:
+    def generate_title_from_content(self, content: str, max_length: int = 50) -> str:
         """
         Generate a concise title from the content
         
@@ -234,9 +171,6 @@ class ConnectionManager:
         # Fallback: truncate content
         return content[:max_length] + '...'
 
-
-
-    
 
 
 manager = ConnectionManager()

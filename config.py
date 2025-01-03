@@ -5,7 +5,7 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")) * 24 * 60
 
 SEARCH_ENGINE_URL = str(os.getenv("SEARCH_ENGINE_URL"))
 
@@ -17,10 +17,10 @@ CHAT_COLLECTION_ID = "chats"
 MONGODB_URL = str(os.getenv("MONGODB_URL"))
 GOOGLE_SEARCH_ID = str(os.getenv("SEARCH_ENGINE_ID"))
 SEARXNG_BASE_URL = str(os.getenv("SEARXNG_BASE_URL"))
-
+USER_AGENT= os.getenv("USER_AGENT")
 
 class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))
     GEMINI_API_KEY = str(os.getenv("GEMINI_API_KEY"))
-    GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY"))
+    GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY")) 

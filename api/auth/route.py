@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException, APIRouter
 router = APIRouter()
 
 
-@router.post("/auth/register", response_model=UserPublic)
+@router.post("/register", response_model=UserPublic)
 async def register_user(payload: UserCreate):
     user = await services.get_user(payload.email)
     if user:
@@ -40,7 +40,7 @@ async def register_user(payload: UserCreate):
         "token": {"access_token": access_token, "token_type": "bearer"}
         }
 
-@router.post("/auth/login", response_model=UserPublic)
+@router.post("/login", response_model=UserPublic)
 async def login(payload: LoginSchema):
     user = await services.authenticate_user(payload.email, payload.password)
     if not user:
@@ -60,6 +60,6 @@ async def login(payload: LoginSchema):
         "token": {"access_token": access_token, "token_type": "bearer"}
         }
 
-@router.get("/auth/me", response_model=User)
+@router.get("/me", response_model=User)
 async def get_me(current_user: UserIn = Depends(services.get_current_user)):
     return current_user

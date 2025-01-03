@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 
 from api import chat_router, auth_router
-from db import prepare_database
+from db._appwrite.db_register import prepare_database
 from _websockets import websocket_router
 from utils.logging import logger
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -30,7 +31,7 @@ app = FastAPI(lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=["http://localhost:3000", "ws://localhost:3000"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -42,6 +43,12 @@ app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
 
 app.router.lifespan_context = lifespan
 
+@app.exception_handler(Exception)
+async def unicorn_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "INTERNAL SERVER ERROR", "error": str(exc)},
+    )
 
 
 if __name__ == "__main__":

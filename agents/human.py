@@ -6,7 +6,7 @@ from .state import State
 from utils.logging import logger
 from utils.helper_state import update_history
 from .config import agent_manager
-from db.sqlite.manager import session_manager
+from db._appwrite.session import appwrite_session_manager
 from utils.websocket import websocket_manager
 
 from langgraph.types import Command
@@ -56,16 +56,6 @@ async def human_node(
     agent_manager.meta_agent,
     agent_manager.writer_agent,
 ]]:
-    """
-    Process user input and manage WebSocket communication.
-    
-    Args:
-        state (State): Current application state
-        config (dict): Configuration options
-        
-    Returns:
-        Command: Next action to take
-    """
     try:
         next_node = state.get("next_node", agent_manager.end)
         ws_id = state["ws_id"]
@@ -79,26 +69,27 @@ async def human_node(
         
         # Receive user input with retries
         max_retries = 3
-        retry_delay = 30
+        retry_delay = 300
         response_text = None
         
         update_history(state, state["human_response"], state["ai_response"])
-        for attempt in range(max_retries):
-            try:
-                response_text = await websocket_manager.receive_json(ws_id)
-                if response_text:
-                    break
-                logger.warning(f"Empty response on attempt {attempt + 1}")
-            except Exception as e:
-                logger.error(f"Error receiving message (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
+        response_text = await websocket_manager.receive_json(ws_id)
+        # for attempt in range(max_retries):
+            #     try:
+            #         response_text = await websocket_manager.receive_json(ws_id)
+        #         if response_text:
+        #             break
+        #         logger.warning(f"Empty response on attempt {attempt + 1}")
+        #     except Exception as e:
+        #         logger.error(f"Error receiving message (attempt {attempt + 1}): {e}")
+        #         if attempt < max_retries - 1:
+        #             await asyncio.sleep(retry_delay)
+        #             retry_delay *= 2  # Exponential backoff
         
-        if not response_text:
-            await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
-            return Command(goto=agent_manager.end, update=state)
-            # raise RuntimeError("Failed to receive user input after multiple attempts")
+        # if not response_text:
+        #     await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
+        #     return Command(goto=agent_manager.end, update=state)
+        #     # raise RuntimeError("Failed to receive user input after multiple attempts")
         
         # Extract user input from response
         user_input = await extract_message_content(response_text)
@@ -111,9 +102,9 @@ async def human_node(
         state["human_response"] = user_input
         
         # Log messages and update history
-        session_manager.log_message(state["session_id"], 'human', state["human_response"])
+        await appwrite_session_manager.log_message(state["session_id"], state["human_response"], 'human')
         if "ai_response" in state:
-            session_manager.log_message(state["session_id"], 'assistant', state["ai_response"])
+            await appwrite_session_manager.log_message(state["session_id"],  state["ai_response"], 'assistant')
             
         
         logger.info(f"User input collected: {user_input}. Routing to: {next_node}")
