@@ -32,7 +32,7 @@ app = FastAPI(lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "ws://localhost:3000"],  # Frontend URLs
+    allow_origins=["http://localhost:3000", "ws://localhost:3000", "ws://volera-frontend-7dyp.vercel.app/", "https://volera-frontend-7dyp.vercel.app/"], 
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
