@@ -4,6 +4,7 @@ from api import chat_router, auth_router
 from db._appwrite.db_register import prepare_database
 from _websockets import websocket_router
 from utils.logging import logger
+from config import PORT
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -49,13 +50,7 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"message": "INTERNAL SERVER ERROR", "error": str(exc)},
     )
-
-
+    
 if __name__ == "__main__":
-    uvicorn.run(
-            "main:app", 
-            host="localhost", 
-            port=3001, 
-            reload=True,  # Enable auto-reload during development
-            log_level="info"
-        )
+    logger.info("Starting FastAPI server.")
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
