@@ -53,4 +53,4 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
     
 if __name__ == "__main__":
     logger.info("Starting FastAPI server.")
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, port=int(PORT))  # Ensure PORT is an integer

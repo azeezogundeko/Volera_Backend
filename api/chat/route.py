@@ -25,6 +25,7 @@ async def create_new_chat(
         return await Chat.create(
             document_id=Chat.get_unique_id(),
             data={
+                "title": "New Chat",
                 "user_id": user.id,
                 "start_time": datetime.now().isoformat(),
             }
@@ -41,7 +42,7 @@ async def create_new_chat(
 # Route to get all chats
 @router.get("/")
 async def get_chats(user: UserIn = Depends(get_current_user)):
-    response = await Chat.list([Query.order_desc("$createdAt")])
+    response = await Chat.list([Query.order_desc("$createdAt"), Query.equal("user_id", user.id)])
     response = {"chats": response["documents"]}
     return response
 
