@@ -1,37 +1,36 @@
-import os
-import datetime
+import asyncio
+from datetime import datetime
 
 from utils.logging import logger
-from utils.decorator import async_retry
-from db._appwrite.base import AsyncAppWriteClient
+from agents.tools.google import GoogleSearchTool
+# from utils.decorator import async_retry
+from .model import Product, PriceHistory
+from .schema import ProductIn
+from .scrape import AsyncWebScraper
+from .agent import price_extrator
+
+import sentry_sdk
 from celery import Celery, shared_task
-
+from sentry_sdk import capture_exception
 from celery.schedules import crontab
-import httpx
-import asyncio
 
-async_db = AsyncAppWriteClient()
-
-# Replace with actual collection IDs from Appwrite
-PRODUCTS_COLLECTION_ID = '640a69f1b136b2b77a9e'
-PRICE_HISTORY_COLLECTION_ID = '640a6a2160a0f200a102'
 
 # Semaphore for limiting concurrent requests
-MAX_CONCURRENT_REQUESTS = 5
+MAX_CONCURRENT_REQUESTS = 3
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 # Sentry integration
-import sentry_sdk
-from sentry_sdk import capture_exception
-
+web_scraper = AsyncWebScraper()
+google_search = GoogleSearchTool()
 sentry_sdk.init(dsn="YOUR_SENTRY_DSN")
+
 
 # Celery tasks
 @shared_task(bind=True, max_retries=3, retry_backoff=True)
 async def daily_scrape_trigger(self):
     try:
-        products_response = await async_db.list_documents(PRODUCTS_COLLECTION_ID)
-        product_ids = [product['$id'] for product in products_response['documents']]
+        response = await Product.list()
+        product_ids = [product.id for product in response['documents']]
         asyncio.run(scrape_multiple_products(product_ids))
     except Exception as e:
         logger.error(f"Error triggering daily scrape: {e}")
@@ -42,24 +41,20 @@ async def daily_scrape_trigger(self):
 async def scrape_product(url, product_id):
     async with semaphore:
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                from bs4 import BeautifulSoup
-                soup = BeautifulSoup(response.content, 'html.parser')
-                # Adjust the selector to match the website
-                price_tag = soup.find('span', class_='price')
-                price = price_tag.text.strip() if price_tag else 'Not found'
+            docs  = await web_scraper.scrape_websites(url)
+            content = await web_scraper.extract_text(docs)
+            data = await price_extrator.run(str(content))
+            await PriceHistory.create(
+                document_id=Product.get_unique_id(),
+                data = {
+                    "price": data.data.price,
+                    "timestamp": datetime.now().isoformat(),
+                    "product_id": product_id
+                }
+            )
 
-                # Save price data to Appwrite
-                document_id = f'{product_id}_{datetime.datetime.now().isoformat()}'
-
-                await async_db.create_document(PRICE_HISTORY_COLLECTION_ID, document_id=document_id, document_data={'product_id': product_id,
-                    'price': price,
-                    'timestamp': datetime.datetime.now().isoformat(),
-                })
-
-                logger.info(f"Scraped {url} for product {product_id}: {price}")
+            logger.info(f"Scraped {url} for product {product_id}: {price}")
+            await asyncio.sleep(30)
         except Exception as e:
             logger.error(f"Error scraping {url} for product {product_id}: {e}")
             capture_exception(e)
@@ -69,8 +64,8 @@ async def scrape_multiple_products(product_ids):
     tasks = []
     for product_id in product_ids:
         try:
-            product = await async_db.get_document(PRODUCTS_COLLECTION_ID, product_id)
-            url = product.get('url')
+            product = await Product.read(product_id)
+            url = product.url
             if not url:
                 logger.warning(f"Product {product_id} has no URL. Skipping.")
                 continue
@@ -86,39 +81,27 @@ async def scrape_multiple_products(product_ids):
             capture_exception(result)
 
 
-# PriceTrackerManager class
-class PriceTrackerManager:
+async def search_products(query):
+    response = await google_search.search(query)
+    # parse response with LLM?
+    # Maybe Scrape each websites and parse response to LLM
+    # Rerank search Queries before parsing response to LLM
 
-    def __init__(self) -> None:
-        self.db = async_db
+async def add_product(*args, **kwargs: ProductIn):
+    await Product.create(
+        document_id=Product.get_unique_id(),
+        data = kwargs
+    )
 
 
-    async def add_product(self, product_id, url):
-        try:
-            await self.db.create_document(PRODUCTS_COLLECTION_ID, {'url': url}, product_id)
-        except Exception as e:
-            logger.error(f"Error adding product {product_id}: {e}")
-            capture_exception(e)
+async def remove_product(product_id):
+    await Product.delete(product_id)
 
-    async def remove_product(self, product_id):
-        try:
-            await self.db.delete_document(PRODUCTS_COLLECTION_ID, product_id)
-        except Exception as e:
-            logger.error(f"Error removing product {product_id}: {e}")
-            capture_exception(e)
 
-    async def get_price_history(self, product_id):
-        try:
-            price_history = await self.db.list_documents(
-                PRICE_HISTORY_COLLECTION_ID,
-                filter=f"product_id=={product_id}"
-            )
-            return price_history['documents']
-        except Exception as e:
-            logger.error(f"Error fetching price history for {product_id}: {e}")
-            capture_exception(e)
-            return []
-
+async def get_price_history(product_id, user_id): 
+    price_history = await PriceHistory.list([f"product_id=={product_id}", f"user_id=={user_id}"])
+    return price_history['documents']
+        
 # Configure Celery beat schedule
 celery_app.conf.beat_schedule = {
     'scrape-daily': {

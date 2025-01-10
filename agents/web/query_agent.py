@@ -51,7 +51,7 @@ class WebQueryAgent(BaseAgent):
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(
             self.llm.run(user_input, message_history=previous_messages),
-             timeout=10)
+             timeout=20)
 
         state["message_history"] = previous_messages + response.new_messages()
         logger.info("Web Query Agent executed successfully.")

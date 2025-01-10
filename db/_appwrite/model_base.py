@@ -47,7 +47,7 @@ class AppwriteModelBase:
     
     
     @classmethod
-    async def list(cls, queries: List[str]) -> List[Type["AppwriteModelBase"]]:
+    async def list(cls, queries: List[str] = None) -> List[Type["AppwriteModelBase"]]:
         documents = await cls.client.list_documents(
             collection_id=cls.collection_id,
             queries=queries

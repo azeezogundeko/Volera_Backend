@@ -10,8 +10,18 @@ class PriceHistorySchema(BaseModel):
     timestamp: datetime
     price: float
 
+class ProductIn(BaseModel):
+    title: str
+    url: str
+    current_price: float
+    image: str
+    date_added: datetime
+    notification_enabled: bool= True
+    currency: str = "₦"
+    alert_sent: bool = False
+    
 
-class TrackedItemSchema(BaseModel):
+class ProductSchema(BaseModel):
     product_id: str
     title: str
     url: str

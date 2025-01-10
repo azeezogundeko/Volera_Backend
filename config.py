@@ -20,6 +20,9 @@ GOOGLE_SEARCH_ID = str(os.getenv("SEARCH_ENGINE_ID"))
 SEARXNG_BASE_URL = str(os.getenv("SEARXNG_BASE_URL"))
 USER_AGENT= os.getenv("USER_AGENT")
 
+KONGA_API_KEY = str(os.getenv("KONGA_API_KEY"))
+KONGA_ID = str(os.getenv("KONGA_ID"))
+
 class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))

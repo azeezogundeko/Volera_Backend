@@ -1,18 +1,22 @@
+import json
 import asyncio
 from typing import List, TypedDict, Dict, Optional
+
 from fastapi import WebSocket
 from utils.logging import logger
-import json
+
 
 class ImageMetadata(TypedDict):
     url: str
     img_url: str
     title: str
 
+
 class SourceMetadata(TypedDict):
     url: str
     content: str
     title: str
+
 
 class WebSocketManager:
     _instance = None
@@ -116,7 +120,7 @@ class WebSocketManager:
         
         try:
             # Set a timeout for receiving messages
-            data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+            data = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
             
             # Handle dictionary response
             if isinstance(data, dict):
