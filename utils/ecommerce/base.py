@@ -29,7 +29,7 @@ class EcommerceIntegration(ABC):
         pass
 
     @abstractmethod
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get detailed information about a specific product."""
         pass
 
@@ -37,9 +37,11 @@ class EcommerceIntegration(ABC):
         """Check if URL matches this integration's patterns."""
         return any(pattern in url for pattern in self.url_patterns)
 
-    def hash_id(self, url: str) -> str:
-        """Hash URL to a unique identifier."""
-        return hashlib.sha256(url.encode()).hexdigest()
+    # def hash_id(self, url: str) -> str:
+    #     """Hash URL to a unique identifier."""
+    #     # Normalize the URL
+    #     normalized_url = url.split('?')[0].lower().rstrip('/')  # Remove query params and trailing slash
+    #     return hashlib.sha256(normalized_url.encode()).hexdigest()
 
 class ScrapingIntegration(EcommerceIntegration):
     """Integration for websites that require scraping."""
@@ -72,7 +74,6 @@ class ScrapingIntegration(EcommerceIntegration):
             schema=self.detail_schema,
             bypass_cache=kwargs.get('bypass_cache', False)
         )
-        print(product)
         return product[0] if isinstance(product, list) else product if product else {}
 
 class RestApiIntegration(EcommerceIntegration):

@@ -3,6 +3,7 @@ from urllib.parse import urlparse, parse_qs
 
 from ..ecommerce.base import ScrapingIntegration
 from ..db_manager import ProductDBManager
+from utils import db_manager
 
 class JijiIntegration(ScrapingIntegration):
     def __init__(self, db_manager: ProductDBManager = None):
@@ -210,7 +211,7 @@ class JijiIntegration(ScrapingIntegration):
         # print("\n\n\n")
         transformed = []
         for product in products:
-            transformed.append({
+            p = {
                 "name": product.get("name", ""),
                 "product_id": self.hash_id(product.get("url", "")),
                 "current_price": self._clean_price(product.get("current_price", "")),
@@ -224,25 +225,41 @@ class JijiIntegration(ScrapingIntegration):
                     "name": product.get("seller", {}).get("name", ""),
                     "verified": product.get("seller", {}).get("verified", False)
                 }
-            })
+            }
+            transformed.append(p)
 
             await self.db_manager.cache_product(
                 product_id=self.hash_id(product.get("url", "")),
-                data=transformed,
+                data=p,
                 type="list",
                 ttl=3600,
             )
            
         return transformed
 
-    async def _transform_product_detail(self, product: Dict[str, Any]) -> Dict[str, Any]:
+    def _validate_nested_structure(self, data: Any) -> Dict[str, Any]:
+        """Validate and normalize nested dictionary structure."""
+        if not data:
+            return {}
+        
+        if isinstance(data, list):
+            if not data:  # Empty list
+                return {}
+            data = data[0] if isinstance(data[0], dict) else {}
+            
+        if isinstance(data, dict):
+            return data
+            
+        return {}
+
+    async def _transform_product_detail(self, product: Dict[str, Any], product_id: str) -> Dict[str, Any]:
         """Transform scraped product detail to standard format."""
         if isinstance(product, list):
             product = product[0]
 
-        basic_info = product.get("product_basic_info", {})
-        product_images = basic_info.get("images", [])
-        
+        basic_info = self._validate_nested_structure(product.get("product_basic_info", {}))
+        product_images = self._validate_nested_structure(basic_info.get("images", {}))
+
         transformed = {
             "name": basic_info.get("name", ""),
             "brand": "",  # Not available in Jiji schema
@@ -267,27 +284,28 @@ class JijiIntegration(ScrapingIntegration):
                 "name": "",  # Currently commented out in schema
                 "rating": 0  # Not available in Jiji schema
             },
-            "specifications": {
-                item.get("key", ""): item.get("value", "")
-                for item in product.get("specifications", [])
-                if isinstance(item, dict)
-            },
+            "specifications": [
+                {"label": spec["key"], "value": spec["value"]}
+                for spec in product.get("specifications", [])
+                if isinstance(spec, dict) and "key" in spec and "value" in spec  # Validate each spec
+            ],
             "features": [],  # Not available in Jiji schema
             "reviews": []  # Not available in Jiji schema
         }
+        if self.db_manager:
+            product = await self.db_manager.get_cached_product(product_id, type="list")
+            if product:
+                transformed.update({
+                    "name": product["name"],
+                    "product_id": product["product_id"],
+                    "current_price": product["current_price"],
+                    "original_price": product["original_price"],
+                    "discount": product["discount"],
+                    "image": product.get("image", product["image"]),
+                    "url": product["url"]
+                })
+                print(transformed)
 
-        # Merge with cached data if available
-        product_id = self.hash_id(product.get("url", ""))
-        product_data = await self.db_manager.get_cached_product(product_id, type="list")
-        if product_data:
-            transformed.update({
-                "product_id": product_data["product_id"],
-                "current_price": product_data["current_price"],
-                "original_price": product_data["original_price"],
-                "discount": product_data["discount"],
-                "image": product_data.get("image", transformed["image"]),
-                "url": product_data["url"]
-            })
 
         return transformed
 
@@ -296,7 +314,7 @@ class JijiIntegration(ScrapingIntegration):
         products = await super().get_product_list(url, **kwargs)
         return await self._transform_product_list(products)
 
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
-        """Get product detail by scraping."""
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
+        """Get product detail using GraphQL."""
         product = await super().get_product_detail(url, **kwargs)
-        return await self._transform_product_detail(product) 
+        return await self._transform_product_detail(product, product_id) 

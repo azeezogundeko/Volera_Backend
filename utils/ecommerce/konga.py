@@ -269,7 +269,7 @@ class KongaIntegration(GraphQLIntegration):
                     print(f"Error response from Konga API: {error_data}")
         return {"products": [], "pagination": {"page": 1, "limit": 40, "total": 0, "total_pages": 0}}
 
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
         url_key = self._extract_url_key(url)
         if not url_key:

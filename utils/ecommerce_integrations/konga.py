@@ -6,6 +6,8 @@ from config import KONGA_API_KEY, KONGA_ID
 from ..ecommerce.base import GraphQLIntegration
 from ..db_manager import ProductDBManager
 
+from ..logging import logger
+
 
 class KongaIntegration(GraphQLIntegration):
     def __init__(self, db_manager: ProductDBManager = None):
@@ -91,10 +93,11 @@ class KongaIntegration(GraphQLIntegration):
         products = []
         
         for hit in data.get("hits", []):
+            # print(hit)
             product = {
                 "name": hit.get("name", ""),
                 "brand": hit.get("brand", ""),
-                "category": hit.get("category", {}).get("name", ""),
+                "category": hit.get("category", [{}])[0].get("name", "") if isinstance(hit.get("category", []), list) and hit["category"] else "",
                 "description": hit.get("description", {}).get("result", ""),
                 "current_price": hit.get("price", 0),
                 "original_price": hit.get("price", 0),
@@ -115,7 +118,7 @@ class KongaIntegration(GraphQLIntegration):
                     "name": hit.get("seller", {}).get("name", ""),
                     "rating": hit.get("seller", {}).get("rating", 0)
                 },
-                "specifications": {},  # Not available in list view
+                "specifications": [],  # Not available in list view
                 "features": [],  # Not available in list view
                 "reviews": [],  # Not available in list view
                 "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
@@ -213,13 +216,13 @@ class KongaIntegration(GraphQLIntegration):
                             print(f"Error response from Algolia API: {data}")
 
             except Exception as e:
-                print(f"Exception during Algolia API request: {str(e)}")
+                logger.error(f"Exception during Algolia API request: {str(e)}", exc_info=True)
+
         return {"products": [], "pagination": {"page": 1, "limit": 40, "total": 0, "total_pages": 0}}
 
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
         if self.db_manager:
-            product_id = self.hash_id(url)
             product = await self.db_manager.get_cached_product(product_id, type="list")
             if product:
                 return product

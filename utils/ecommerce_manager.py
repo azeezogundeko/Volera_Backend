@@ -141,6 +141,7 @@ class EcommerceManager:
             
             product = await integration.get_product_detail(
                 url=product_url,
+                product_id=product_id,
                 bypass_cache=bypass_cache
             )
 
@@ -155,7 +156,7 @@ class EcommerceManager:
             return {}
             
         except Exception as e:
-            logger.error(f"Error getting product detail for {product_id}: {str(e)}")
+            logger.error(f"Error getting product detail for {product_id}: {str(e)}", exc_info=True)
             return {}
 
 

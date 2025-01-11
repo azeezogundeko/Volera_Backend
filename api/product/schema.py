@@ -37,7 +37,7 @@ class ProductDetail(BaseModel):
     description: Optional[str] = None
     current_price: Optional[float] = 0.0
     original_price: Optional[float] = 0.0
-    discount: Optional[str] = None
+    discount: Optional[float] = 0.0
     image: Optional[str] = None
     images: Optional[List[Image]] = []
     source: Optional[str] = None
