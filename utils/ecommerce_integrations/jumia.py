@@ -355,61 +355,88 @@ class JumiaIntegration(ScrapingIntegration):
         return transformed
 
 
+    def _validate_product_structure(self, product: Any) -> Dict[str, Any]:
+        """Validate and normalize product structure before processing."""
+        if not product:
+            return {}
+            
+        if isinstance(product, list):
+            if not product:  # Empty list
+                return {}
+            return product[0] if isinstance(product[0], dict) else {}
+            
+        if isinstance(product, dict):
+            return product
+            
+        return {}
+
+    def _validate_nested_structure(self, data: Any) -> Dict[str, Any]:
+        """Validate and normalize nested dictionary structure."""
+        if not data:
+            return {}
+        
+        if isinstance(data, list):
+            if not data:  # Empty list
+                return {}
+            data = data[0] if isinstance(data[0], dict) else {}
+            
+        if isinstance(data, dict):
+            return data
+            
+        return {}
+
     async def _transform_product_detail(self, product: List[Dict[str, Any]] | Dict[str, Any]) -> Dict[str, Any]:
         """Transform scraped product detail to standard format."""
+        # Validate and normalize structure first
+        product = self._validate_product_structure(product)
+        if not product:
+            return {}
+
         product["source"] = self.name
 
-        if isinstance(product, dict):
-            product = [product]
-            # return product
+        # Validate nested structures
+        basic_info = self._validate_nested_structure(product.get("product_basic_info"))
+        product_details = self._validate_nested_structure(product.get("product_details"))
+        product_reviews = self._validate_nested_structure(product.get("product_reviews"))
 
-        if isinstance(product, list):
-            product = product[0]
-
-            basic_info = product.get("product_basic_info", {})
-            product_details = product.get("product_details", {})
-            product_reviews = product.get("product_reviews", {})
-
-            return {
-                "name": basic_info.get("name", ""),
-                "brand": basic_info.get("brand", ""),
-                "category": product.get("category", ""),
-                "description": "",  # Not directly available in schema
-                "current_price": self._clean_price(basic_info.get("current_price", "")),
-                "original_price": self._clean_price(basic_info.get("original_price", "")),
-                "discount": basic_info.get("discount", ""),
-                "image": basic_info.get("images", [{}])[0].get("url", "") if basic_info.get("images") else "",
-                "images": [
-                    {
-                        "url": img.get("url", ""),
-                        "zoom_url": img.get("zoom_url", ""),
-                        "alt": img.get("alt", "")
-                    }
-                    for img in basic_info.get("images", [])
-                ],
-                "source": "jumia",
-                "rating": self._clean_rating(basic_info.get("rating", "0")),
-                "rating_count": self._clean_rating_count(basic_info.get("reviews_count", "")),
-                "seller": {
-                    "name": "",  # Not available in schema
-                    "rating": 0  # Not available in schema
-                },
-                "specifications": self._clean_specifications(product_details.get("specifications", [])),
-                "features": self._clean_features(product_details.get("features", [])),
-                "reviews": [
-                    {
-                        "rating": self._clean_rating(review.get("rating", "0")),
-                        "title": review.get("title", ""),
-                        "comment": review.get("comment", ""),
-                        "date": review.get("date", ""),
-                        "author": review.get("author", ""),
-                        "verified": review.get("verified", False)
-                    }
-                    for review in product_reviews.get("reviews", [])
-                ]
-            }
-
-
+        return {
+            "name": basic_info.get("name", ""),
+            "brand": basic_info.get("brand", ""),
+            "category": product.get("category", ""),
+            "description": "",  # Not directly available in schema
+            "current_price": self._clean_price(basic_info.get("current_price", "")),
+            "original_price": self._clean_price(basic_info.get("original_price", "")),
+            "discount": basic_info.get("discount", ""),
+            "image": basic_info.get("images", [{}])[0].get("url", "") if basic_info.get("images") else "",
+            "images": [
+                {
+                    "url": img.get("url", ""),
+                    "zoom_url": img.get("zoom_url", ""),
+                    "alt": img.get("alt", "")
+                }
+                for img in basic_info.get("images", [])
+            ],
+            "source": "jumia",
+            "rating": self._clean_rating(basic_info.get("rating", "0")),
+            "rating_count": self._clean_rating_count(basic_info.get("reviews_count", "")),
+            "seller": {
+                "name": "",  # Not available in schema
+                "rating": 0  # Not available in schema
+            },
+            "specifications": self._clean_specifications(product_details.get("specifications", [])),
+            "features": self._clean_features(product_details.get("features", [])),
+            "reviews": [
+                {
+                    "rating": self._clean_rating(review.get("rating", "0")),
+                    "title": review.get("title", ""),
+                    "comment": review.get("comment", ""),
+                    "date": review.get("date", ""),
+                    "author": review.get("author", ""),
+                    "verified": review.get("verified", False)
+                }
+                for review in product_reviews.get("reviews", [])
+            ]
+        }
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
