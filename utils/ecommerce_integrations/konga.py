@@ -91,30 +91,38 @@ class KongaIntegration(GraphQLIntegration):
         products = []
         
         for hit in data.get("hits", []):
-            # Get description text from the nested structure
-            description = hit.get("description", {}).get("result", "")
             product = {
                 "name": hit.get("name", ""),
-                "current_price": hit.get("price", 0),
-                "original_price": hit.get("price", 0),  # Use price as original if no special
-                "special_price": hit.get("special_price", 0),
-                "deal_price": hit.get("deal_price", 0) if hit.get("deal_price") else None,
-                "image": f"https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product{hit.get('image_thumbnail_path', '')}",
-                "images": [],  # TODO: Add if available in response
-                "url": f"{self.base_url}/product/{hit.get('url_key', '')}",
-                "source": "konga",
-                "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
                 "brand": hit.get("brand", ""),
+                "category": hit.get("category", {}).get("name", ""),
+                "description": hit.get("description", {}).get("result", ""),
+                "current_price": hit.get("price", 0),
+                "original_price": hit.get("price", 0),
+                "discount": hit.get("discount_percentage", 0),
+                "image": f"https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product{hit.get('image_thumbnail_path', '')}",
+                "images": [
+                    {
+                        "url": f"https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product{img_path}",
+                        "zoom_url": f"https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product{img_path}",
+                        "alt": hit.get("name", "")
+                    }
+                    for img_path in hit.get("image_paths", [])
+                ],
+                "source": "konga",
                 "rating": self._clean_rating(hit.get("rating", {}).get("average_rating", 0)),
-                "description": description,
-                "sku": hit.get("sku", ""),
+                "rating_count": hit.get("rating", {}).get("count", 0),
                 "seller": {
                     "name": hit.get("seller", {}).get("name", ""),
-                    "is_premium": bool(hit.get("seller", {}).get("is_premium", 0)),
-                    "is_konga": bool(hit.get("seller", {}).get("is_konga", 0)),
-                    "city": hit.get("seller", {}).get("city", ""),
-                    "state": hit.get("seller", {}).get("state", "")
+                    "rating": hit.get("seller", {}).get("rating", 0)
                 },
+                "specifications": {},  # Not available in list view
+                "features": [],  # Not available in list view
+                "reviews": [],  # Not available in list view
+                "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
+                "url": f"{self.base_url}/product/{hit.get('url_key', '')}",
+                
+                # Additional Konga-specific fields
+                "sku": hit.get("sku", ""),
                 "stock": {
                     "in_stock": bool(hit.get("stock", {}).get("in_stock", 0)),
                     "quantity": hit.get("stock", {}).get("quantity", 0),
@@ -214,7 +222,6 @@ class KongaIntegration(GraphQLIntegration):
             product_id = self.hash_id(url)
             product = await self.db_manager.get_cached_product(product_id, type="list")
             if product:
-                print(product)
                 return product
         return {}
 

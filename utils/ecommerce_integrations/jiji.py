@@ -237,20 +237,59 @@ class JijiIntegration(ScrapingIntegration):
 
     async def _transform_product_detail(self, product: Dict[str, Any]) -> Dict[str, Any]:
         """Transform scraped product detail to standard format."""
+        if isinstance(product, list):
+            product = product[0]
 
+        basic_info = product.get("product_basic_info", {})
+        product_images = basic_info.get("images", [])
+        
+        transformed = {
+            "name": basic_info.get("name", ""),
+            "brand": "",  # Not available in Jiji schema
+            "category": "",  # Not available in Jiji schema
+            "description": product.get("description", ""),
+            "current_price": self._clean_price(basic_info.get("current_price", "")),
+            "original_price": 0.0,  # Not available in Jiji schema
+            "discount": 0.0,  # Not available in Jiji schema
+            "image": product_images[0].get("url", "") if product_images else "",
+            "images": [
+                {
+                    "url": img.get("url", ""),
+                    "zoom_url": "",  # Not available in Jiji schema
+                    "alt": img.get("alt", "")
+                }
+                for img in product_images
+            ],
+            "source": self.name,
+            "rating": 0,  # Not available in Jiji schema
+            "rating_count": 0,  # Not available in Jiji schema
+            "seller": {
+                "name": "",  # Currently commented out in schema
+                "rating": 0  # Not available in Jiji schema
+            },
+            "specifications": {
+                item.get("key", ""): item.get("value", "")
+                for item in product.get("specifications", [])
+                if isinstance(item, dict)
+            },
+            "features": [],  # Not available in Jiji schema
+            "reviews": []  # Not available in Jiji schema
+        }
 
-        product["source"] = self.name
-        product_id = self.hash_id(product["url"])
-
+        # Merge with cached data if available
+        product_id = self.hash_id(product.get("url", ""))
         product_data = await self.db_manager.get_cached_product(product_id, type="list")
         if product_data:
-            product["product_id"] = product_data["product_id"]
-            product["current_price"] = product_data["current_price"]
-            product["original_price"] = product_data["original_price"]
-            product["discount"] = product_data["discount"]
-            product["image"] = product_data["image"]
-            product["url"] = product_data["url"]
-        return product
+            transformed.update({
+                "product_id": product_data["product_id"],
+                "current_price": product_data["current_price"],
+                "original_price": product_data["original_price"],
+                "discount": product_data["discount"],
+                "image": product_data.get("image", transformed["image"]),
+                "url": product_data["url"]
+            })
+
+        return transformed
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""

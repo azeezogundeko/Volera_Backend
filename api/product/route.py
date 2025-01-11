@@ -1,7 +1,7 @@
 from typing import List, Optional, Literal
 from fastapi import APIRouter, Query, Request
 from . import services
-from .schema import ProductResponse
+from .schema import ProductResponse, ProductDetail
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ async def search_products(
     )
     return products
 
-@router.get("/detail/{product_id}")
+@router.get("/detail/{product_id}", response_model=ProductDetail)
 async def get_product_detail(
     request: Request,
     product_id: str,
