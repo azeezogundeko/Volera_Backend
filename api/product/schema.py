@@ -1,3 +1,4 @@
+from token import OP
 from typing import List, Optional
 from pydantic import BaseModel, field_validator
 
@@ -14,35 +15,49 @@ class ProductBasicInfo(BaseModel):
     discount: Optional[float] = 0.0
     rating: Optional[float] = 0.0
     reviews_count: Optional[str] = "0"
-    images: Optional[List[Image]] = []
+    product_id: Optional[str] = None
+    image: Optional[str] = None
+    relevance_score: float = 0.0
+    url: Optional[str] = None
+    # images: Optional[List[Image]] = []
     currency: Optional[str] = "₦"
+    source: Optional[str] = "Unknown source"
 
-    @field_validator("rating", mode='before')
-    def convert_rating(cls, v):
-        "convert rating to float"
-        if isinstance(v, str):
-            return float(v.replace('out of 5', ''))
-        return v
+    @field_validator("relevance_score", mode="before")
+    def validate_relevance_score(cls, v):
+        import numpy as np
+        if isinstance(v, np.float32):
+            return float(v)
 
-    @field_validator("discount", mode='before')
-    def convert_discount(cls, v):
-        "convert discount to float"
-        if isinstance(v, str):
-            return float(v.replace('%', ''))
-        return v
+        else:
+            return v
 
-    @field_validator('current_price', 'original_price', mode='before')
-    def convert_price(cls, v):
-        "convert price to float"
-        if isinstance(v, str):
-            # Remove currency symbol and any whitespace
-            v = v.replace('₦', '').strip()
-            # Remove commas and convert to float
-            try:
-                return float(v.replace(',', ''))
-            except (ValueError, TypeError):
-                return 0.0
-        return v if v is not None else 0.0
+    # @field_validator("rating", mode='before')
+    # def convert_rating(cls, v):
+    #     "convert rating to float"
+    #     if isinstance(v, str):
+    #         return float(v.replace('out of 5', ''))
+    #     return v
+
+    # @field_validator("discount", mode='before')
+    # def convert_discount(cls, v):
+    #     "convert discount to float"
+    #     if isinstance(v, str):
+    #         return float(v.replace('%', ''))
+    #     return v
+
+    # @field_validator('current_price', 'original_price', mode='before')
+    # def convert_price(cls, v):
+    #     "convert price to float"
+    #     if isinstance(v, str):
+    #         # Remove currency symbol and any whitespace
+    #         v = v.replace('₦', '').strip()
+    #         # Remove commas and convert to float
+    #         try:
+    #             return float(v.replace(',', ''))
+    #         except (ValueError, TypeError):
+    #             return 0.0
+    #     return v if v is not None else 0.0
 
 class Feature(BaseModel):
     feature: Optional[str] = "No feature specified"
@@ -95,3 +110,29 @@ class ProductSchema(BaseModel):
     product_basic_info: Optional[ProductBasicInfo] = ProductBasicInfo()
     product_details: Optional[List[ProductDetail]] = []
     product_reviews: Optional[ProductReviews] = ProductReviews()
+
+
+class ProductResponse(BaseModel):
+    name: Optional[str] = "Unknown Product"
+    current_price: Optional[float] = 0.0
+    original_price: Optional[float] = 0.0
+    brand: Optional[str] = "Unknown Brand"
+    discount: Optional[float] = 0.0
+    rating: Optional[float] = 0.0
+    reviews_count: Optional[str] = "0"
+    product_id: Optional[str] = None
+    image: Optional[str] = None
+    relevance_score: float = 0.0
+    url: Optional[str] = None
+    # images: Optional[List[Image]] = []
+    currency: Optional[str] = "₦"
+    source: Optional[str] = "Unknown source"
+
+    @field_validator("relevance_score", mode="before")
+    def validate_relevance_score(cls, v):
+        import numpy as np
+        if isinstance(v, np.float32):
+            return float(v)
+
+        else:
+            return v

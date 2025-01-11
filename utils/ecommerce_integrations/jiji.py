@@ -2,10 +2,10 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 
 from ..ecommerce.base import ScrapingIntegration
+from ..db_manager import ProductDBManager
 
 class JijiIntegration(ScrapingIntegration):
-    def __init__(self):
-        self._cache = {}
+    def __init__(self, db_manager: ProductDBManager = None):
         super().__init__(
             name="jiji",
             base_url="https://jiji.ng",
@@ -124,11 +124,7 @@ class JijiIntegration(ScrapingIntegration):
                     #         }
                     #     ]
                     # },
-                    {
-                        "name": "source",
-                        "default": "jiji",
-                        "type": "text"
-                    },
+                    
                     {
                     "name": "specifications",
                     "selector": ".b-advert-attribute",
@@ -154,6 +150,7 @@ class JijiIntegration(ScrapingIntegration):
                 ]
             }
         )
+        self.db_manager = db_manager
         
     
     def _extract_search_params(self, url: str) -> Dict[str, Any]:
@@ -168,13 +165,29 @@ class JijiIntegration(ScrapingIntegration):
             "sort": params.get("sort", [""])[0]
         }
 
-    def _clean_price(self, price: str) -> str:
-        """Clean price string."""
+    def _clean_price(self, price: str) -> float:
+        """Clean price string and convert to float."""
         if not price:
-            return ""
-        # Remove currency symbol and extra spaces
-        # Example: "₦ 150,000" -> "150000"
-        return ''.join(filter(str.isdigit, price.replace(",", "")))
+            return 0.0
+        # Remove currency symbol (₦), commas, and extra spaces
+        cleaned = price.replace("₦", "").replace(",", "").strip()
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError):
+            print(f"Error converting price to float: {price}")
+            return 0.0
+
+    def _clean_discount(self, discount: str) -> float:
+        """Convert discount string to float percentage."""
+        if not discount:
+            return 0.0
+        # Extract number from strings like "-25%" or "25% OFF"
+        cleaned = ''.join(filter(str.isdigit, discount))
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError):
+            print(f"Error converting discount to float: {discount}")
+            return 0.0
 
     def _clean_date(self, date: str) -> str:
         """Clean date string."""
@@ -183,14 +196,26 @@ class JijiIntegration(ScrapingIntegration):
         return date.replace("Member since ", "").strip()
 
 
+    def _clean_features(self, v):
+        if isinstance(v, list):
+            print(v)
+            return [feature["feature"] for feature in v if isinstance(feature, dict)]
+        return v
+
+
     
-    def _transform_product_list(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _transform_product_list(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Transform scraped product list to standard format."""
+        # print(products)
+        # print("\n\n\n")
         transformed = []
         for product in products:
             transformed.append({
                 "name": product.get("name", ""),
+                "product_id": self.hash_id(product.get("url", "")),
                 "current_price": self._clean_price(product.get("current_price", "")),
+                "original_price": self._clean_price(product.get("original_price", "")),
+                "discount": self._clean_discount(product.get("discount", "")),
                 "image": product.get("image", ""),
                 "url": f"{self.base_url}{product.get("url", "")}",
                 "source": "jiji",
@@ -200,22 +225,39 @@ class JijiIntegration(ScrapingIntegration):
                     "verified": product.get("seller", {}).get("verified", False)
                 }
             })
-          
-            
+
+            await self.db_manager.cache_product(
+                product_id=self.hash_id(product.get("url", "")),
+                data=transformed,
+                type="list",
+                ttl=3600,
+            )
+           
         return transformed
 
-    def _transform_product_detail(self, product: Dict[str, Any]) -> Dict[str, Any]:
+    async def _transform_product_detail(self, product: Dict[str, Any]) -> Dict[str, Any]:
         """Transform scraped product detail to standard format."""
 
 
+        product["source"] = self.name
+        product_id = self.hash_id(product["url"])
+
+        product_data = await self.db_manager.get_cached_product(product_id, type="list")
+        if product_data:
+            product["product_id"] = product_data["product_id"]
+            product["current_price"] = product_data["current_price"]
+            product["original_price"] = product_data["original_price"]
+            product["discount"] = product_data["discount"]
+            product["image"] = product_data["image"]
+            product["url"] = product_data["url"]
         return product
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
         products = await super().get_product_list(url, **kwargs)
-        return self._transform_product_list(products)
+        return await self._transform_product_list(products)
 
     async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
         """Get product detail by scraping."""
         product = await super().get_product_detail(url, **kwargs)
-        return self._transform_product_detail(product) 
+        return await self._transform_product_detail(product) 

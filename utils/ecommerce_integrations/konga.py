@@ -1,13 +1,20 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Union
 import aiohttp
 from urllib.parse import urlparse, parse_qs
 from config import KONGA_API_KEY, KONGA_ID
 
 from ..ecommerce.base import GraphQLIntegration
+from ..db_manager import ProductDBManager
 
 
 class KongaIntegration(GraphQLIntegration):
-    def __init__(self):
+    def __init__(self, db_manager: ProductDBManager = None):
+        """
+        Initialize KongaIntegration.
+        
+        Args:
+            db_manager: Optional database manager instance for caching
+        """
         super().__init__(
             name="konga",
             base_url="https://www.konga.com",
@@ -20,6 +27,7 @@ class KongaIntegration(GraphQLIntegration):
                 "Content-Type": "application/json",
             }
         )
+        self.db_manager = db_manager
 
     def _extract_url_key(self, url: str) -> str:
         """Extract URL key from product URL."""
@@ -42,27 +50,63 @@ class KongaIntegration(GraphQLIntegration):
             "sort": params.get("sort", [""])[0]
         }
 
-    def _transform_algolia_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _clean_rating(self, rating: Union[Dict, float, str, None]) -> float:
+        """Clean rating value and convert to float."""
+        if not rating:
+            return 0.0
+        
+        # If rating is a dictionary with 'average' key (Konga format)
+        if isinstance(rating, dict):
+            return float(rating.get('average', 0.0))
+        
+        # If rating is a string (e.g., "4.5 out of 5")
+        if isinstance(rating, str):
+            try:
+                return float(''.join(filter(lambda x: x.isdigit() or x == '.', rating)))
+            except (ValueError, TypeError):
+                return 0.0
+                
+        # If rating is already a float or int
+        try:
+            return float(rating)
+        except (ValueError, TypeError):
+            return 0.0
+
+    async def _cache_product(self, product: Dict[str, Any], query_string: str = None, type="list"):
+        """Helper method to cache product if db_manager is available."""
+        if self.db_manager:
+            try:
+                await self.db_manager.cache_product(
+                    product_id=product["product_id"],
+                    data=product,
+                    ttl=3600,
+                    type=type,
+                    query=query_string
+                )
+            except Exception as e:
+                print(f"Error caching product: {str(e)}")
+
+    async def _transform_algolia_response(self, data: Dict[str, Any], search_params: Dict[str, Any]) -> Dict[str, Any]:
         """Transform Algolia response to standard format."""
         products = []
         
         for hit in data.get("hits", []):
             # Get description text from the nested structure
             description = hit.get("description", {}).get("result", "")
-            
-            products.append({
+            product = {
                 "name": hit.get("name", ""),
-                "description": description,
-                "current_price": str(hit.get("price", 0)),
-                "original_price": str(hit.get("price", 0)),  # Use price as original if no special
-                "special_price": str(hit.get("special_price", 0)),
-                "deal_price": str(hit.get("deal_price", 0)) if hit.get("deal_price") else None,
+                "current_price": hit.get("price", 0),
+                "original_price": hit.get("price", 0),  # Use price as original if no special
+                "special_price": hit.get("special_price", 0),
+                "deal_price": hit.get("deal_price", 0) if hit.get("deal_price") else None,
                 "image": f"https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product{hit.get('image_thumbnail_path', '')}",
                 "images": [],  # TODO: Add if available in response
-                "url": f"/product/{hit.get('url_key', '')}",
+                "url": f"{self.base_url}/product/{hit.get('url_key', '')}",
                 "source": "konga",
-                "product_id": hit.get("objectID", ""),
+                "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
                 "brand": hit.get("brand", ""),
+                "rating": self._clean_rating(hit.get("rating", {}).get("average_rating", 0)),
+                "description": description,
                 "sku": hit.get("sku", ""),
                 "seller": {
                     "name": hit.get("seller", {}).get("name", ""),
@@ -78,16 +122,19 @@ class KongaIntegration(GraphQLIntegration):
                     "min_sale_qty": hit.get("stock", {}).get("min_sale_qty", 1),
                     "max_sale_qty": hit.get("stock", {}).get("max_sale_qty", 0)
                 },
-                "rating": {
-                    "average": hit.get("rating", {}).get("average_rating", 0),
-                    "total": hit.get("rating", {}).get("total_rating", 0)
-                },
                 "is_free_shipping": bool(hit.get("is_free_shipping", 0)),
                 "is_pay_on_delivery": bool(hit.get("is_pay_on_delivery", 0)),
                 "express_delivery": bool(hit.get("express_delivery", 0)),
                 "konga_fulfilment_type": hit.get("konga_fulfilment_type", ""),
                 "is_official_store": bool(hit.get("is_official_store_product", 0))
-            })
+            }
+            
+            products.append(product)
+
+            # Cache the product with search parameters if db_manager is available
+            if self.db_manager:
+                query_string = f"search={search_params['search']}&page={search_params['page']}&limit={search_params['limit']}&sort={search_params['sort']}"
+                await self._cache_product(product, query_string, type="list")
         
         return {
             "products": products,
@@ -142,8 +189,6 @@ class KongaIntegration(GraphQLIntegration):
             ]
         }
 
-        print("Algolia payload:", payload)  # Debug print
-
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
@@ -155,7 +200,7 @@ class KongaIntegration(GraphQLIntegration):
                         if response.status == 200 and "results" in data:
                             # Transform the first result (product list)
                             result = data["results"][0]
-                            return self._transform_algolia_response(result)
+                            return await self._transform_algolia_response(result, params)
                         else:
                             print(f"Error response from Algolia API: {data}")
 
@@ -165,30 +210,12 @@ class KongaIntegration(GraphQLIntegration):
 
     async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
-        url_key = self._extract_url_key(url)
-        if not url_key:
-            return {}
+        if self.db_manager:
+            product_id = self.hash_id(url)
+            product = await self.db_manager.get_cached_product(product_id, type="list")
+            if product:
+                print(product)
+                return product
+        return {}
 
-        # Update headers with dynamic Referer
-        headers = self.headers.copy()
-        headers["Referer"] = url
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                self.graphql_url,
-                headers=headers,
-                json={
-                    "query": self.queries["productDetail"],
-                    "variables": {
-                        "url_key": url_key
-                    }
-                }
-            ) as response:
-                print(response)
-                if response.status == 200:
-                    data = await response.json()
-                    return self._transform_product_detail(data)
-                else:
-                    error_data = await response.text()
-                    print(f"Error response from Konga API: {error_data}")
-        return {} 
+        

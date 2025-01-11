@@ -1,14 +1,12 @@
-import re
 import hashlib
-from collections import defaultdict
 from typing import Dict, Any, Optional, List, Union, Literal
-from datetime import datetime, timedelta
-from difflib import SequenceMatcher
+from datetime import datetime
 
 from pydantic import BaseModel
 
+from .logging import logger
 from .ecommerce.base import EcommerceIntegration
-from utils.logging import logger
+from .db_manager import ProductDBManager
 
 
 class CacheEntry(BaseModel):
@@ -20,11 +18,10 @@ class CacheEntry(BaseModel):
     query: Optional[str] = None  # Store original query for similarity check
 
 class EcommerceManager:
-    def __init__(self, cache_duration: timedelta = timedelta(hours=24), similarity_threshold: float = 0.8):
+    def __init__(self, db_manager: ProductDBManager, similarity_threshold: float = 0.8):
         self._integrations: Dict[str, EcommerceIntegration] = {}
-        self._cache: Dict[str, CacheEntry] = {}
-        self.cache_duration = cache_duration
         self.similarity_threshold = similarity_threshold
+        self.db_manager = db_manager
         
         # Register default integrations
         self._register_default_integrations()
@@ -35,9 +32,14 @@ class EcommerceManager:
         from .ecommerce_integrations.jiji import JijiIntegration
         from .ecommerce_integrations.konga import KongaIntegration
         
-        # Register each integration
-        for integration_class in [JumiaIntegration, JijiIntegration, KongaIntegration]:
-            integration = integration_class()
+        # Register each integration with db_manager
+        integrations = [
+            JumiaIntegration(db_manager=self.db_manager),
+            JijiIntegration(db_manager=self.db_manager),
+            KongaIntegration(db_manager=self.db_manager)
+        ]
+        
+        for integration in integrations:
             self.register_integration(integration)
 
     def register_integration(self, integration: EcommerceIntegration) -> None:
@@ -54,126 +56,6 @@ class EcommerceManager:
     def generate_product_id(self, url: str) -> str:
         """Generate a unique product ID from a URL."""
         return hashlib.sha256(url.encode()).hexdigest()
-
-    def is_cache_valid(self, entry: CacheEntry) -> bool:
-        """Check if a cache entry is still valid based on TTL or default cache duration."""
-        now = datetime.now()
-        if entry.ttl is not None:
-            return (now - entry.timestamp) <= timedelta(seconds=entry.ttl)
-        return (now - entry.timestamp) <= self.cache_duration
-
-    def _normalize_query(self, query: str) -> str:
-        """Normalize query for better comparison."""
-        # Convert to lowercase and remove extra spaces
-        query = " ".join(query.lower().split())
-        # Remove special characters
-        query = re.sub(r'[^\w\s]', '', query)
-        return query
-
-    def _compute_word_similarity(self, query1: str, query2: str) -> float:
-        """Compute similarity between two queries based on word overlap."""
-        # Normalize queries
-        query1 = self._normalize_query(query1)
-        query2 = self._normalize_query(query2)
-        
-        # Split into words
-        words1 = set(query1.split())
-        words2 = set(query2.split())
-        
-        # Calculate Jaccard similarity
-        intersection = len(words1.intersection(words2))
-        union = len(words1.union(words2))
-        
-        if union == 0:
-            return 0.0
-            
-        # Calculate sequence similarity for additional precision
-        sequence_similarity = SequenceMatcher(None, query1, query2).ratio()
-        
-        # Combine both metrics (give more weight to word overlap)
-        word_similarity = intersection / union
-        combined_similarity = (word_similarity * 0.7) + (sequence_similarity * 0.3)
-        
-        return combined_similarity
-
-    def _find_similar_cached_query(self, query: str, type: Literal["list", "detail"]) -> Optional[CacheEntry]:
-        """Find a similar query in cache."""
-        best_match = None
-        highest_similarity = 0.0
-
-        for entry in self._cache.values():
-            if entry.type != type or not entry.query:
-                continue
-                
-            if not self.is_cache_valid(entry):
-                continue
-
-            similarity = self._compute_word_similarity(query, entry.query)
-            if similarity > highest_similarity and similarity >= self.similarity_threshold:
-                highest_similarity = similarity
-                best_match = entry
-
-        return best_match
-
-    def get_cached_data(self, product_url: str = None, query: str = None, type: Literal["list", "detail"] = "list") -> Optional[Dict[str, Any]]:
-        """Get cached data if it exists and is not expired."""
-        if type == "list":
-            # For list type, try to find similar queries
-            if query:
-                similar_entry = self._find_similar_cached_query(query, type)
-                if similar_entry:
-                    return similar_entry.data
-            else:
-                return None
-
-        # For detail type or if no similar query found, use exact match
-        if product_url:
-            product_id = self.generate_product_id(product_url)
-            if product_id in self._cache:
-                entry = self._cache[product_id]
-                if self.is_cache_valid(entry) and entry.type == type:
-                    return entry.data
-                del self._cache[product_id]
-        return None
-
-    def cache_data(
-        self,
-        url_or_query: str,
-        type: Literal["list", "detail"],
-        data: Union[Dict[str, Any], List[Dict[str, Any]]],
-        ttl: Optional[int] = None
-    ) -> None:
-        """Cache data with optional TTL."""
-        if not data:
-            return
-            
-        product_id = self.generate_product_id(url_or_query)
-        try:
-            self._cache[product_id] = CacheEntry(
-                data=data,
-                type=type,
-                timestamp=datetime.now(),
-                product_id=product_id,
-                ttl=ttl,
-                query=url_or_query if type == "list" else None  # Store query only for list type
-            )
-        except Exception as e:
-            logger.error(f"Failed to cache data for URL/query {url_or_query}: {str(e)}")
-
-    def set_ttl(self, url: str, ttl: int) -> bool:
-        """Set or update TTL for a cached entry."""
-        product_id = self.generate_product_id(url)
-        if product_id in self._cache:
-            entry = self._cache[product_id]
-            self._cache[product_id] = CacheEntry(
-                data=entry.data,
-                type=entry.type,
-                timestamp=entry.timestamp,
-                product_id=entry.product_id,
-                ttl=ttl
-            )
-            return True
-        return False
 
     def _preprocess_url(self, url: str) -> str:
         """Preprocess URL before fetching data."""
@@ -192,9 +74,11 @@ class EcommerceManager:
             processed_url = self._preprocess_url(url)
             logger.info(f"Processing URL: {processed_url}")
             
+            product_id = self.generate_product_id(processed_url)
+            
             # Check cache first
             if not bypass_cache:
-                cached = self.get_cached_data(processed_url, type="list")
+                cached = await self.db_manager.get_cached_product(product_id)
                 if cached:
                     return cached if isinstance(cached, list) else [cached]
             
@@ -211,7 +95,12 @@ class EcommerceManager:
             )
             
             if products:
-                self.cache_data(processed_url, type="list", data=products, ttl=ttl)
+                await self.db_manager.cache_product(
+                    product_id=product_id,
+                    data=products,
+                    ttl=ttl,
+                    query=processed_url
+                )
             
             return products
             
@@ -221,64 +110,82 @@ class EcommerceManager:
 
     async def get_product_detail(
         self,
-        product_url: str,
+        product_id: str,
         bypass_cache: bool = False,
         ttl: Optional[int] = None
     ) -> Dict[str, Any]:
         """Get detailed product information from a URL."""
-        if not bypass_cache:
+        try:
+            # Check cache first if not bypassing
+            if not bypass_cache:
+                cached_product = await self.db_manager.get_cached_product(product_id, type="detail")
+                if cached_product:
+                    print("cache_hit")
+                    return cached_product
 
-            cached = self.get_cached_data(product_url, type="detail")
-            if cached:
-                return cached
+            # Try to get from list cache for the URL
+            list_product = await self.db_manager.get_cached_product(product_id, type="list")
+            if not list_product:
+                logger.error(f"Product {product_id} not found in cache")
+                return {}
 
-        integration = self.get_integration_for_url(product_url)
-        if not integration:
-            raise ValueError(f"No integration found for product URL: {product_url}")
-        
-        product = await integration.get_product_detail(
-            url=product_url,
-            bypass_cache=bypass_cache
-        )
+            product_url = list_product.get("url")
+            if not product_url:
+                logger.error(f"Product URL not found for {product_id}")
+                return {}
 
-        if product:
-            self.cache_data(product_url, type="detail", data=product, ttl=ttl)
-            return product
-
-        return {}
-
-    def clear_cache(self) -> None:
-        """Clear all cached data."""
-        self._cache.clear()
-
-    def remove_expired_cache(self) -> None:
-        """Remove all expired cache entries."""
-        expired_keys = [
-            product_id for product_id, entry in self._cache.items()
-            if not self.is_cache_valid(entry)
-        ]
-        for key in expired_keys:
-            del self._cache[key]
-
-    def get_cache_info(self, url: str) -> Optional[Dict[str, Any]]:
-        """Get information about a cached entry."""
-        product_id = self.generate_product_id(url)
-        if product_id in self._cache:
-            entry = self._cache[product_id]
-            now = datetime.now()
-            time_elapsed = (now - entry.timestamp).total_seconds()
+            integration = self.get_integration_for_url(product_url)
+            if not integration:
+                logger.error(f"No integration found for product URL: {product_url}")
+                return {}
             
-            if entry.ttl is not None:
-                time_remaining = entry.ttl - time_elapsed
-            else:
-                time_remaining = self.cache_duration.total_seconds() - time_elapsed
-                
-            return {
-                "product_id": entry.product_id,
-                "cached_at": entry.timestamp,
-                "ttl": entry.ttl,
-                "time_elapsed": time_elapsed,
-                "time_remaining": max(0, time_remaining),
-                "is_valid": self.is_cache_valid(entry)
-            }
-        return None 
+            product = await integration.get_product_detail(
+                url=product_url,
+                bypass_cache=bypass_cache
+            )
+
+            if product:
+                await self.db_manager.cache_product(
+                    product_id=product_id,
+                    data=product,
+                    ttl=ttl
+                )
+                return product
+            
+            return {}
+            
+        except Exception as e:
+            logger.error(f"Error getting product detail for {product_id}: {str(e)}")
+            return {}
+
+
+
+    # async def rerank_products_by_price(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on price."""
+    #     pass
+
+    # async def rerank_products_by_rating(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on rating."""
+    #     pass
+
+    # async def rerank_products_by_reviews(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on reviews."""
+    #     pass
+
+    # async def rerank_products_by_brand(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on brand."""
+    #     pass
+
+    # async def rerank_products_by_availability(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on availability."""
+    #     pass
+
+    # async def rerank_products_by_seller(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on seller."""
+    #     pass
+
+    # async def rerank_products_by_location(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Rerank products based on location."""
+    #     pass
+
+ 

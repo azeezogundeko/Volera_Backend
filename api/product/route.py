@@ -1,43 +1,24 @@
-import asyncio
-from typing import Optional, Literal
-from fastapi import APIRouter, HTTPException, Query
-from .services import list_products, get_product_detail, get_cache_info, clear_cache, remove_expired_cache, set_cache_ttl
+from typing import List, Optional, Literal
+from fastapi import APIRouter, Query, Request
+from . import services
+from .schema import ProductResponse
 
 router = APIRouter()
 
-@router.get("/search")
-async def search_product(query: str):
-    """Search for products across supported search engines."""
-    products = await list_products(query=query, site=None, max_results=5)
-    return products
-
-@router.get("/shopping")
-async def list_products_route(
-    query: str,
-    site: Optional[Literal[
-        "jumia.com.ng",
-        "jiji.ng",
-        "konga.com",
-    ]] = None,
-    max_results: int = Query(default=5, ge=1, le=20),
-    bypass_cache: bool = False,
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=40, ge=1, le=100),
-    sort: Optional[str] = None,
+@router.get("/search", response_model=List[ProductResponse])
+async def search_products(
+    request: Request,
+    query: str = Query(..., description="Search query"),
+    site: Literal["all", "jumia.com.ng", "jiji.ng", "konga.com"] = Query("all", description="Specific site to search"),
+    max_results: int = Query(5, description="Maximum number of results per site"),
+    bypass_cache: bool = Query(False, description="Bypass cache and fetch fresh data"),
+    page: int = Query(1, description="Page number"),
+    limit: int = Query(40, description="Results per page"),
+    sort: Optional[str] = Query(None, description="Sort order")
 ):
-    """
-    Get product listings from supported e-commerce sites.
-    
-    Args:
-        query: Search query
-        site: Specific site to search (optional)
-        max_results: Maximum number of results to return per site
-        bypass_cache: Whether to bypass cache
-        page: Page number for pagination
-        limit: Number of items per page
-        sort: Sort order (site-specific)
-    """
-    products = await list_products(
+    """Search for products across supported e-commerce sites."""
+    products = await services.list_products(
+        request=request,
         query=query,
         site=site,
         max_results=max_results,
@@ -46,82 +27,62 @@ async def list_products_route(
         limit=limit,
         sort=sort
     )
-    
-    if not products:
-        return []
-    
     return products
 
-@router.get("/product-detail")
-async def get_product_detail_route(
-    product_url: str,
-    bypass_cache: bool = False,
-    ttl: Optional[int] = 3600  # 1 hour cache
+@router.get("/detail/{product_id}")
+async def get_product_detail(
+    request: Request,
+    product_id: str,
+    bypass_cache: bool = Query(False, description="Bypass cache and fetch fresh data"),
+    ttl: Optional[int] = Query(3600, description="Cache TTL in seconds")
 ):
-    """
-    Get detailed product information from a specific product url.
-    
-    Args:
-        product_url: Product URL
-        bypass_cache: Whether to bypass cache
-        ttl: Cache duration in seconds
-    """
-    product = await get_product_detail(
-        product_url=product_url,
+    """Get detailed product information."""
+    product = await services.get_product_detail(
+        request=request,
+        product_id=product_id,
         bypass_cache=bypass_cache,
         ttl=ttl
     )
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found or failed to extract data")
     return product
 
+@router.get("/cache/info/{url:path}")
+async def get_cache_info(request: Request, url: str):
+    """Get cache information for a URL."""
+    return await services.get_cache_info(request, url)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@router.get("/cache-info")
-async def get_cache_info(url: str):
-    """Get cache information for a specific URL."""
-    info = services.get_cache_info(url)
-    if not info:
-        raise HTTPException(status_code=404, detail="URL not found in cache")
-    return info
-
-@router.post("/clear-cache")
-async def clear_cache():
+@router.post("/cache/clear")
+async def clear_cache(request: Request):
     """Clear all cached data."""
-    services.clear_cache()
+    await services.clear_cache(request)
     return {"message": "Cache cleared successfully"}
 
-@router.post("/remove-expired-cache")
-async def remove_expired_cache():
-    """Remove all expired cache entries."""
-    services.remove_expired_cache()
-    return {"message": "Expired cache entries removed successfully"}
+@router.post("/cache/cleanup")
+async def cleanup_cache(request: Request):
+    """Remove expired cache entries."""
+    await services.remove_expired_cache(request)
+    return {"message": "Expired cache entries removed"}
 
-@router.post("/set-ttl")
-async def set_cache_ttl(url: str, ttl: int):
-    """Set TTL for a specific cached URL."""
-    if ttl <= 0:
-        raise HTTPException(status_code=400, detail="TTL must be greater than 0")
-    
-    success = services.set_cache_ttl(url, ttl)
-    if not success:
-        raise HTTPException(status_code=404, detail="URL not found in cache")
-    
-    return {"message": f"TTL set to {ttl} seconds for URL"}
+@router.post("/cache/ttl/{url:path}")
+async def set_cache_ttl(
+    request: Request,
+    url: str,
+    ttl: int = Query(..., description="New TTL in seconds")
+):
+    """Set TTL for a cached URL."""
+    success = await services.set_cache_ttl(request, url, ttl)
+    if success:
+        return {"message": "Cache TTL updated successfully"}
+    return {"message": "URL not found in cache"}
+
+
+
+
+
+
+
+
+
+
+
+
+
