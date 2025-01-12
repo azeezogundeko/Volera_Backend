@@ -97,7 +97,7 @@ class KongaIntegration(GraphQLIntegration):
             product = {
                 "name": hit.get("name", ""),
                 "brand": hit.get("brand", ""),
-                "category": hit.get("category", [{}])[0].get("name", "") if isinstance(hit.get("category", []), list) and hit["category"] else "",
+                "category": self.extract_category(hit.get("name", "")),
                 "description": hit.get("description", {}).get("result", ""),
                 "current_price": hit.get("price", 0),
                 "original_price": hit.get("price", 0),

@@ -214,6 +214,8 @@ class JijiIntegration(ScrapingIntegration):
             p = {
                 "name": product.get("name", ""),
                 "product_id": self.hash_id(product.get("url", "")),
+                "category": self.extract_category(product.get("name", "")),
+                "brand": self.extract_brands(product.get("name", "")),
                 "current_price": self._clean_price(product.get("current_price", "")),
                 "original_price": self._clean_price(product.get("original_price", "")),
                 "discount": self._clean_discount(product.get("discount", "")),

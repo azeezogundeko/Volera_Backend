@@ -3,10 +3,14 @@ from typing import Dict, Any, List, Optional, Literal
 from enum import Enum
 import hashlib
 
+from ..entity_recognition import extract_brands, extract_categories
+
+
 class IntegrationType(Enum):
     SCRAPING = "scraping"
     REST_API = "rest_api"
     GRAPHQL = "graphql"
+
 
 class EcommerceIntegration(ABC):
     """Base class for all e-commerce integrations."""
@@ -23,6 +27,16 @@ class EcommerceIntegration(ABC):
         self.url_patterns = url_patterns
         self.integration_type = integration_type
 
+        # # Initialize entity recognition once
+        # if not hasattr(self, 'entity_recognition'):
+        #     self.entity_recognition = prepare_entity_recognition()
+
+    def extract_brands(self, doc):
+        return extract_brands(doc)
+
+    def extract_category(self, doc):
+        return extract_categories(doc)
+
     @abstractmethod
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get list of products from a category/search page."""
@@ -37,11 +51,11 @@ class EcommerceIntegration(ABC):
         """Check if URL matches this integration's patterns."""
         return any(pattern in url for pattern in self.url_patterns)
 
-    # def hash_id(self, url: str) -> str:
-    #     """Hash URL to a unique identifier."""
-    #     # Normalize the URL
-    #     normalized_url = url.split('?')[0].lower().rstrip('/')  # Remove query params and trailing slash
-    #     return hashlib.sha256(normalized_url.encode()).hexdigest()
+    def hash_id(self, url: str) -> str:
+        """Hash URL to a unique identifier."""
+        # Normalize the URL
+        normalized_url = url.split('?')[0].lower().rstrip('/')  # Remove query params and trailing slash
+        return hashlib.sha256(normalized_url.encode()).hexdigest()
 
 class ScrapingIntegration(EcommerceIntegration):
     """Integration for websites that require scraping."""

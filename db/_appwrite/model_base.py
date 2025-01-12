@@ -1,11 +1,107 @@
 # from __future__ import annotations
 
-from typing import Literal, Type, List, Dict, Optional, Union, TypeVar
+from typing import Literal, Type, List, Dict, Optional, Union, Any
 from datetime import datetime
+from appwrite.client import AppwriteException
 from .base import AsyncAppWriteClient
 from utils.logging import logger
 
-# T = TypeVar(name="BaseModel", bound=AppwriteModelBase)
+from appwrite.query import Query
+
+
+class Field:
+    def __init__(
+        self, 
+        required: bool = True, 
+        size: int = None, 
+        array: bool = False, 
+        min: Optional[float] = None,
+        max: Optional[float] = None,
+        index_type: Literal["unique", "text", "array"]= None,
+        index_attr: List[str] | str = None,
+        default: Optional[Union[str, float, list, dict]] = None,
+        type: Literal["string", "datetime", "json", "array", "float", "bool", "index"] = "string",
+        
+        ):
+        self.min = min
+        self.max = max
+        self.type = type
+        self.size = size
+        self.array = array
+        self.default = default
+        self.required = required
+        self.index_type = index_type
+        self.index_attr = index_attr if isinstance(index_attr, list) else [index_attr]
+
+    def __dict__(self):
+        field = {
+            "required": self.required,
+            "type": self.type,
+            "array": self.array,
+            "default": self.default,
+            }
+        if self.type == "index":
+            if self.index_type is None:
+                raise ValueError("index_type is required when type is 'index'")
+            field["index_type"] = self.index_type
+            field["index_attr"] = self.index_attr
+
+        # Additional validations for string and json types
+        if self.type in ["string", "json"]:
+            if self.size is not None:
+                field["size"] = self.size
+
+        # Additional validations for float type
+        if self.type == "float":
+            if self.min is not None:
+                field["min"] = self.min
+            if self.max is not None:
+                field["max"] = self.max
+
+        return field
+
+
+    def __repr__(self):
+        return f"Field(required={self.required}, size={self.size}, array={self.array}, type={self.type}, min={self.min}, max={self.max}, default={self.default})"
+
+
+def AppwriteField(
+    array: bool = False,
+    required: bool = True,
+    size: Optional[int] = None,
+    min: Optional[float] = None,
+    max: Optional[float] = None,
+    index_attr: List[str] | str = None,
+    index_type: Literal["unique", "text", "array"]= None,
+    default: Optional[Union[str, float, list, dict]] = None,
+    type: Literal["string", "datetime", "json", "array", "float", "bool", "index"] = "string",
+) -> dict:
+    """
+    Constructs a field schema for Appwrite.
+
+    Args:
+        required (bool): Whether the field is required.
+        size (int, optional): Maximum size of the field (applicable to 'string' and 'json' types).
+        array (bool, optional): Indicates if the field is an array. Defaults to False.
+        type (Literal): The type of the field ('string', 'datetime', 'json', 'array', 'float').
+        min (float, optional): Minimum value for 'float' type.
+        max (float, optional): Maximum value for 'float' type.
+        default (Union[str, float, list, dict], optional): Default value for the field.
+
+    Returns:
+        dict: Field schema.
+    """
+    return Field(
+        required=required,
+        size=size,
+        array=array,
+        type=type,
+        min=min,
+        max=max,
+        default=default,
+        index_attr=index_attr,
+        index_type=index_type
+    )
 
 class AppwriteModelBase:
     """Base class for Appwrite models."""
@@ -13,6 +109,14 @@ class AppwriteModelBase:
     id: Optional[str] = None  # Maps to $id in Appwrite
     created_at: Optional[datetime] = None  # Maps to $createdAt
     updated_at: Optional[datetime] = None  # Maps to $updatedAt
+
+    owner_id: Optional[str] = None
+    tags: Optional[List[str]] = None
+    thumbnail_url: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    visibility: Optional[str] = None
+    custom_metadata: Optional[Dict[str, Any]] = None
     # metadata: Optional[Dict[str, Any]] = None  # Additional metadata
 
     client = AsyncAppWriteClient()
@@ -29,6 +133,37 @@ class AppwriteModelBase:
             document_id=document_id,
             document_data=data,            
         )
+        # try:
+        #     document = await client.get_document(
+        #         collection_id=CollectionMetadata.collection_id,
+        #         document_id=cls._registered_models[cls.__name__].collection_id
+        #     )
+        # except AppwriteException as e:
+        #     document = await client.create_document(
+        #         collection_id=CollectionMetadata.collection_id,
+        #         document_id=cls._registered_models[cls.__name__].collection_id,
+        #         document_data={
+        #             "collection_name": cls._registered_models[cls.__name__].collection_name,
+        #             "description": cls._registered_models[cls.__name__].description,
+        #             "no_of_items": 0,
+        #             "created_at": datetime.now(timezone.utc),
+        #             "updated_at": datetime.now(timezone.utc),
+        #             "owner_id": cls._registered_models[cls.__name__].owner_id,
+        #             "status": cls._registered_models[cls.__name__].status,
+        #             "tags": cls._registered_models[cls.__name__].tags,
+        #             "visibility": cls._registered_models[cls.__name__].visibility,
+        #             "thumbnail_url": cls._registered_models[cls.__name__].thumbnail_url,
+        #             "custom_metadata": cls._registered_models[cls.__name__].custom_metadata
+        #         }
+        #     )
+        # document = await client.update_document(
+        #     collection_id=CollectionMetadata.collection_id,
+        #     document_id=cls._registered_models[cls.__name__].collection_id,
+        #     data={
+        #         "no_of_items": document["no_of_items"] + 1,
+        #         "updated_at": datetime.now(timezone.utc)
+        #     }
+        # )
         return cls.from_appwrite(document)
 
     @classmethod
@@ -38,6 +173,7 @@ class AppwriteModelBase:
 
     @classmethod
     async def read(cls, document_id: str, queries: List[str] = []) -> Type["AppwriteModelBase"]:
+        # queries.append(Query.equal("is_deleted", False))
         document = await cls.client.get_document(
             collection_id=cls.collection_id,
             document_id=document_id,
@@ -47,19 +183,75 @@ class AppwriteModelBase:
     
     
     @classmethod
-    async def list(cls, queries: List[str] = None) -> List[Type["AppwriteModelBase"]]:
-        documents = await cls.client.list_documents(
-            collection_id=cls.collection_id,
-            queries=queries
+    async def list(cls, queries: List[str] = [], limit: int = 25, offset: int = 0) -> List[Type["AppwriteModelBase"]]:
+        queries.extend(
+            [
+                # Query.equal("is_deleted", False),
+                Query.limit(limit),
+                Query.offset(offset)
+            ]
         )
+        try:
+            documents = await cls.client.list_documents(
+                collection_id=cls.collection_id,
+                queries=queries
+            )
+        except AppwriteException:
+            return {"total": 0, "documents": []}
         total = documents["total"]
         documents = [cls.from_appwrite(document) for document in documents["documents"]]
         return {
                 "total": total,
                 "documents": documents
             } 
-           
 
+
+    @classmethod
+    async def count(cls, queries: List[str] = []) -> int:
+        count = 0
+        limit = 100
+        cursor = None
+
+        while True:
+            # Add dynamic queries for pagination
+            dynamic_queries = queries + [Query.limit(limit)]
+            if cursor:
+                dynamic_queries.append(Query.cursor_after(cursor))
+
+            # Remove None from queries
+            dynamic_queries = [q for q in dynamic_queries if q is not None]
+
+            # Fetch a page of documents
+            try:
+                page = await cls.client.list_documents(
+                    collection_id=cls.collection_id,
+                    queries=dynamic_queries,
+                )
+            except AppwriteException as e:
+                print(e)
+                if e.code == 404:
+                    return count
+                raise e
+            documents = page.get("documents", [])
+
+            if not documents:  # Break the loop if no more documents
+                return 0
+
+            count += len(documents)
+
+            if len(documents) < limit:  # Stop if fewer documents than limit
+                break
+
+            # Update cursor to the last document's ID
+            cursor = documents[-1]["$id"]
+
+        return count
+
+
+    # @classmethod
+    # async def count(cls, queries: List[str] = []):
+    #     docs = await cls.list(queries)
+    #     return docs["total"]
 
     @classmethod
     async def update(cls, document_id: str, data: dict) -> Type["AppwriteModelBase"]:
@@ -77,7 +269,6 @@ class AppwriteModelBase:
             collection_id=cls.collection_id,
             document_id=document_id,
         )
-
 
 
     @classmethod
@@ -136,12 +327,16 @@ class AppwriteModelBase:
 
 
     @classmethod
-    def get_schema(cls) -> List[dict]:
-        return [
-            {"key": key, **value}
-            for key, value in cls.__annotations__.items()
-            if isinstance(value, dict)
-        ]
+    def get_schema(cls):
+        dict_fields = []
+        
+        for name, value in cls.__dict__.items():
+            # Check if the field is an instance of AppwriteField
+            if isinstance(value, Field):
+                dict_fields.append({"key":name, "value":value.__dict__()})
+
+        # dict_fields.append({"key": "is_deleted", "value": {"required": True, "type": "bool", "default": False}})
+        return dict_fields
 
 
     @classmethod
@@ -161,7 +356,8 @@ class AppwriteModelBase:
 
             logger.info(f'Created collection {model_name}')
             try:
-                for field in cls.get_schema():
+                schema = cls.get_schema()
+                for field in schema:
                     if field.get("type") == "array":
                         await cls.client.create_string_attribute(
                             collection_id=cls.collection_id,
@@ -169,11 +365,13 @@ class AppwriteModelBase:
                             size=field.get("size", 16384),  # Default size for arrays
                             required=field.get("required", False),
                             array=True)
+
                     elif field.get("type") == "datetime":
                         await cls.client.create_datetime_attribute(
                             collection_id=cls.collection_id,
                             key=field["key"],
                             required=field.get("required", False))
+
                     elif field.get("type") == "float":
                         await cls.client.create_float_attribute(
                             collection_id=cls.collection_id,
@@ -184,6 +382,15 @@ class AppwriteModelBase:
                             default=field.get("default", None),
                             array=field.get("array", None)
                             )
+
+                    elif field.get("type") == "index":
+                        await cls.client.create_index(
+                            collection_id=cls.collection_id,
+                            key=field["key"],
+                            type=field["index_type"],
+                            attributes=field["attributes"],
+                            order=field.get("order", None)
+                        )
 
                     elif field.get("type") == "json":
                         await cls.client.create_string_attribute(
@@ -207,7 +414,7 @@ class AppwriteModelBase:
                             size=field.get("size", 255),
                             required=field.get("required", False)
                         )
-                    logger.info(f'Created attribute {field["key"]} for Chats collection')
+                    logger.info(f'Created attribute {field["key"]} for {cls.collection_id} collection')
             except Exception as attr_error:
                 logger.error(f'Failed to create attribute {field["key"]}: {attr_error}')
                         
@@ -251,50 +458,19 @@ class AppwriteModelBase:
             await model.create_collection(model_name)
 
 
-def AppwriteField(
-    required: bool = True,
-    size: Optional[int] = None,
-    array: bool = False,
-    type: Literal["string", "datetime", "json", "array", "float"] = "string",
-    min: Optional[float] = None,
-    max: Optional[float] = None,
-    default: Optional[Union[str, float, list, dict]] = None
-) -> dict:
-    """
-    Constructs a field schema for Appwrite.
 
-    Args:
-        required (bool): Whether the field is required.
-        size (int, optional): Maximum size of the field (applicable to 'string' and 'json' types).
-        array (bool, optional): Indicates if the field is an array. Defaults to False.
-        type (Literal): The type of the field ('string', 'datetime', 'json', 'array', 'float').
-        min (float, optional): Minimum value for 'float' type.
-        max (float, optional): Maximum value for 'float' type.
-        default (Union[str, float, list, dict], optional): Default value for the field.
+# T = TypeVar(name="BaseModel", bound=AppwriteModelBase)
+# class CollectionMetadata:
+#     collection_id = "collection_metadata"
 
-    Returns:
-        dict: Field schema.
-    """
-
-    # Base field schema
-    field = {
-        "required": required,
-        "type": type,
-        "array": array,
-        "default": default,
-    }
-
-    # Additional validations for string and json types
-    if type in ["string", "json"]:
-        if size is not None:
-            field["size"] = size
-
-    # Additional validations for float type
-    if type == "float":
-        if min is not None:
-            field["min"] = min
-        if max is not None:
-            field["max"] = max
-
-    # Return the constructed schema
-    return field
+#     collection_name: str = AppwriteField(size=255, required=True, type="string")
+#     description: str = AppwriteField(size=255, required=True, type="string")
+#     no_of_items: int = AppwriteField(required=True, type="int", default=0)
+#     created_at: datetime = AppwriteField(required=True, type="datetime", default=datetime.now(timezone.utc))
+#     updated_at: datetime = AppwriteField(required=True, type="datetime", default=datetime.now(timezone.utc))
+#     owner_id: str = AppwriteField(required=True, type="string")
+#     status: str = AppwriteField(required=True, type="string", default="active")
+#     tags: List[str] = AppwriteField(required=False, type="array")
+#     visibility: str = AppwriteField(required=True, type="string", default="public")
+#     thumbnail_url: str = AppwriteField(required=False, type="string")
+#     custom_metadata: dict = AppwriteField(required=False, type="json")

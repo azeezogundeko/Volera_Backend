@@ -8,9 +8,9 @@ from .model import Chat, Message, File
 from .schema import ChatOut, MessageOut
 
 
-from fastapi import Depends
+from fastapi import Depends, Query
 from fastapi import HTTPException, APIRouter
-from appwrite.query import Query
+from appwrite import query
 from appwrite.client import AppwriteException
 
 
@@ -41,8 +41,17 @@ async def create_new_chat(
 
 # Route to get all chats
 @router.get("/")
-async def get_chats(user: UserIn = Depends(get_current_user)):
-    response = await Chat.list([Query.order_desc("$createdAt"), Query.equal("user_id", user.id)])
+async def get_chats(
+    limit: int = Query(25),
+    page: int = Query(1),
+    user: UserIn = Depends(get_current_user)
+    ):
+    response = await Chat.list([
+        query.Query.limit(limit), query.Query.offset((page - 1) * limit), 
+        query.Query.order_desc("$createdAt"), 
+        query.Query.equal("user_id", user.id)
+        ]
+    )
     response = {"chats": response["documents"]}
     return response
 
@@ -57,7 +66,7 @@ async def get_chat(chat_id: str, user: UserIn = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Chat not found")
     
 
-    messages = await Message.list([Query.equal("chat_id", chat_id)])
+    messages = await Message.list([query.Query.equal("chat_id", chat_id)])
 
     response = {
         "chat": chat, 

@@ -152,6 +152,19 @@ class AsyncAppWriteClient:
             array
         )
 
+    async def create_index(
+        self, collection_id, key, type, attributes, order = None
+    ):
+        return self._run_in_executor(
+            self.database.create_index,
+            self.database_id,
+            collection_id,
+            key,
+            type,
+            attributes,
+            order
+        )
+
 
     async def create_string_attribute(
         self, collection_id, key, size, required, default = None,  array = None,  encrypt = None

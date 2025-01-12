@@ -34,10 +34,12 @@ class ProductDetail(BaseModel):
     name: Optional[str] = None
     brand: Optional[str] = None
     category: Optional[str] = None
+    currency: Optional[str] = "₦"
     description: Optional[str] = None
     current_price: Optional[float] = 0.0
     original_price: Optional[float] = 0.0
     discount: Optional[float] = 0.0
+    url: Optional[str] = None
     image: Optional[str] = None
     images: Optional[List[Image]] = []
     source: Optional[str] = None
@@ -59,6 +61,7 @@ class ProductResponse(BaseModel):
     current_price: Optional[float] = 0.0
     original_price: Optional[float] = 0.0
     brand: Optional[str] = "Unknown Brand"
+    category: Optional[str] = "Unknown Category"
     discount: Optional[float] = 0.0
     rating: Optional[float] = 0.0
     reviews_count: Optional[str] = "0"

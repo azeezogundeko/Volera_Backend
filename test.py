@@ -1,55 +1,40 @@
-import requests
-import json
+import re
 
-# Define the Algolia endpoint and credentials
-ALGOLIA_APP_ID = "B9ZCRRRVOM"  # Replace with your Algolia Application ID
-ALGOLIA_API_KEY = "1013eebf1ca008149d66ea7a385a1366"  # Replace with your Algolia Admin or Search-only API Key
-ALGOLIA_URL = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
+def extract_keywords(text, patterns):
+    """
+    Extract keywords from the text based on category patterns.
 
-# Headers for the request
-headers = {
-    "X-Algolia-Application-Id": ALGOLIA_APP_ID,
-    "X-Algolia-API-Key": ALGOLIA_API_KEY,
-    "Content-Type": "application/json",
-}
+    Args:
+        text (str): The input text.
+        patterns (list): A list of patterns to match, each being a dictionary with 'label' and 'pattern'.
 
-# JSON payload (the batch request)
-payload = {
-    "requests": [
-        {
-        "indexName": "catalog_store_konga_price_asc",
-        "params": "query=&facetFilters=[\"attributes.brand:Lenovo\"]"
-        },
-        {
-            "indexName": "catalog_store_konga_price_asc",
-            "params": (
-                "query=&"
-                "maxValuesPerFacet=50&"
-                "page=0&"
-                "highlightPreTag=<ais-highlight-0000000000>&"
-                "highlightPostTag=</ais-highlight-0000000000>&"
-                "hitsPerPage=1&"
-                "attributesToRetrieve=[]&"
-                "attributesToHighlight=[]&"
-                "attributesToSnippet=[]&"
-                "analytics=false&"
-                "clickAnalytics=false&"
-                "facets=attributes.brand"
-            ),
-        },
-    ]
-}
+    Returns:
+        list: A list of extracted keywords matching the category patterns.
+    """
+    extracted_keywords = set()  # Use a set to prevent duplicates
+    
+    for pattern in patterns:
+        if isinstance(pattern["pattern"], str):
+            # Exact string match (case-insensitive)
+            if pattern["pattern"].lower() in text.lower():
+                extracted_keywords.add(pattern["pattern"])
+        elif isinstance(pattern["pattern"], dict):
+            # Regex match
+            regex = pattern["pattern"].get("REGEX")
+            if regex and re.search(regex, text, re.IGNORECASE):
+                match = re.search(regex, text, re.IGNORECASE)
+                if match:
+                    extracted_keywords.add(match.group())
+    
+    return list(extracted_keywords)
 
-# Send the POST request
-response = requests.post(ALGOLIA_URL, headers=headers, json=payload)
+# Example usage
+text = "I love aple products and Samsung devices. I recently bought a Sony TV and a Tesla car."
+patterns = [
+    {"label": "BRAND", "pattern": "Apple"},
+    {"label": "BRAND", "pattern": {"REGEX": r"(?i)samsung"}},
+    {"label": "BRAND", "pattern": {"REGEX": r"(?i)sony"}},
+    {"label": "BRAND", "pattern": {"REGEX": r"(?i)tesla"}},
+]
 
-# Check for successful response
-if response.status_code == 200:
-    print("Response from Algolia:")
-    print(json.dumps(response.json(), indent=2))  # Pretty-print JSON response
-    import json
-    with open("algolia_response.json", "w") as f:
-        json.dump(response.json(), f, indent=4)
-else:
-    print(f"Error: {response.status_code}")
-    print(response.text)
+print(extract_keywords(text, patterns))

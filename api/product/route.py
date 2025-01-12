@@ -1,7 +1,10 @@
 from typing import List, Optional, Literal
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Depends
 from . import services
 from .schema import ProductResponse, ProductDetail
+from ..auth.schema import UserIn
+from ..auth.services import get_current_user
+
 
 router = APIRouter()
 
@@ -44,6 +47,17 @@ async def get_product_detail(
         ttl=ttl
     )
     return product
+
+@router.get("/trending-products", response_model=List[ProductResponse])
+async def get_trending_products(
+    request: Request,
+    limit: int = Query(50),
+    page: int = Query(1),
+    user: UserIn = Depends(get_current_user)):
+        
+    return await services.list_products(request, "trending products", limit=limit, page=page, max_results=3)
+    
+
 
 @router.get("/cache/info/{url:path}")
 async def get_cache_info(request: Request, url: str):

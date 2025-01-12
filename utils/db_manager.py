@@ -73,25 +73,31 @@ class ProductDBManager:
         type: Literal["list", "detail"]="detail",
         query: Optional[str] = None
     ) -> bool:
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                compound_id = f"{product_id}/{type}"
-                cursor.execute("""
-                    INSERT OR REPLACE INTO products 
-                    (product_id, data, timestamp, ttl, query)
-                    VALUES (?, ?, datetime('now'), ?, ?)
-                """, (
-                    compound_id,
-                    json.dumps(data),
-                    ttl,
-                    query
-                ))
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error caching product {product_id}: {str(e)}")
-            return False
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    compound_id = f"{product_id}/{type}"
+                    cursor.execute(""" 
+                        INSERT OR REPLACE INTO products 
+                        (product_id, data, timestamp, ttl, query)
+                        VALUES (?, ?, datetime('now'), ?, ?)
+                    """, (
+                        compound_id,
+                        json.dumps(data),
+                        ttl,
+                        query
+                    ))
+                    conn.commit()
+                    return True
+            except Exception as e:
+                if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                    import time
+                    time.sleep(0.1)  # Wait before retrying
+                    continue
+                logger.error(f"Error caching product {product_id}: {str(e)}")
+                return False
 
     async def cache_product(
         self,

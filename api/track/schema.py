@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List
 
 class FeatureSchema(BaseModel):
@@ -21,7 +21,7 @@ class ProductIn(BaseModel):
     alert_sent: bool = False
     
 
-class ProductSchema(BaseModel):
+class TrackedItemSchema(BaseModel):
     product_id: str
     title: str
     url: str
@@ -32,7 +32,33 @@ class ProductSchema(BaseModel):
     notification_enabled: bool 
     currency: str = "₦"
     features: List[str]
-    specs: List[FeatureSchema]
-    price_history = List[PriceHistorySchema]
+    specifications: List[FeatureSchema]
+    # specs: List[FeatureSchema]
+    # price_history = List[PriceHistorySchema]
+
+    @field_validator("specifications", mode="before")
+    def validate_specifications(cls, v):
+        # Ensure 'specifications' is a list, otherwise try to convert it.
+        if isinstance(v, str):
+            # Attempt to parse the string as JSON to convert it into a list of FeatureSchema objects
+            try:
+                import json
+                return json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError("Specifications should be a valid list or a JSON string representing a list.")
+        return v
+
+class PriceHistorySchema(BaseModel):
+    timestamp: datetime
+    price: float
+
+class DetailedTrackedItemSchema(BaseModel):
+    tracked_item: TrackedItemSchema
+    price_history: List[PriceHistorySchema]
+
+class DashBoardStat(BaseModel):
+    active_chat: int = Field(default=0, serialization_alias="activeChat")
+    tracked_items: int = Field(default=0, serialization_alias="trackedItems")
+    price_alerts: int = Field(default=0, serialization_alias="priceAlerts")
 
 

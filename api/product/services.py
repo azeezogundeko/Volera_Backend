@@ -1,10 +1,11 @@
 import asyncio
 from typing import List, Dict, Any, Optional
-from datetime import timedelta
+# from datetime import timedelta
 from fastapi import Request
 
 from utils.ecommerce_manager import EcommerceManager
 from utils.rerank import ReRanker
+from utils.logging import logger
 from agents.tools.google import GoogleSearchTool
 
 # Initialize shared instances
@@ -18,6 +19,29 @@ def get_ecommerce_manager(request: Request) -> EcommerceManager:
         similarity_threshold=0.8
     )
 
+def sort_products(products: List[dict], sort_key: str, reverse: bool = False) -> List[dict]:
+    """Sort the list of products based on the given key."""
+    return sorted(products, key=lambda x: x.get(sort_key), reverse=reverse)
+
+def filter_products(products: List[dict], filters: dict) -> List[dict]:
+    """Filter the list of products based on the given filters."""
+    for key, value in filters.items():
+        if key == "title":
+            products = [p for p in products if value.lower() in p.get("title", "").lower()]
+        # elif key == "currency":
+        #     products = [p for p in products if p.get("currency") 
+        elif key == "ratings":
+            products = [p for p in products if p.get("ratings") >= value]  
+        elif key == "feature":
+            products = [p for p in products if value in p.get("features", [])]
+        elif key == "price":  
+            products = [p for p in products if p.get("price") >= value] 
+
+        elif key == "brand":  
+            products = [p for p in products if p.get("brand") == value] 
+
+    return products
+
 async def list_products(
     request: Request,
     query: str,
@@ -27,6 +51,7 @@ async def list_products(
     page: int = 1,
     limit: int = 40,
     sort: Optional[str] = None,
+    filters: dict = None
 ) -> List[Dict[str, Any]]:
     """Get product listings from supported e-commerce sites."""
     
@@ -45,7 +70,8 @@ async def list_products(
             # For site-specific cache, verify the source matches
             if site != "all":
                 cached_data = [p for p in cached_data if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
-            return cached_data
+            
+            return post_process_results(page, limit, cached_data, sort, filters)
 
     all_products = []
     
@@ -97,7 +123,7 @@ async def list_products(
                 if site_results:
                     all_search_results.extend(site_results)
             except Exception as e:
-                print(f"Error searching {integration.name}: {str(e)}")
+                logger.info(f"Error searching {integration.name}: {str(e)}")
         
         if all_search_results:
             # Distribute max_results across all sites
@@ -147,9 +173,30 @@ async def list_products(
             ttl=3600,
             query=cache_key
         )
-        return results
+        return post_process_results(page, limit, results, sort, filters)
     
     return []
+
+
+def post_process_results(
+    page,
+    limit,
+    results: List[Dict[str, Any]], 
+    sort: Optional[str] = None, 
+    filters: dict = None) -> List[Dict[str, Any]]:
+    
+    # Apply pagination
+    start_index = (page - 1) * limit
+    end_index = start_index + limit
+    results = results[start_index:end_index]  
+            
+    
+    if sort:
+        results = sort_products(results, sort)
+    if filters:
+        results = filter_products(results, filters)
+    return results
+
 
 async def get_product_detail(
     request: Request,

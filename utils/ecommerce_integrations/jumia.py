@@ -335,6 +335,8 @@ class JumiaIntegration(ScrapingIntegration):
             item = {
                 "product_id": self.hash_id(product.get("url", "")),
                 "name": product.get("name", ""),
+                "category": self.extract_category(product.get("name", "")),
+                "brand": self.extract_brands(product.get("name", "")),
                 "current_price": self._clean_price(product.get("current_price", "")),
                 "original_price": self._clean_price(product.get("original_price", "")),
                 "discount": self._clean_discount(product.get("discount", "")),
@@ -399,14 +401,16 @@ class JumiaIntegration(ScrapingIntegration):
         product_details = self._validate_nested_structure(product.get("product_details"))
         product_reviews = self._validate_nested_structure(product.get("product_reviews"))
 
+
         return {
             "name": basic_info.get("name", ""),
             "brand": basic_info.get("brand", ""),
-            "category": product.get("category", ""),
+            "category": product.get("category", "") if product.get("category") else self.extract_category(basic_info.get("name", "")),
+            "brand": product.get("brand", "") if product.get("brand") else self.extract_brands(basic_info.get("name", "")),
             "description": "",  # Not directly available in schema
             "current_price": self._clean_price(basic_info.get("current_price", "")),
             "original_price": self._clean_price(basic_info.get("original_price", "")),
-            "discount": basic_info.get("discount", ""),
+            "discount": self._clean_discount(basic_info.get("discount", "")),
             "image": basic_info.get("images", [{}])[0].get("url", "") if basic_info.get("images") else "",
             "images": [
                 {
