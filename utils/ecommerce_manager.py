@@ -55,7 +55,7 @@ class EcommerceManager:
 
     def generate_product_id(self, url: str) -> str:
         """Generate a unique product ID from a URL."""
-        return hashlib.sha256(url.encode()).hexdigest()
+        return hashlib.sha256(url.encode()).hexdigest()[:40]
 
     def _preprocess_url(self, url: str) -> str:
         """Preprocess URL before fetching data."""
@@ -105,7 +105,7 @@ class EcommerceManager:
             return products
             
         except Exception as e:
-            logger.error(f"Error processing URL {url}: {str(e)}")
+            logger.error(f"Error processing URL {url}: {str(e)}", exc_info=True)
             return []
 
     async def get_product_detail(

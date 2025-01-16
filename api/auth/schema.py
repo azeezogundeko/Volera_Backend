@@ -1,14 +1,16 @@
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr, field_validator
+from pydantic import BaseModel, Field, field_validator
 
+class BaseSchema(BaseModel):
+    message: str
+    error: Optional[str] = None
 
 class User(BaseModel):
     username: str
     email: str
     full_name: Optional[str] = None
     hashed_password: str
-
 
 class HashOptions(BaseModel):
     type: str
@@ -44,45 +46,52 @@ class UserIn(BaseModel):
     phoneVerification: bool
     mfa: bool
     email: str
-    prefs: Dict[str, str]
+    prefs: Dict[str, Any]
     targets: List[Target]
     accessedAt: Optional[str] = ''
 
-    class Config:
-        # Exclude confidential fields like 'password' and 'email' when converting to dict
-        exclude = {"passwordUpdate" ,"hashOptions", "hash", "hashOptions", "mfa", }
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    first_name: str = Field(alias="firstName")
-    last_name: str = Field(alias="lastName")
-    password: str
-    country: str
-
-    @field_validator('password')
-    def password_strength(cls, v: str):
-        # Ensure password is at least 8 characters long
-        if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        
-        # Optionally, add more checks (e.g., for uppercase letters, numbers, etc.)
-        if not any(char.isdigit() for char in v):
-            raise ValueError('Password must contain at least one number')
-        if not any(char.islower() for char in v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not any(char.isupper() for char in v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        
-        return v
 
 class UserOut(BaseModel):
-    user_id: str
-    created_at: datetime 
+    id: str
+    created_at: datetime
     updated_at: datetime 
-    first_name: str
-    last_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    name: str
     email:str
-    
+    is_pro: bool
+    profile_image: Optional[Any]
+
+    @field_validator("name", mode="after")
+    def get_name_splits(cls, v):
+        first_name, last_name = v.rsplit("_", 1)
+        return first_name, last_name
+
+class UserProfileSchemaOut(BaseModel):
+
+    gender: str
+    phone: str
+    address: str
+    city: str
+    country: str
+
+class UserPreferenceSchemaOut(BaseModel):
+    interest: Optional[List[str]] = []
+    price_range: Optional[str] = None
+    shopping_frequency: Optional[str] = None
+    preferred_categories: Optional[List[str]] = []
+    notification_prefrences: Optional[List[str]] = []
+
+
+class UserProfileData(BaseModel):
+    user: UserOut
+    preference: UserPreferenceSchemaOut #preference
+    profile: UserProfileSchemaOut
+
+
+class UserProfileOut(BaseSchema):
+    data: UserProfileData
+
 
 class Token(BaseModel):
     access_token: str
@@ -96,6 +105,3 @@ class UserPublic(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
-class LoginSchema(BaseModel):
-    email:str
-    password: str

@@ -1,5 +1,7 @@
-from typing import List, Optional
-from pydantic import BaseModel, field_validator
+import ast
+from typing import List, Optional, Dict
+
+from pydantic import BaseModel, field_validator, Field
 from datetime import datetime
 
 class Image(BaseModel):
@@ -31,9 +33,10 @@ class Stock(BaseModel):
     max_sale_qty: Optional[int] = 0
 
 class ProductDetail(BaseModel):
+    product_id: str
     name: Optional[str] = None
     brand: Optional[str] = None
-    category: Optional[str] = None
+    categories: Optional[str] = None
     currency: Optional[str] = "₦"
     description: Optional[str] = None
     current_price: Optional[float] = 0.0
@@ -54,6 +57,28 @@ class ProductDetail(BaseModel):
     is_pay_on_delivery: Optional[bool] = False
     express_delivery: Optional[bool] = False
     is_official_store: Optional[bool] = False
+
+
+class WishListProductSchema(BaseModel):
+
+    id: str = Field(alias="$id", serialization_alias="product_id")
+    title: str
+    image: str
+    current_price: float
+    original_price: float
+    brand: str
+    reviews_count: float
+    source: str
+    discount: float
+    url: str
+    currency: str
+    date_added: datetime = Field(alias="$createdAt", serialization_alias="dateAdded")
+    features: List[str]
+    specification: List[Dict[str, str]]   = Field(serialization_alias="specifications") 
+
+    @field_validator("specification", mode="before")
+    def validate_specifications(cls, v):
+        return [ast.literal_eval(item) for item in v]
 
 
 class ProductResponse(BaseModel):

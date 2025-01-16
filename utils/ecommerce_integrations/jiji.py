@@ -1,9 +1,10 @@
+import json
 from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 
 from ..ecommerce.base import ScrapingIntegration
 from ..db_manager import ProductDBManager
-from utils import db_manager
+from bs4 import BeautifulSoup
 
 class JijiIntegration(ScrapingIntegration):
     def __init__(self, db_manager: ProductDBManager = None):
@@ -266,6 +267,8 @@ class JijiIntegration(ScrapingIntegration):
             "name": basic_info.get("name", ""),
             "brand": "",  # Not available in Jiji schema
             "category": "",  # Not available in Jiji schema
+            # "product_id": product_id,
+            # "url": f"{self.base_url}{product.get('url', '')}",
             "description": product.get("description", ""),
             "current_price": self._clean_price(basic_info.get("current_price", "")),
             "original_price": 0.0,  # Not available in Jiji schema
@@ -306,7 +309,6 @@ class JijiIntegration(ScrapingIntegration):
                     "image": product.get("image", product["image"]),
                     "url": product["url"]
                 })
-                print(transformed)
 
 
         return transformed
@@ -320,3 +322,58 @@ class JijiIntegration(ScrapingIntegration):
         """Get product detail using GraphQL."""
         product = await super().get_product_detail(url, **kwargs)
         return await self._transform_product_detail(product, product_id) 
+
+
+    async def extract_product_list(self, url, **kwargs):
+        try:
+            response = await self.client.get(url)
+            html_content = response.text
+
+        except Exception:
+            print(f"URL failed {url} throug {str(e)}")
+            products = await super().get_product_list(url, **kwargs)
+            return await self._transform_product_list(products)
+
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Find the script tag containing the product data
+        with open("product_page.html", "w", encoding='utf-8') as f:
+            f.write(soup.prettify())
+            
+        script_tag = soup.find('script', {'id': '__NUXT_DATA__'})
+        if script_tag:
+            # Extract the JSON data from the script tag
+            json_data = script_tag.string
+        
+            # Parse the JSON data
+            data = json.loads(json_data)
+
+
+            products = data.get('data', {}).get('state', {}).get('adverts_list', [])
+
+            # Iterate over the products and extract relevant information
+            ps = []
+            for product in products:
+
+                dt = {
+                    "name": product.get('title'),
+                    "url": f"{self.base_url}{product.get('url')}",
+                    "category": product.get('category_name'),
+                    "current_price": product.get('price_obj', {}),
+                    "description": product.get('short_description'),
+                    "image": product.get('image_obj').get("url"),
+                    "images": product.get('images', []),
+                    "original_price": 0.0,  
+                    "discount": 0.0,
+                    "source": self.name,
+                    "product_id": self.hash_id(product.get('url')),
+                }
+                ps.append(dt)
+
+            return ps
+
+        else:
+            print(f"Script tag not found for URL: {url}")
+            products = await super().get_product_list(url, **kwargs)
+            return await self._transform_product_list(products)

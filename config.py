@@ -12,6 +12,7 @@ PORT = os.getenv("PORT")
 SEARCH_ENGINE_URL = str(os.getenv("SEARCH_ENGINE_URL"))
 
 APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
+APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
 APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
 APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID")
 MESSAGE_COLLECTION_ID = "messages"

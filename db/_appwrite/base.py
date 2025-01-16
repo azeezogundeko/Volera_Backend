@@ -7,7 +7,8 @@ from config import (
     ApiKeyConfig,  
     APPWRITE_DATABASE_ID, 
     APPWRITE_ENDPOINT, 
-    APPWRITE_PROJECT_ID
+    APPWRITE_PROJECT_ID,
+    APPWRITE_BUCKET_ID
     )
 
 from appwrite.id import ID
@@ -27,6 +28,7 @@ class AsyncAppWriteClient:
         self.client.set_key(ApiKeyConfig.APPWRITE_API_KEY)
         self.client.set_endpoint(APPWRITE_ENDPOINT)
         self.database_id = APPWRITE_DATABASE_ID
+        self.bucket_id = APPWRITE_BUCKET_ID
 
         self.database = Databases(self.client)
         self.storage = Storage(self.client)
@@ -35,6 +37,43 @@ class AsyncAppWriteClient:
 
     def get_unique_id(self):
         return ID.unique()
+
+    # async def create_bucket(
+    #     self, 
+    #     bucket_id, 
+    #     name, 
+    #     permissions = None, 
+    #     file_security = None, 
+    #     enabled = None, 
+    #     maximum_file_size = None, 
+    #     allowed_file_extensions = None, 
+    #     compression = None, 
+    #     encryption = None, 
+    #     antivirus = None
+    #     ):
+    #     return await self._run_in_executor(
+    #         self.storage.create_bucket,
+    #         bucket_id, name, permissions, file_security, enabled, maximum_file_size, allowed_file_extensions, compression, encryption, antivirus
+    #     )
+
+    async def create_file(self, file_id, file, permissions = None, on_progress = None):
+        return await self._run_in_executor(
+            self.storage.create_file,
+            self.bucket_id, file_id, file, permissions, on_progress
+
+        )
+
+    async def get_file(self, file_id):
+        return await self._run_in_executor(
+            self.storage.get_file,
+            self.bucket_id, file_id
+        )
+
+    async def update_file(self, file_id, file, permissions = None, on_progress = None):
+        return await self._run_in_executor(
+            self.storage.update_file,
+            self.bucket_id, file_id, file, permissions, on_progress
+        )
 
     def _run_in_executor(self, func, *args, **kwargs):
         """
@@ -65,6 +104,13 @@ class AsyncAppWriteClient:
         return await self._run_in_executor(
             self.database.create_document,
             self.database_id,  collection_id,  document_id or ID.unique(), document_data
+        )
+
+    async def set_relationship(
+        self, collection_id, related_collection_id, type, two_way = None, key = None, two_way_key = None, on_delete = None):
+        return await self._run_in_executor(
+            self.database.create_relationship_attribute,
+            self.database_id, collection_id, related_collection_id, type, two_way, key, two_way_key, on_delete
         )
 
     async def list_documents(

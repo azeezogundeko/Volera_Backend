@@ -3,6 +3,10 @@ from typing import List, Dict, Any, Optional
 # from datetime import timedelta
 from fastapi import Request
 
+
+from .model import Product, WishList
+from .schema import ProductDetail
+from ..auth.schema import UserIn
 from utils.ecommerce_manager import EcommerceManager
 from utils.rerank import ReRanker
 from utils.logging import logger
@@ -166,13 +170,14 @@ async def list_products(
     
     if successful_products:
         # Cache the successful results with the site-specific cache key
-        results = await reranker.rerank(query, successful_products, limit)
+        results = await reranker.rerank(query, successful_products, len(results))
         await ecommerce_manager.db_manager.cache_product(
             product_id=product_id,
             data=results,
             ttl=3600,
             query=cache_key
         )
+        # return results
         return post_process_results(page, limit, results, sort, filters)
     
     return []
@@ -186,9 +191,12 @@ def post_process_results(
     filters: dict = None) -> List[Dict[str, Any]]:
     
     # Apply pagination
+    print(f"Length of results: {len(results)}")
     start_index = (page - 1) * limit
     end_index = start_index + limit
-    results = results[start_index:end_index]  
+    results = results[start_index:end_index] 
+
+    print(f"Length of results after pagination: {len(results)}") 
             
     
     if sort:
@@ -213,33 +221,45 @@ async def get_product_detail(
     )
     return product
 
-async def get_cache_info(request: Request, url: str) -> Optional[Dict[str, Any]]:
-    """Get cache information for a specific URL."""
-    ecommerce_manager = get_ecommerce_manager(request)
-    product_id = ecommerce_manager.generate_product_id(url)
-    return await ecommerce_manager.db_manager.get_cache_stats()
 
-async def clear_cache(request: Request) -> None:
-    """Clear all cached data."""
-    ecommerce_manager = get_ecommerce_manager(request)
-    await ecommerce_manager.db_manager.clear_cache()
+async def save_product(product: ProductDetail, user: UserIn):
+    """Save a product to the user's saved products."""
+    specifications = [str(
+        dict(label=spec.label, value=spec.value)
+    ) for spec in product.specifications]
 
-async def remove_expired_cache(request: Request) -> None:
-    """Remove all expired cache entries."""
-    ecommerce_manager = get_ecommerce_manager(request)
-    await ecommerce_manager.db_manager.remove_expired_cache()
-
-async def set_cache_ttl(request: Request, url: str, ttl: int) -> bool:
-    """Set TTL for a specific cached URL."""
-    ecommerce_manager = get_ecommerce_manager(request)
-    product_id = ecommerce_manager.generate_product_id(url)
-    # Re-cache the product with new TTL
-    cached_product = await ecommerce_manager.db_manager.get_cached_product(product_id)
-    if cached_product:
-        await ecommerce_manager.db_manager.cache_product(
-            product_id=product_id,
-            data=cached_product,
-            ttl=ttl
+    product = await Product.get_or_create( 
+        product.product_id, 
+        dict(
+        currency=product.currency,
+        title=product.name,
+        url=product.url,
+        current_price=product.current_price,
+        image=product.image,
+        features=product.features,
+        specification=specifications,
+        ratings=product.rating,
+        source=product.source,
+        original_price=product.original_price,
+        brand=product.brand,
+        discount=product.discount,
+        reviews_count=product.rating_count)
         )
-        return True
-    return False
+
+    # if is_wishlist:
+
+    wishlist = await WishList.get_or_create(
+        WishList.get_unique_id(),
+        {"user_id": user.id, "product_id": product.id}
+    )
+
+    results = {
+        "product": product.to_dict(),
+        "wishlist": wishlist.to_dict()
+    }
+
+    return {
+        "message": "success",
+        "data": results,
+        "error": None
+    }

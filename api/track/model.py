@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, TypedDict
 
-from db._appwrite.model_base import AppwriteModelBase, AppwriteField
+from db._appwrite.fields import AppwriteField
+from db._appwrite.model_base import AppwriteModelBase
 
 
 
@@ -9,8 +9,8 @@ class PriceHistory(AppwriteModelBase):
     collection_id = "track_price_history"
 
     user_id: str = AppwriteField(size=255, required=True, type="string")
-    product_id: str = AppwriteField(type="string", size=255, required=True)
-    index = AppwriteField(type="index", index_type="unique", index_attr=["user_id", "product_id"])
+    tracked_id: str = AppwriteField(type="string", size=255, required=True)
+    index = AppwriteField(type="index", index_type="key", index_attr=["user_id", "tracked_id"])
     timestamp: datetime = AppwriteField(type="datetime", required=True)
     price: float = AppwriteField(type="float", required=True, default=0.0)
 
@@ -20,8 +20,8 @@ class TrackedItem(AppwriteModelBase):
     collection_id = "tracked_item"
 
     user_id: str = AppwriteField(size=255, required=True, type="string")
-    index = AppwriteField(type="index", index_type="unique", index_attr=["user_id", "product_id"])
     product_id: str = AppwriteField(size=255, required=True, type="string")
+    index = AppwriteField(type="index", index_type="key", index_attr=["user_id", "product_id"])
     notification_enabled: bool  = AppwriteField(required=True, type="bool")
     last_scraped_at: datetime = AppwriteField(type="datetime", required=False)
     price_change: bool = AppwriteField(type="bool", default=False)

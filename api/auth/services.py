@@ -1,3 +1,4 @@
+import random
 import asyncio
 from typing import Optional
 from datetime import datetime, timedelta, timezone
@@ -5,13 +6,19 @@ import hashlib
 
 from appwrite.client import AppwriteException
 from db import user_db
+from .model import UserProfile, UserPreferences
 
 from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
-from .schema import UserIn, TokenData
+from .schema import UserIn, TokenData, UserOut
+from .schema_in import ProfileSchema, UserCreate
 
+from utils.emails import send_new_user_email
+
+
+from appwrite.input_file import InputFile
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
 from appwrite.services.users import Users
 
@@ -28,6 +35,10 @@ def hash_email(email: str) -> str:
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
+
+
+def generate_random_six_digit_number():
+    return random.randint(100000, 999999)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -48,6 +59,7 @@ async def get_user(email: str) -> Optional[UserIn]:
     try:
         hashed_email = hash_email(email)
         user = await asyncio.to_thread(user_db.get, hashed_email)
+        
         return UserIn(**user)
     except AppwriteException:
         return None
@@ -75,3 +87,90 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+
+async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks):
+    user = await get_user(payload.email)
+    if user:
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    hashed_password = get_password_hash(payload.password)
+    user_id=hash_email(payload.email)
+    payload = dict(
+        user_id=user_id,
+        email=payload.email,
+        password=hashed_password,
+        name=payload.first_name + "_" + payload.last_name
+    )
+    response = await asyncio.to_thread(user_db.create_argon2_user, **payload)
+    await asyncio.to_thread(user_db.update_labels, user_id, ["users"])
+    validation_code = generate_random_six_digit_number()
+    await asyncio.to_thread(user_db.update_prefs, user_id, {"validation_code": validation_code, "theme": "black", "notification": True})
+
+    background_tasks.add_task(send_new_user_email, validation_code, payload["email"])
+
+    first_name, last_name = response["name"].rsplit("_", 1)
+
+    user = UserOut(
+        user_id=response["$id"],
+        email=response["email"],
+        first_name=first_name,
+        last_name=last_name,
+        created_at=response["$createdAt"],
+        updated_at=response["$updatedAt"]
+    )
+    
+    access_token = create_access_token(data={"sub": payload["email"]})
+    return  {
+        "user": user,
+        "token": {"access_token": access_token, "token_type": "bearer"}
+        }
+
+
+
+
+async def create_user_profile(
+    user: UserIn,
+    payload: ProfileSchema, 
+    ):
+    file_id = None
+    if payload.avatar:
+        file_id = UserProfile.get_unique_id()
+        file = payload.avatar.file
+        file.seek(0)
+        file = InputFile.from_bytes(
+            file.read(),
+            payload.avatar.filename,
+        )
+        await UserProfile.create_file(file_id, file)
+
+
+    user_profile = await UserProfile.create(
+        document_id=UserProfile.get_unique_id(),
+        data={
+            "user_id": user.id,
+            "phone": payload.phone,
+            "gender": payload.gender,
+            "city": payload.city,
+            "country": payload.country,
+            "address": payload.address,
+            "avatar": file_id
+        }
+    )
+    user_preferences = await UserPreferences.create(
+        document_id=UserProfile.get_unique_id(),
+        data={
+            "interest": payload.interests,
+            "price_range": payload.price_range,
+            "shopping_frequency": payload.shopping_frequency,
+            "notification_preferences": payload.notification_preferences,
+            "user_id": user.id
+        }
+    )
+
+    return {
+            "user": user,
+            "profile": user_profile.to_dict(),
+            "preference": user_preferences.to_dict()
+        }
+

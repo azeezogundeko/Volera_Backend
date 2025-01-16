@@ -4,6 +4,10 @@ from ..ecommerce.base import ScrapingIntegration
 from ..db_manager import ProductDBManager
 from utils import db_manager
 
+import json
+from bs4 import BeautifulSoup
+
+
 class JumiaIntegration(ScrapingIntegration):
     def __init__(self, db_manager: ProductDBManager = None):
         super().__init__(
@@ -102,7 +106,7 @@ class JumiaIntegration(ScrapingIntegration):
                             },
                             {
                                 "name": "brand",
-                                "selector": "div.-pvxs a:nth-child(1)",
+                                "selector": "div.-pvxs > a:nth-child(1)",
                                 "type": "text"
                             },
                             {
@@ -235,7 +239,8 @@ class JumiaIntegration(ScrapingIntegration):
                                 ]
                             }
                         ]
-                    }
+                    },
+                    
                 ]
             }
         )
@@ -387,7 +392,7 @@ class JumiaIntegration(ScrapingIntegration):
             
         return {}
 
-    async def _transform_product_detail(self, product: List[Dict[str, Any]] | Dict[str, Any]) -> Dict[str, Any]:
+    async def _transform_product_detail(self, product: List[Dict[str, Any]] | Dict[str, Any], product_id) -> Dict[str, Any]:
         """Transform scraped product detail to standard format."""
         # Validate and normalize structure first
         product = self._validate_product_structure(product)
@@ -405,6 +410,8 @@ class JumiaIntegration(ScrapingIntegration):
         return {
             "name": basic_info.get("name", ""),
             "brand": basic_info.get("brand", ""),
+            "product_id": product_id,
+            "url": f"{self.base_url}{product.get('url', '')}",
             "category": product.get("category", "") if product.get("category") else self.extract_category(basic_info.get("name", "")),
             "brand": product.get("brand", "") if product.get("brand") else self.extract_brands(basic_info.get("name", "")),
             "description": "",  # Not directly available in schema
@@ -444,10 +451,67 @@ class JumiaIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
-        products = await super().get_product_list(url, **kwargs)
-        return await self._transform_product_list(products)
+        products = await self.extract_list_data(url, **kwargs)
+        return products
+        # return await self._transform_product_list(products)
 
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail by scraping."""
         product = await super().get_product_detail(url, **kwargs)
-        return await self._transform_product_detail(product) 
+        return await self._transform_product_detail(product, product_id) 
+
+
+    async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
+        try:
+            response = await self.client.get(url)
+            html_content = response.text
+        except Exception:
+            print(f"URL failed {url} throug {str(e)}")
+            products = await super().get_product_list(url, **kwargs)
+            return await self._transform_product_list(products)
+
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Find the script tag containing the product data
+        script_tag = soup.find('script', text=lambda t: t and 'window.__STORE__' in t)
+        
+        if script_tag:
+            # Extract the JSON data from the script tag
+            script_content = script_tag.string
+            json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
+            
+            # Parse the JSON data
+            data = json.loads(json_data)
+            
+            # Extract product information
+            products = data.get('products', [])
+
+            # List to store extracted product data
+            product_list = []
+            
+            for product in products:
+                product_info = {
+                    "product_id": self.hash_id(product.get("url", "")),
+
+                    'category': product.get('categories', '')[0],
+                    'name': product.get('displayName', ''),
+                    'brand': product.get('brand', ''),
+                    'current_price': float(product.get('prices', {}).get('rawPrice', '')),
+                    'old_price': self._clean_price(product.get('prices', {}).get('oldPrice', '')),
+                    'discount':self._clean_discount(product.get('prices', {}).get('discount', '')),
+                    'rating': product.get('rating', {}).get('average', ''),
+                    'rating_count': product.get('rating', {}).get('totalRatings', ''),
+                    'image': product.get('image', ''),
+                    'url': f"{self.base_url}{product.get('url', '')}",
+                    'source': self.name
+                }
+                product_list.append(product_info)
+            
+            return product_list
+        else:
+            print(f"URL failed {url}")
+            products = await super().get_product_list(url, **kwargs)
+            return await self._transform_product_list(products)
+

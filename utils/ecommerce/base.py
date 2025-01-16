@@ -3,6 +3,10 @@ from typing import Dict, Any, List, Optional, Literal
 from enum import Enum
 import hashlib
 
+
+from ..request_session import http_client
+from ..scrape import AsyncWebScraper
+
 from ..entity_recognition import extract_brands, extract_categories
 
 
@@ -23,6 +27,7 @@ class EcommerceIntegration(ABC):
         integration_type: Literal["scraping", "api", "graphql"] = "scraping"
     ):
         self.name = name
+        self.scraper = AsyncWebScraper()
         self.base_url = base_url
         self.url_patterns = url_patterns
         self.integration_type = integration_type
@@ -55,7 +60,7 @@ class EcommerceIntegration(ABC):
         """Hash URL to a unique identifier."""
         # Normalize the URL
         normalized_url = url.split('?')[0].lower().rstrip('/')  # Remove query params and trailing slash
-        return hashlib.sha256(normalized_url.encode()).hexdigest()
+        return hashlib.sha256(normalized_url.encode()).hexdigest()[:40]
 
 class ScrapingIntegration(EcommerceIntegration):
     """Integration for websites that require scraping."""
@@ -71,6 +76,7 @@ class ScrapingIntegration(EcommerceIntegration):
         super().__init__(name, base_url, url_patterns, "scraping")
         self.list_schema = list_schema
         self.detail_schema = detail_schema
+        self.client = http_client
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         from utils._craw4ai import extract_data_with_css
@@ -89,6 +95,10 @@ class ScrapingIntegration(EcommerceIntegration):
             bypass_cache=kwargs.get('bypass_cache', False)
         )
         return product[0] if isinstance(product, list) else product if product else {}
+
+
+    async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
+        ""
 
 class RestApiIntegration(EcommerceIntegration):
     """Integration for websites that provide REST APIs."""

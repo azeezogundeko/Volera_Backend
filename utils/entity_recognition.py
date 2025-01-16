@@ -172,16 +172,16 @@ category_patterns = [
 ]
 
 def extract_brands(text):
-    brands = extract_keywords(text, brand_patterns)
-    if brands:
-        return brands[0]
+    # brands = extract_keywords(text, brand_patterns)
+    # if brands:
+    #     return brands[0]
     return None
 
 # Function to extract Categories
 def extract_categories(text):
-    categories = extract_keywords(text, category_patterns)
-    print(categories)
-    if categories:
-        return categories[0]
+    # categories = extract_keywords(text, category_patterns)
+    # print(categories)
+    # if categories:
+    #     return categories[0]
     return None
 

@@ -8,10 +8,13 @@ from utils.logging import logger
 from utils._craw4ai import CrawlerManager
 from config import PORT, DB_PATH
 from utils.db_manager import ProductDBManager
+from utils.exceptions_handlers import validation_exception_handler
+from utils.request_session import http_client
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 # Global database manager instance
@@ -36,6 +39,14 @@ async def lifespan(app: FastAPI):
             max_workers=4
         )
         logger.info("Database manager initialized successfully")
+
+        logger.info("Initializing HTTP client...")
+        try:
+            http_client.initialize()
+        except Exception as e:
+            logger.error(str(e))
+
+        logger.info("HTTP client initialized successfully")
         
         logger.info("Initializing web crawler...")
         await CrawlerManager.initialize()
@@ -48,6 +59,9 @@ async def lifespan(app: FastAPI):
     finally:
         # Shutdown logic
         logger.info("Application is shutting down...")
+        await http_client.close()
+        logger.info("HTTP client cleaned up successfully")
+        logger.info("Cleaning up web crawler...")
         await CrawlerManager.cleanup()
         logger.info("Web crawler cleanup completed.")
         if db_manager:
@@ -91,6 +105,12 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"message": "INTERNAL SERVER ERROR", "error": str(exc)},
     )
+
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception(request: Request, exc: RequestValidationError):
+    return await validation_exception_handler(request, exc)
     
 if __name__ == "__main__":
     logger.info("Starting FastAPI server.")

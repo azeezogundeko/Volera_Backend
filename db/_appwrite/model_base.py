@@ -1,107 +1,15 @@
 # from __future__ import annotations
 
-from typing import Literal, Type, List, Dict, Optional, Union, Any
+from typing import Type, List, Dict, Optional, Any
 from datetime import datetime
 from appwrite.client import AppwriteException
 from .base import AsyncAppWriteClient
 from utils.logging import logger
+from .fields import BaseField, Field
 
 from appwrite.query import Query
 
 
-class Field:
-    def __init__(
-        self, 
-        required: bool = True, 
-        size: int = None, 
-        array: bool = False, 
-        min: Optional[float] = None,
-        max: Optional[float] = None,
-        index_type: Literal["unique", "text", "array"]= None,
-        index_attr: List[str] | str = None,
-        default: Optional[Union[str, float, list, dict]] = None,
-        type: Literal["string", "datetime", "json", "array", "float", "bool", "index"] = "string",
-        
-        ):
-        self.min = min
-        self.max = max
-        self.type = type
-        self.size = size
-        self.array = array
-        self.default = default
-        self.required = required
-        self.index_type = index_type
-        self.index_attr = index_attr if isinstance(index_attr, list) else [index_attr]
-
-    def __dict__(self):
-        field = {
-            "required": self.required,
-            "type": self.type,
-            "array": self.array,
-            "default": self.default,
-            }
-        if self.type == "index":
-            if self.index_type is None:
-                raise ValueError("index_type is required when type is 'index'")
-            field["index_type"] = self.index_type
-            field["index_attr"] = self.index_attr
-
-        # Additional validations for string and json types
-        if self.type in ["string", "json"]:
-            if self.size is not None:
-                field["size"] = self.size
-
-        # Additional validations for float type
-        if self.type == "float":
-            if self.min is not None:
-                field["min"] = self.min
-            if self.max is not None:
-                field["max"] = self.max
-
-        return field
-
-
-    def __repr__(self):
-        return f"Field(required={self.required}, size={self.size}, array={self.array}, type={self.type}, min={self.min}, max={self.max}, default={self.default})"
-
-
-def AppwriteField(
-    array: bool = False,
-    required: bool = True,
-    size: Optional[int] = None,
-    min: Optional[float] = None,
-    max: Optional[float] = None,
-    index_attr: List[str] | str = None,
-    index_type: Literal["unique", "text", "array"]= None,
-    default: Optional[Union[str, float, list, dict]] = None,
-    type: Literal["string", "datetime", "json", "array", "float", "bool", "index"] = "string",
-) -> dict:
-    """
-    Constructs a field schema for Appwrite.
-
-    Args:
-        required (bool): Whether the field is required.
-        size (int, optional): Maximum size of the field (applicable to 'string' and 'json' types).
-        array (bool, optional): Indicates if the field is an array. Defaults to False.
-        type (Literal): The type of the field ('string', 'datetime', 'json', 'array', 'float').
-        min (float, optional): Minimum value for 'float' type.
-        max (float, optional): Maximum value for 'float' type.
-        default (Union[str, float, list, dict], optional): Default value for the field.
-
-    Returns:
-        dict: Field schema.
-    """
-    return Field(
-        required=required,
-        size=size,
-        array=array,
-        type=type,
-        min=min,
-        max=max,
-        default=default,
-        index_attr=index_attr,
-        index_type=index_type
-    )
 
 class AppwriteModelBase:
     """Base class for Appwrite models."""
@@ -166,9 +74,40 @@ class AppwriteModelBase:
         # )
         return cls.from_appwrite(document)
 
+
+    @classmethod
+    async def get_or_create(cls, document_id: str, data: dict)-> Optional[Type["AppwriteModelBase"]]:
+        try:
+            document = await cls.read(document_id)
+        except AppwriteException:
+            return await cls.create(document_id, data)
+        return document
+
+    # @classmethod
+    # async def get_or_400(cls, document_id: str, **kwargs)-> Optional[Type["AppwriteModelBase"]]:
+    #     document = await cls.read(document_id)
+
+    #     if document is not None:
+    #         raise Exception("Item already exists")
+            
+    #     return document
+
+
     @classmethod
     def get_unique_id(cls) -> str:
         return cls.client.get_unique_id()
+
+    @classmethod
+    async def create_file(cls, file_id, file, permissions = None, on_progress = None):
+        return await cls.client.create_file(file_id, file, permissions, on_progress)
+    
+    @classmethod
+    async def update_file(cls, file_id, file, permissions = None, on_progress = None):
+        return await cls.client.update_file(file_id, file, permissions, on_progress)
+
+    @classmethod
+    async def get_file(cls, file_id):
+        return await cls.client.get_file(file_id)
 
 
     @classmethod
@@ -297,7 +236,7 @@ class AppwriteModelBase:
         # instance.metadata = document.get('metadata', {})
         return instance
 
-    def to_appwrite(self) -> dict:
+    def to_dict(self) -> dict:
         """Convert the instance to a format compatible with Appwrite."""
         data = self.__dict__.copy()
         data['$id'] = data.pop('id', None)
@@ -332,9 +271,10 @@ class AppwriteModelBase:
         
         for name, value in cls.__dict__.items():
             # Check if the field is an instance of AppwriteField
-            if isinstance(value, Field):
-                dict_fields.append({"key":name, "value":value.__dict__()})
+            if isinstance(value, BaseField):
+                dict_fields.append({"key":name, **value.to_dict()})
 
+        print(dict_fields)
         # dict_fields.append({"key": "is_deleted", "value": {"required": True, "type": "bool", "default": False}})
         return dict_fields
 
@@ -397,7 +337,10 @@ class AppwriteModelBase:
                             collection_id=cls.collection_id,
                             key=field["key"],
                             size=16384,  # Large size for JSON
-                            required=field.get("required", False))
+                            required=field.get("required", False),
+                            array=field["array"],
+                            default=field["default"],
+                            )
 
                     elif field.get("type") == "bool":
                         await cls.client.create_boolean_attribute(
@@ -407,16 +350,20 @@ class AppwriteModelBase:
                             field["default"],
                             field["array"]
                         )
-                    else:
+                    elif field.get("type") == "string":
                         await cls.client.create_string_attribute(
                             collection_id=cls.collection_id,
                             key=field["key"],
                             size=field.get("size", 255),
                             required=field.get("required", False)
                         )
+                    else:
+                        logger.error(f"Unknown field type: {field['value']['type']}")
+
                     logger.info(f'Created attribute {field["key"]} for {cls.collection_id} collection')
-            except Exception as attr_error:
-                logger.error(f'Failed to create attribute {field["key"]}: {attr_error}')
+            except AppwriteException as e:
+                print(e.message)
+                logger.error(f'Failed to create attribute {field["key"]}: {e}')
                         
         except Exception as e:
             print(f"Failed to create collection '{collection_name}': {e}")  

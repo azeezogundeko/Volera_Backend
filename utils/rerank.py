@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from langchain_community.vectorstores import FAISS
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
+from flashrank import Ranker, RerankRequest
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 # from langchain.retrievers import EnsembleRetriever
@@ -28,10 +28,16 @@ from langchain_community.document_compressors.flashrank_rerank import FlashrankR
 
 logger = logging.getLogger(__name__)
 
+
+
 class WebResultDict(typing.TypedDict):
     metadata: dict
     content: str
 
+class Docs(typing.TypedDict):
+    id: str
+    text: str
+    metadata: dict
 
 class ResultSchema(BaseModel):
     content: str
@@ -76,6 +82,7 @@ class ReRanker:
         self.chunk_overlap = chunk_overlap
         self.threshold = word_threshold
         self.n_load = 20
+        self.ranker = Ranker(max_length=128)
         self.embedding_model: str = "models/embedding-001"
         self.embeddings = self._load_embeddings()
 
@@ -111,7 +118,7 @@ class ReRanker:
         self, 
         query: str, 
         retriever, 
-        k: int = 5,
+        k: int = 200,
         mode: typing.Literal["fast", "balanced", "quality"] = "fast", 
         ) -> typing.List[Document]:
         """Rerank results based on relevance."""
@@ -127,27 +134,33 @@ class ReRanker:
             base_retriever=retriever,
             base_compressor=compressor
         )
-        return await compressor_retriever.ainvoke(query)
+        return await compressor_retriever.ainvoke(query, k=k)
 
 
     def to_document(self, results: List[ProductSchema]) -> List[Document]:
         docs = [
-            Document(page_content=result["name"], metadata=result)
-            for result in results
+            Docs(text=result["name"], metadata=result, id=id)
+            for id, result in enumerate(results)
         ]
         return docs
 
 
     async def rerank(self, query: str, results: List[ProductSchema], k=20) -> List[ProductOut]:
         docs = self.to_document(results)
-        retriever = await self.load_contents(self.k, docs)
-        reranked = await self._reranker(retriever=retriever, query=query, k=k)
+        rerankrequest = RerankRequest(query=query, passages=docs)
+        reranked = self.ranker.rerank(rerankrequest)
+
+        # retriever = await self.load_contents(k, docs)
+        # print(f"Length pf results {len(docs)}")
+        # reranked = await self._reranker(retriever=retriever, query=query, k=k)
+
+        print(f"Length of reranked: {len(reranked)}")   
 
         products = [
             ProductOut(
                 **{
-                    **rerank.metadata,
-                    'relevance_score': float(rerank.metadata.get('relevance_score', 0.0))
+                    **rerank["metadata"],
+                    'relevance_score': float(rerank.get('score', 0.0))
                 }
             )
             for rerank in reranked
@@ -200,4 +213,3 @@ class ReRanker:
                 continue
 
         return results
-
