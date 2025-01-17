@@ -10,7 +10,12 @@ from db._appwrite.session import appwrite_session_manager
 from utils.websocket import websocket_manager
 
 from langgraph.types import Command
+from pydantic import BaseModel
 
+class FileMessage(BaseModel):
+    fileData: bytes
+    fileName: str
+    fileExtension: str
 
 async def extract_message_content(response_text: str) -> str:
     """Extract the message content from the response text."""
@@ -24,16 +29,20 @@ async def extract_message_content(response_text: str) -> str:
                 return response_text
 
             # Handle dictionary
+        
             if isinstance(data, dict):
                 # Try nested data structure
                 if 'data' in data and isinstance(data['data'], dict):
-                    return data['data'].get('content', '')
+                    return data['data'].get('content', ''), data["file_ids"]
                 # Try direct content
                 if 'content' in data:
                     return data['content']
                 # Try message field
                 if 'message' in data:
                     return data['message']
+
+                # if 'files' in data:
+                #     ...
                 
         # Handle dictionary input
         elif isinstance(response_text, dict):
@@ -59,6 +68,12 @@ async def human_node(
     try:
         next_node = state.get("next_node", agent_manager.end)
         ws_id = state["ws_id"]
+
+        ai_files = state.get("ai_files", [])
+
+        if "ai_response" in state:
+            await appwrite_session_manager.log_message(state["session_id"],  state["ai_response"], 'assistant', ai_files)
+        
         
         # # Stream the AI's response if available
         # if "ai_response" in state:
@@ -92,21 +107,19 @@ async def human_node(
         #     # raise RuntimeError("Failed to receive user input after multiple attempts")
         
         # Extract user input from response
-        user_input = await extract_message_content(response_text)
+        user_input, user_files = await extract_message_content(response_text)
         if not user_input:
             await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
             return Command(goto=agent_manager.end, update=state)
             # raise ValueError("Failed to extract valid user input from response")
+
+
+        # Log messages and update history
+        await appwrite_session_manager.log_message(state["session_id"], state["human_response"], 'human', user_files)
         
         # Update state with the user's input
         state["human_response"] = user_input
-        
-        # Log messages and update history
-        await appwrite_session_manager.log_message(state["session_id"], state["human_response"], 'human')
-        if "ai_response" in state:
-            await appwrite_session_manager.log_message(state["session_id"],  state["ai_response"], 'assistant')
-            
-        
+     
         logger.info(f"User input collected: {user_input}. Routing to: {next_node}")
         return Command(update=state, goto=next_node)
 

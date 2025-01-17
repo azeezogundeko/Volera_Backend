@@ -4,9 +4,13 @@ from typing import Optional, List
 
 
 class FileSchema(BaseModel):
-    id : str = Field(serialization_alias="fileId")
+    id : str = Field(serialization_alias="fileId", alias="$id")
     name: str = Field(serialization_alias="fileName")
     file_extension: str = Field(serialization_alias="fileExtension")
+
+class FileOut(BaseModel):
+    message: str
+    files: List[FileSchema]
 
 class ChatOut(BaseModel):
     user_id: str

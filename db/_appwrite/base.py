@@ -65,7 +65,7 @@ class AsyncAppWriteClient:
 
     async def get_file(self, file_id):
         return await self._run_in_executor(
-            self.storage.get_file,
+            self.storage.get_file_download,
             self.bucket_id, file_id
         )
 

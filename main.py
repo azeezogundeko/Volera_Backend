@@ -10,6 +10,7 @@ from config import PORT, DB_PATH
 from utils.db_manager import ProductDBManager
 from utils.exceptions_handlers import validation_exception_handler
 from utils.request_session import http_client
+from utils.background import background_task
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -64,6 +65,9 @@ async def lifespan(app: FastAPI):
         logger.info("Cleaning up web crawler...")
         await CrawlerManager.cleanup()
         logger.info("Web crawler cleanup completed.")
+
+        await background_task.close()
+        logger.info("Background task closed successfully")
         if db_manager:
             logger.info("Cleaning up database manager...")
             await db_manager.close()

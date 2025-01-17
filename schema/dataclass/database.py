@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 
 
 @dataclass
-class Message:
+class MessageDT:
     content: str
     chat_id: str
     role: Literal["human", "assistant"]
@@ -21,18 +21,18 @@ MESSAGE_ATTRIBUTES = [
 ]
 
 @dataclass
-class File:
+class FileDT:
     name: str
     field_id: str
 
 
 @dataclass
-class Chat:
+class ChatDT:
     title: str
     user_id: str
     start_time: str
     focus_mode: str
-    files: List[File]
+    files: List[FileDT]
 
     def to_dict(self):
         return asdict(self)

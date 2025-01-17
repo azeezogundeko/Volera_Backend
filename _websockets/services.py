@@ -60,6 +60,7 @@ async def handle_websocket_messages(websocket: WebSocket, user_id: str):
     try:
         while True:
             raw_data = await websocket.receive_json()
+            print(raw_data)
             data = WebSocketMessage(**raw_data)
             await manager.handle_message(data, websocket, user_id)
     except WebSocketDisconnect:

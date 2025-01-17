@@ -80,6 +80,7 @@ class WebWriterAgent(WriterAgent):
                     title=r["title"]
                 )
             )
+        state["ai_files"] = images
         return sources, images
 
 web_writer_agent_node = WebWriterAgent()

@@ -1,17 +1,22 @@
 from datetime import datetime
 
+from typing import List
+
 from utils.logging import logger
 
 from ..auth.services import get_current_user
 from ..auth.schema import UserIn
-from .model import Chat, Message, SavedChat
-from .schema import ChatOut, MessageOut
+from .model import Chat, Message, SavedChat, File
+from .schema import ChatOut, MessageOut, FileOut
 
 
-from fastapi import Depends, Query
+from fastapi import Depends, Query, File as FastAPIFile
 from fastapi import HTTPException, APIRouter
+from fastapi import UploadFile
 from appwrite import query
 from appwrite.client import AppwriteException
+from appwrite.input_file import InputFile
+import re
 
 
 router = APIRouter()
@@ -126,3 +131,27 @@ async def unstar_chat(chat_id: str, user: UserIn = Depends(get_current_user)):
         return {"message": "Chat unstarred successfully"}
     except AppwriteException:
         raise HTTPException(status_code=404, detail="Chat not found")
+
+
+@router.post("/uploads", response_model=FileOut)
+async def upload_files(
+    files: List[UploadFile] = FastAPIFile(),
+    user: UserIn = Depends(get_current_user)
+):
+
+    datas = []
+    for file in files:
+        f = InputFile.from_bytes(
+            file.file.read(),
+            file.filename
+        )
+        
+        try:
+            file = await File.get_or_create(user.id, f, file.filename, file.content_type)
+            datas.append(file.to_dict())
+        except AppwriteException as e:
+            print(str(e))
+            # errors.append({"file_name": file.filename, "error": str(e)})
+            raise HTTPException(status_code=500, detail="Could not upload file {}".format(file.filename))
+
+    return {"message": "Files uploaded successfully", "files": datas}

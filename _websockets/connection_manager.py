@@ -1,9 +1,10 @@
 from typing import List
 
 from agents import copilot_agent_graph, web_agent_graph, insights_agent_graph
+from _websockets.schema import WebSocketMessage, FileMessage
 from db._appwrite.session import appwrite_session_manager
-from _websockets.schema import WebSocketMessage
 from utils.websocket import WebSocketManager
+from api.chat.model import File
 # from .message_handler import handle_message
 
 from utils.logging import logger
@@ -41,7 +42,8 @@ class ConnectionManager:
             "focus_mode": data.focus_mode,
             "optimization_mode": data.optimization_mode,
             "title": self.generate_title_from_content(data.data.content),
-            "chat_id": data.data.chat_id
+            "chat_id": data.data.chat_id,
+            "file_ids": data.file_ids
         }
         session_id = await appwrite_session_manager.start_session(user_id, metadata)
         return session_id
@@ -111,17 +113,20 @@ class ConnectionManager:
         ws_message = data.data
         session_id = await self.start_session(user_id, data)
 
+        new_content = await self.process_content(data.file_ids, session_id, ws_message.content)
+
         state = {
             "agent_results": {},
             "ws_message": ws_message.model_dump(),
-            "human_response": ws_message.content,
+            "human_response": new_content,
             "ai_response": "",
             "optimization_mode": data.optimization_mode,
             "session_id": session_id,
             "ws_id": websocket_id,
             "chat_count": 0,
             "chat_finished": False,
-            "chat_limit": 5
+            "chat_limit": 5,
+            "ai_files": [],
             }
 
         processing_config = {
@@ -129,6 +134,7 @@ class ConnectionManager:
                     "thread_id": user_id,
                 }
             }
+
         
         if data.focus_mode == "copilot":
             await self.copilot_mode(processing_config, state, websocket)
@@ -137,6 +143,38 @@ class ConnectionManager:
         elif data.focus_mode == "all":
             await self.QA_mode(processing_config, state, websocket)
         
+
+    async def process_content(self, file_ids: List[str], session_id: str, content: str):
+        from utils.image import image_analysis, get_product_prompt, PRODUCT_IMAGE_PROMPT
+        
+        if not file_ids:
+            return content
+        c = content
+        texts = []
+        files = []
+        # implement file processing using multimodal LLM to convert the text to a user message
+        for file_id in file_ids:
+            file = await File.get_file(file_id)
+            files.append(file)
+
+            # print(file)
+            
+        prompt = get_product_prompt(c, PRODUCT_IMAGE_PROMPT)
+        try:
+            text = await image_analysis(files, prompt)
+            content = f""""
+                    USER QUERY: {c}
+
+                    IMAGE DESCRIPTIONS: {text}
+                """ 
+        except Exception as e:
+            logger.error(f"Error processing image: {e}")
+
+        
+        print(content)
+        await appwrite_session_manager.log_message(session_id, content, 'human')
+
+        return content
 
 
     def generate_title_from_content(self, content: str, max_length: int = 50) -> str:

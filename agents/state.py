@@ -31,4 +31,5 @@ class State(TypedDict):
     human_response: str = ""
     ai_response: str = ""
     session_id: str
+    ai_files: List[str] = []
     message_history: List[ModelMessage] = []

@@ -1,6 +1,15 @@
+from __future__ import annotations
+
+from typing import List
+
+import re
+
 from datetime import datetime
 from db._appwrite.model_base import AppwriteModelBase
 from db._appwrite.fields import AppwriteField
+
+
+from appwrite.query import Query
 
 
 class Chat(AppwriteModelBase):
@@ -10,26 +19,44 @@ class Chat(AppwriteModelBase):
     title: str = AppwriteField(size=255, required=False)
     start_time: datetime = AppwriteField(required=False, type="datetime")
     focus_mode: str = AppwriteField(required=False, size=50)
+    file_ids: List[str] = AppwriteField(required=False, type="array", default=[])
     index = AppwriteField(type="index", index_type="key", index_attr=["user_id"])
-    title_index = AppwriteField(type="index", index_type="text", index_attr=["title"])
+    title_index = AppwriteField(type="index", index_type="fulltext", index_attr=["title"])
     
 
 class File(AppwriteModelBase):
     collection_id = "files"
 
     name: str = AppwriteField(size=255)
+    user_id: str = AppwriteField(required=False, size=255)
     file_extension: str = AppwriteField(size=10)
-    chat_id: str = AppwriteField(required=True, size=255)
-    index = AppwriteField(type="index", index_type="key", index_attr=["chat_id"])
+    # chat_id: str = AppwriteField(required=False, size=255)
+
+    @classmethod
+    async def get_or_create(cls, user_id: str, file, name: str, file_extension: str)-> File:
+        try:
+            file_id = cls.hash(name + "_" + user_id)
+            file_id = re.sub(r'[^a-zA-Z0-9_.-]', '', file_id)
+            if len(file_id) > 36:
+                file_id = file_id[:36]
+            doc = await cls.list(queries=[Query.equal("chat_id", file_id), Query.equal("user_id", user_id)])
+            return doc["documents"][0]
+        except Exception as e:
+            print(str(e))
+            document_id = cls.get_unique_id()
+            await cls.create_file(document_id, file)
+            return await cls.create(document_id, {"user_id": user_id, "name": name, "file_extension": file_extension})
+
+    # async def create_files(cls, List[])
 
 
-class MessageImage(AppwriteModelBase):
-    collection_id = "message_images"
+# class MessageImage(AppwriteModelBase):
+#     collection_id = "message_images"
 
-    name: str = AppwriteField(size=255)
-    file_extension: str = AppwriteField(size=10)
-    message_id: str = AppwriteField(required=True, size=255)
-    index = AppwriteField(type="index", index_type="key", index_attr=["message_id"])
+#     name: str = AppwriteField(size=255)
+#     file_extension: str = AppwriteField(size=10)
+#     message_id: str = AppwriteField(required=True, size=255)
+#     index = AppwriteField(type="index", index_type="key", index_attr=["message_id"])
 
 
 class SavedChat(AppwriteModelBase):
@@ -48,5 +75,6 @@ class Message(AppwriteModelBase):
     role: str = AppwriteField(size=255)
     metadata: dict = AppwriteField(type="json", required=False)
     chat_id: str = AppwriteField(required=True, size=255)
+    images: str = AppwriteField(required=False, type="array", default=[])
     id_index = AppwriteField(type="index", index_type="key", index_attr=["chat_id"])
     content_index = AppwriteField(type="index", index_type="fulltext", index_attr=["content"])

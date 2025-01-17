@@ -1,8 +1,8 @@
 from ._appwrite.base import async_appwrite
-from ._appwrite.chat import prepare_database
+# from ._appwrite.chat import prepare_database
 from .cache.manager import cache_manager
 from .cache.decourator import cached, invalidate_cache
-from .sqlite.appwrite import start_session_sync_task, push_sessions_to_appwrite
+# from .sqlite.appwrite import start_session_sync_task, push_sessions_to_appwrite
 from appwrite.services.users import Users
 
 user_db = Users(async_appwrite.client)
@@ -16,10 +16,10 @@ __all__ = [
     "user_db",
     "AsyncUsersWrapper",
     "async_appwrite",
-    "prepare_database",
+    # "prepare_database",
     "cache_manager",
     "cached",
     "invalidate_cache",
-    "start_session_sync_task",
-    "push_sessions_to_appwrite"
+    # "start_session_sync_task",
+    # "push_sessions_to_appwrite"
 ]

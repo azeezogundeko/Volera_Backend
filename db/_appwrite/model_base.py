@@ -92,6 +92,12 @@ class AppwriteModelBase:
             
     #     return document
 
+    @classmethod
+    def hash(cls, value: str) -> str:
+        import hashlib
+
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()[:36]
+
 
     @classmethod
     def get_unique_id(cls) -> str:

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List, Optional
 from datetime import datetime
 
 class HistoryItem(BaseModel):
@@ -15,13 +15,18 @@ class MessageData(BaseModel):
         populate_by_name = True
         allow_population_by_field_name = True
 
+class FileMessage(BaseModel):
+    fileData: bytes
+    fileName: str
+    fileExtension: str
+
 class WebSocketMessage(BaseModel):
     type: str | None = "message"
     data: MessageData
     focus_mode: str = Field(alias="focusMode", default="all")
     parent_message_id: str = Field(alias="parentMessageId",default=None)
     optimization_mode: str = Field(default="fast", alias="optimizationMode")
-    file_ids: List[str] | None = Field(default_factory=list, alias="fileIds")
+    file_ids: Optional[List[str]]  = []
     # history: List[HistoryItem] | None = Field(default_factory=list)
 
     class Config:
