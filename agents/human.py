@@ -88,23 +88,25 @@ async def human_node(
         response_text = None
         
         update_history(state, state["human_response"], state["ai_response"])
-        response_text = await websocket_manager.receive_json(ws_id)
-        # for attempt in range(max_retries):
-            #     try:
-            #         response_text = await websocket_manager.receive_json(ws_id)
-        #         if response_text:
-        #             break
-        #         logger.warning(f"Empty response on attempt {attempt + 1}")
-        #     except Exception as e:
-        #         logger.error(f"Error receiving message (attempt {attempt + 1}): {e}")
-        #         if attempt < max_retries - 1:
-        #             await asyncio.sleep(retry_delay)
-        #             retry_delay *= 2  # Exponential backoff
+        # response_text = await websocket_manager.receive_json(ws_id)
+
+        for attempt in range(max_retries):
+            try:
+                response_text = await websocket_manager.receive_json(ws_id)
+                if response_text:
+                    break
+                await asyncio.sleep(retry_delay)
+                logger.warning(f"Empty response on attempt {attempt + 1}")
+            except Exception as e:
+                logger.error(f"Error receiving message (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
         
-        # if not response_text:
-        #     await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
-        #     return Command(goto=agent_manager.end, update=state)
-        #     # raise RuntimeError("Failed to receive user input after multiple attempts")
+        if not response_text:
+            await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
+            return Command(goto=agent_manager.end, update=state)
+            # raise RuntimeError("Failed to receive user input after multiple attempts")
         
         # Extract user input from response
         user_input, user_files = await extract_message_content(response_text)

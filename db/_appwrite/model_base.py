@@ -96,7 +96,7 @@ class AppwriteModelBase:
     def hash(cls, value: str) -> str:
         import hashlib
 
-        return hashlib.sha256(value.encode("utf-8")).hexdigest()[:36]
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()[:30]
 
 
     @classmethod

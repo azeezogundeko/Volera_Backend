@@ -32,4 +32,5 @@ class State(TypedDict):
     ai_response: str = ""
     session_id: str
     ai_files: List[str] = []
+    task_id: int
     message_history: List[ModelMessage] = []

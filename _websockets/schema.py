@@ -12,7 +12,6 @@ class MessageData(BaseModel):
     chat_id: str | None = Field(default=None, alias="chatId")
     content: str
     class Config:
-        populate_by_name = True
         allow_population_by_field_name = True
 
 class FileMessage(BaseModel):
@@ -30,5 +29,4 @@ class WebSocketMessage(BaseModel):
     # history: List[HistoryItem] | None = Field(default_factory=list)
 
     class Config:
-        populate_by_name = True
         allow_population_by_field_name = True

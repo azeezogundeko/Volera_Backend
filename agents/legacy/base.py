@@ -1,5 +1,5 @@
-from abc import ABC
-from typing import TypeVar
+# from abc import ABC
+from typing import Literal, TypeVar, Optional
 
 from ..config import agent_manager
 from prompts import (
@@ -20,14 +20,19 @@ from schema.validations.agents_schemas import(
     HumanSchema,
     WebSchema,
     )
-from ..state import State
 
+from ..state import State
+from config import DB_PATH
+from utils.websocket import WebSocketManager
+from utils.background import background_task
+from utils.ecommerce_manager import EcommerceManager
 from schema.dataclass.decourator import extract_agent_results
-from pydantic_ai.result import RunResult
-from schema.validations.agents_schemas import BaseSchema
+from utils.db_manager import ProductDBManager
+
 from pydantic_ai import Agent
 from langgraph.types import Command
-from utils.websocket import WebSocketManager
+from pydantic_ai.result import RunResult
+from schema.validations.agents_schemas import BaseSchema
 
 BaseSchemaType = TypeVar('BaseSchemaType', bound=BaseSchema)
 
@@ -44,6 +49,8 @@ class BaseAgent:
     ):
         self.timeout = timeout
         self.agent_name = name
+        self.background_task = background_task
+        
         self.websocket_manager = WebSocketManager()
         self.llm = Agent(
             name=name,
@@ -53,6 +60,36 @@ class BaseAgent:
             result_type=result_type,
             retries=retries
         )
+
+    async def list_product(
+        self, 
+        query: str, 
+        limit: int= 5, 
+        page: int = 1, 
+        max_results: int = 5,
+        site: Literal["all", "jumia.com.ng", "jiji.ng", "konga.com"] = "all",
+        bypass_cache: bool = False,
+        sort: Optional[str] = None,
+        filters: dict = None
+
+        ):
+        from api.product.services import list_products
+
+        # seems this was called before app started so put it here so that main take initialization
+        # Using Singleton design pattern
+        self._ecommerce_manager = EcommerceManager(ProductDBManager(DB_PATH))
+        
+        return await list_products(
+            self._ecommerce_manager, 
+            query, 
+            site,
+            max_results,
+            bypass_cache,
+            page,
+            limit,
+            sort,
+            filters 
+            )
 
     @extract_agent_results
     async def run(self) -> RunResult:

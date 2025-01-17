@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import hashlib
 from typing import Dict, Any, Optional, List, Union, Literal
 from datetime import datetime
 
-from pydantic import BaseModel
 
 from .logging import logger
 from .ecommerce.base import EcommerceIntegration
 from .db_manager import ProductDBManager
+
+from fastapi import WebSocket
+from pydantic import BaseModel
 
 
 class CacheEntry(BaseModel):
@@ -159,6 +163,13 @@ class EcommerceManager:
             logger.error(f"Error getting product detail for {product_id}: {str(e)}", exc_info=True)
             return {}
 
+
+    def get_ecommerce_manager_ws(self, websocket: WebSocket) -> EcommerceManager:
+        """Get EcommerceManager instance from WebSocket state."""
+        return EcommerceManager(
+            db_manager=websocket.state.db_manager,
+            similarity_threshold=0.8
+        )
 
 
     # async def rerank_products_by_price(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

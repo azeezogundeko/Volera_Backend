@@ -5,6 +5,20 @@ from typing import List, TypedDict, Dict, Optional
 from fastapi import WebSocket
 from utils.logging import logger
 
+class ProductSchema(TypedDict):
+    product_id: str
+    category: str
+    name: str
+    brand: str
+    current_price: float
+    old_price: Optional[float]
+    discount: Optional[float]
+    rating: Optional[float]
+    rating_count: Optional[int]
+    image: str
+    url: str
+    source: str
+    relevance_score: float
 
 class ImageMetadata(TypedDict):
     url: str
@@ -106,6 +120,21 @@ class WebSocketManager:
             }
         }
         return await self.get_websocket(ws_id).send_json(data)
+
+    async def send_product(self, ws_id: int, message_id, chat_id, product_data: List[dict]) -> None:
+        # datas = [ProductSchema(**data) for data in product_data]
+        
+        await self.send_json(
+            ws_id,
+            {
+                "type": "product",
+                "messageId": message_id,
+                "chatId": chat_id,
+                "role": "assistant",
+                "products": product_data
+                # "content": 
+            }
+        )
 
 
     async def send_json(self, ws_id: int, data: dict) -> None:

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 from agents import copilot_agent_graph, web_agent_graph, insights_agent_graph
 from _websockets.schema import WebSocketMessage, FileMessage
@@ -16,25 +16,29 @@ class ConnectionManager:
         self 
     ):
         self.websocket_manager = WebSocketManager()
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: Dict[str, WebSocket] = {}
         self.connection_count: int = 0
 
     def __config(self): ...
 
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(self, user_id: str, websocket: WebSocket) -> None:
+        if user_id in self.active_connections:
+            await self.disconnect(user_id)
+        self.active_connections[user_id] = websocket
         await websocket.accept()
-        self.active_connections.append(websocket)
         self.connection_count += 1
         logger.info(
-            f"New connection established. Total active connections: {self.connection_count}")
+            f"New connection established for user {user_id}. Total active connections: {self.connection_count}")
 
-    def disconnect(self, websocket: WebSocket) -> None:
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+    async def disconnect(self, user_id: str) -> None:
+        if user_id in self.active_connections:
+            websocket = self.active_connections[user_id]
+            await websocket.close()
+            del self.active_connections[user_id]
             self.connection_count -= 1
             logger.info(
-                f"Connection closed. Remaining active connections: {self.connection_count}")
+                f"Connection closed for user {user_id}. Remaining active connections: {self.connection_count}")
     
     
     async def start_session(self, user_id: str, data: WebSocketMessage):
@@ -145,12 +149,11 @@ class ConnectionManager:
         
 
     async def process_content(self, file_ids: List[str], session_id: str, content: str):
-        from utils.image import image_analysis, get_product_prompt, PRODUCT_IMAGE_PROMPT
+        from utils.image import image_analysis, get_product_prompt, IMAGE_DESCRIPTION_PROMPT
         
         if not file_ids:
             return content
         c = content
-        texts = []
         files = []
         # implement file processing using multimodal LLM to convert the text to a user message
         for file_id in file_ids:
@@ -159,7 +162,7 @@ class ConnectionManager:
 
             # print(file)
             
-        prompt = get_product_prompt(c, PRODUCT_IMAGE_PROMPT)
+        prompt = get_product_prompt(c, IMAGE_DESCRIPTION_PROMPT)
         try:
             text = await image_analysis(files, prompt)
             content = f""""

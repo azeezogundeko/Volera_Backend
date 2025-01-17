@@ -47,10 +47,29 @@ class WebWriterAgent(WriterAgent):
         ws_id = state["ws_id"]
         sources, images = self.extract_results(state)
 
+        task_id = state["task_id"]
+
+
         await self.websocket_manager.send_sources(ws_id, sources)
         await self.websocket_manager.send_images(ws_id, images)
         await self.websocket_manager.send_json(ws_id, {"type":"message","content":content})
         await self.websocket_manager.send_json(ws_id, {"type":"messageEnd","content":content})
+
+        try:
+            value = self.background_task.is_task_done(task_id)
+            if value is False:
+                await self.websocket_manager.send_progress(ws_id, "searching", 0)
+                results = await self.background_task.wait_for_completion(task_id)
+                try:
+                    message = state["ws_message"]
+                    chat_id= message["chat_id"]
+                    message_id= message["message_id"]
+                    await self.websocket_manager.send_product(ws_id, message_id, chat_id, results)
+                except Exception as e:
+                    logger.error(f"Failed to send product: {str(e)}", exc_info=True)
+                    
+        except ValueError as e:
+            logger.error(f"Error Retrieving Task {task_id}: {e}")
         
         state["ai_response"] = content
 
@@ -62,6 +81,7 @@ class WebWriterAgent(WriterAgent):
     def extract_results(self, state: State) -> RunResult:
         images = []
         sources = []
+        # image_files = []
         search_results = state["agent_results"][agent_manager.search_tool]
         for r in search_results["image"]:
             images.append(
@@ -72,6 +92,7 @@ class WebWriterAgent(WriterAgent):
                     # favicon=r["metadata"].get("image_url", ""),
                 )
             )
+            # image_files.append(r["image_url"])
         for r in search_results["search"]:
             sources.append(
                 SourceMetadata(

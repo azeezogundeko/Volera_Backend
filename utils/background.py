@@ -2,10 +2,13 @@ import asyncio
 import uuid
 from typing import Dict, Any, Callable, Awaitable
 
+from utils.logging import logger
+
 class BackgroundTaskManager:
     def __init__(self):
         self.tasks: Dict[str, asyncio.Task] = {}
         self.results: Dict[str, Any] = {}
+        self.failed_results: Dict[str, Any] = {}
 
     async def add_task(self, task_func: Callable[..., Awaitable[Any]], *args, **kwargs) -> str:
         """Add a new task to be processed in the background."""
@@ -23,7 +26,8 @@ class BackgroundTaskManager:
             result = await task_func(*args, **kwargs)
             self.results[task_id] = result
         except Exception as e:
-            self.results[task_id] = e
+            logger.error(f"Task {task_id} failed: {str(e)}", exc_info=True)
+            self.failed_results[task_id] = e
         finally:
             del self.tasks[task_id]
 
@@ -33,12 +37,24 @@ class BackgroundTaskManager:
             return self.results[task_id]
         elif task_id in self.tasks:
             raise ValueError("Task is still running.")
+        elif task_id in self.failed_results:
+            raise ValueError(f"Task failed {self.failed_results[task_id]}")
         else:
             raise ValueError("Task ID not found.")
 
     def is_task_done(self, task_id: str) -> bool:
         """Check if a task is done."""
-        return task_id in self.results
+        return task_id in self.results or task_id in self.failed_results
+
+    async def wait_for_completion(self, task_id: str) -> Any:
+        """Wait for a task to complete and return its result."""
+        if task_id not in self.tasks:
+            raise ValueError("Task ID not found.")
+        await self.tasks[task_id]
+        if task_id in self.results:
+            return self.get_result(task_id)
+        elif task_id in self.failed_results:
+            raise self.failed_results[task_id]
 
     async def close(self):
         """Cancel all pending tasks and clean up."""
@@ -48,6 +64,7 @@ class BackgroundTaskManager:
             await asyncio.gather(*self.tasks.values(), return_exceptions=True)
             self.tasks.clear()
             self.results.clear()
+            self.failed_results.clear()
 
 
 background_task = BackgroundTaskManager()

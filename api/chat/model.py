@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from turtle import title
 from typing import List
 
 import re
@@ -50,13 +51,19 @@ class File(AppwriteModelBase):
     # async def create_files(cls, List[])
 
 
-# class MessageImage(AppwriteModelBase):
-#     collection_id = "message_images"
+class MessageImage(AppwriteModelBase):
+    collection_id = "message_images"
 
-#     name: str = AppwriteField(size=255)
-#     file_extension: str = AppwriteField(size=10)
-#     message_id: str = AppwriteField(required=True, size=255)
-#     index = AppwriteField(type="index", index_type="key", index_attr=["message_id"])
+    image_url: str = AppwriteField(size=255)
+    message_id: str = AppwriteField(required=True, size=255)
+    title: str = AppwriteField(size=255)
+    url: str = AppwriteField(size=255)
+
+
+    # name: str = AppwriteField(size=255)
+    # file_extension: str = AppwriteField(size=10)
+    # message_id: str = AppwriteField(required=True, size=255)
+    # index = AppwriteField(type="index", index_type="key", index_attr=["message_id"])
 
 
 class SavedChat(AppwriteModelBase):

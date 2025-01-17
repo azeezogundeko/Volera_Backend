@@ -1,6 +1,8 @@
 import asyncio
 from typing import Literal
 
+from fastapi import WebSocket
+
 from ..legacy.base import BaseAgent
 from ..tools.google import GoogleSearchTool
 from ..config import agent_manager
@@ -26,12 +28,20 @@ class WebQueryAgent(BaseAgent):
             deps_type=GeminiDependencies,
             *args, **kwargs
             )
+        
         self.search_tool = GoogleSearchTool()
     
-    async def search(self, result: WebQueryAgentSchema):
+    async def search(self, result: WebQueryAgentSchema, ws: WebSocket, query: str):
+        params = {
+            "query": query,
+            "site": "all",
+            "max_results": 3,
+            "limit": 5           
+            }
+        task_id = await self.background_task.add_task(self.list_product, **params)
         tasks = [
             self.search_tool.search(query=result.search_query),
-            self.search_tool.search_images(query=result.search_query)
+            self.search_tool.search_images(query=result.search_query),
         ]
 
 
@@ -40,7 +50,7 @@ class WebQueryAgent(BaseAgent):
             "search": tasks[0],
             "image": tasks[1],
         }
-        return results
+        return results, task_id
 
     @async_retry(retries=2, delay=0.1)
     @extract_agent_results(agent_manager.web_query_agent)
@@ -75,8 +85,11 @@ class WebQueryAgent(BaseAgent):
                 return Command(goto=agent_manager.human_node, update=state)
             
             ws_id = state["ws_id"]
+            ws = self.websocket_manager.get_websocket(ws_id)
             await self.websocket_manager.send_progress(ws_id, "searching", 0)
-            response = await asyncio.wait_for(self.search(response.data), timeout=self.timeout)
+            response, task_id = await asyncio.wait_for(self.search(response.data, ws, data.search_query), timeout=self.timeout)
+
+            state["task_id"] = task_id
             await self.websocket_manager.send_progress(ws_id, "searching", len(response["search"]))
 
             state["agent_results"][agent_manager.search_tool] = response

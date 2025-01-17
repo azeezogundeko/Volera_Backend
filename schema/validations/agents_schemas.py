@@ -93,7 +93,7 @@ class RequirementSchema(BaseSchema):
 
     # class Config:
     #     # Allow population by alias
-    #     allow_population_by_field_name = True
+    #     populate_by_name = True
     #     # Extra fields will be ignored instead of raising an error
     #     extra = 'ignore'
 
@@ -140,3 +140,14 @@ class HumanSchema(BaseSchema):
 
 class WebSchema(BaseSchema):
     content: str
+
+class MetaAgentSchema(BaseSchema):
+    action: str
+    content: str
+    requirements: RequirementSchema
+
+    class Config:
+        # Allow population by alias
+        populate_by_name = True
+        # Extra fields will be ignored instead of raising an error
+        extra = 'ignore'

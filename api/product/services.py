@@ -23,6 +23,7 @@ def get_ecommerce_manager(request: Request) -> EcommerceManager:
         similarity_threshold=0.8
     )
 
+
 def sort_products(products: List[dict], sort_key: str, reverse: bool = False) -> List[dict]:
     """Sort the list of products based on the given key."""
     return sorted(products, key=lambda x: x.get(sort_key), reverse=reverse)
@@ -47,7 +48,7 @@ def filter_products(products: List[dict], filters: dict) -> List[dict]:
     return products
 
 async def list_products(
-    request: Request,
+    ecommerce_manager: EcommerceManager,
     query: str,
     site: Optional[str] = "all",
     max_results: int = 5,
@@ -59,7 +60,6 @@ async def list_products(
 ) -> List[Dict[str, Any]]:
     """Get product listings from supported e-commerce sites."""
     
-    ecommerce_manager = get_ecommerce_manager(request)
     
     # Create a cache key that includes both query and site
     cache_key = f"{query}_{site}"
@@ -207,13 +207,12 @@ def post_process_results(
 
 
 async def get_product_detail(
-    request: Request,
+    ecommerce_manager: EcommerceManager,
     product_id: str,
     bypass_cache: bool = False,
     ttl: Optional[int] = 3600
 ) -> Dict[str, Any]:
     """Get detailed product information from a specific URL."""
-    ecommerce_manager = get_ecommerce_manager(request)
     product = await ecommerce_manager.get_product_detail(
         product_id=product_id,
         bypass_cache=bypass_cache,

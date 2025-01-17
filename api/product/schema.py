@@ -1,5 +1,5 @@
 import ast
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, TypedDict
 
 from pydantic import BaseModel, field_validator, Field
 from datetime import datetime
@@ -84,6 +84,7 @@ class WishListProductSchema(BaseModel):
 class ProductResponse(BaseModel):
     name: Optional[str] = "Unknown Product"
     current_price: Optional[float] = 0.0
+    product_id: str
     original_price: Optional[float] = 0.0
     brand: Optional[str] = "Unknown Brand"
     category: Optional[str] = "Unknown Category"

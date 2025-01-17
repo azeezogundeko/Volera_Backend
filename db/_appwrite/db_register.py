@@ -1,7 +1,7 @@
 from .model_base import AppwriteModelBase #, CollectionMetadata
 
 from api.track.model import TrackedItem, PriceHistory
-from api.chat.model import Chat, Message, File, SavedChat
+from api.chat.model import Chat, Message, File, SavedChat, MessageImage
 from api.product.model import Product, WishList
 from api.auth.model import UserProfile, UserPreferences
 
@@ -9,7 +9,7 @@ from api.auth.model import UserProfile, UserPreferences
 AppwriteModelBase.register_model(TrackedItem)
 AppwriteModelBase.register_model(Product)
 AppwriteModelBase.register_model(WishList)
-# AppwriteModelBase.register_model(MessageImage)
+AppwriteModelBase.register_model(MessageImage)
 AppwriteModelBase.register_model(PriceHistory)
 AppwriteModelBase.register_model(Chat)
 AppwriteModelBase.register_model(Message)

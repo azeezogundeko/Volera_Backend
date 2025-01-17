@@ -10,10 +10,17 @@ from functools import partial
 from utils.logging import logger
 
 class ProductDBManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(ProductDBManager, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, db_path: str = "product_cache.db", cleanup_interval: int = 3600, max_workers: int = 4):
         """
         Initialize the ProductDBManager.
-        
+
         Args:
             db_path: Path to SQLite database file
             cleanup_interval: Interval in seconds for cache cleanup (default: 1 hour)

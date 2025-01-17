@@ -1,15 +1,21 @@
-
+from asyncio import gather
 from typing import Dict, Any, Literal, Optional, List
 from datetime import datetime, timezone
 
-from api.chat.model import Message, File, Chat
 
+from api.chat.model import Message, File, Chat, MessageImage
 
 from .base import async_appwrite
 from utils.logging import logger
+from typing import TypedDict
 
 from pydantic import BaseModel
 
+
+class ImageMetadata(TypedDict):
+    url: str
+    img_url: str
+    title: str
 
 class FileMessage(BaseModel):
     fileData: bytes
@@ -90,18 +96,30 @@ class AppwriteSessionManager:
         session_id: str, 
         content: Any,
         message_type: Literal["human", "assistant"], 
-        file_ids: Optional[List[str]] = []
+        images_payload: List[ImageMetadata]
         ):
+        
 
-        # if files:
-        #     await self._process_files(files, session_id)
 
         message_id = async_appwrite.get_unique_id() 
+        tasks = []
+        for image in images_payload:
+        
+            image_id = MessageImage.hash(image["title"])
+
+            tasks.append(MessageImage.get_or_create(image_id, {
+                "message_id": message_id,
+                "title": image["title"],
+                "image_url": image["img_url"],
+                "url": image["url"]
+                }))
+
+        await gather(*tasks, return_exceptions=True)
+
         message_payload = dict(
             content=content,
             chat_id=session_id,
             role=message_type,
-            images=file_ids,
             metadata=str(
                 {
                     "timestamp": datetime.now(timezone.utc).isoformat()

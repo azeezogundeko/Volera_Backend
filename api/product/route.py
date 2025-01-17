@@ -39,8 +39,10 @@ async def search_products(
     sort: Optional[str] = Query(None, description="Sort order")
 ):
     """Search for products across supported e-commerce sites."""
+    
+    ecommerce_manager = services.get_ecommerce_manager(request)
     products = await services.list_products(
-        request=request,
+        ecommerce_manager=ecommerce_manager,
         query=query,
         site=site,
         max_results=max_results,
@@ -60,8 +62,9 @@ async def get_product_detail(
     ttl: Optional[int] = Query(3600, description="Cache TTL in seconds")
 ):
     """Get detailed product information."""
+    manager = services.get_ecommerce_manager(request)
     product = await services.get_product_detail(
-        request=request,
+        ecommerce_manager=manager,
         product_id=product_id,
         bypass_cache=bypass_cache,
         ttl=ttl
@@ -75,7 +78,9 @@ async def get_trending_products(
     page: int = Query(1),
     user: UserIn = Depends(get_current_user)):
         
-    return await services.list_products(request, "trending products", limit=limit, page=page, max_results=3)
+    manager = services.get_ecommerce_manager(request)
+        
+    return await services.list_products(manager, "trending products", limit=limit, page=page, max_results=3)
     
 
 

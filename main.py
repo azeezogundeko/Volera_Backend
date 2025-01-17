@@ -13,7 +13,7 @@ from utils.request_session import http_client
 from utils.background import background_task
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,6 +100,14 @@ async def add_db_manager(request: Request, call_next):
     """Add database manager to request state."""
     request.state.db_manager = db_manager
     response = await call_next(request)
+    return response
+
+@app.middleware("websocket")
+async def add_db_manager_ws(websocket: WebSocket, call_next):
+    """Add database manager to WebSocket state."""
+    # await websocket.accept()
+    websocket.state.db_manager = db_manager
+    response = await call_next(websocket)
     return response
 
 
