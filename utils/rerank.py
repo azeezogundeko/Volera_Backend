@@ -150,10 +150,6 @@ class ReRanker:
         rerankrequest = RerankRequest(query=query, passages=docs)
         reranked = self.ranker.rerank(rerankrequest)
 
-        # retriever = await self.load_contents(k, docs)
-        # print(f"Length pf results {len(docs)}")
-        # reranked = await self._reranker(retriever=retriever, query=query, k=k)
-
         print(f"Length of reranked: {len(reranked)}")   
 
         products = [

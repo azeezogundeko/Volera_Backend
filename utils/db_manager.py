@@ -97,9 +97,11 @@ class ProductDBManager:
                         query
                     ))
                     conn.commit()
+                    logger.info("Cached to SQLite DB")
                     return True
             except Exception as e:
                 if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                    logger.warning(f"Database is locked. Retrying in 0.1 seconds: {str(e)}")
                     import time
                     time.sleep(0.1)  # Wait before retrying
                     continue

@@ -4,13 +4,14 @@ from urllib.parse import urlparse, parse_qs
 from config import KONGA_API_KEY, KONGA_ID
 
 from ..ecommerce.base import GraphQLIntegration
-from ..db_manager import ProductDBManager
+# from ..db_manager import ProductDBManager
+from db.cache.dict import DiskCacheDB
 
 from ..logging import logger
 
 
 class KongaIntegration(GraphQLIntegration):
-    def __init__(self, db_manager: ProductDBManager = None):
+    def __init__(self, db_manager: DiskCacheDB = None):
         """
         Initialize KongaIntegration.
         
@@ -74,16 +75,14 @@ class KongaIntegration(GraphQLIntegration):
         except (ValueError, TypeError):
             return 0.0
 
-    async def _cache_product(self, product: Dict[str, Any], query_string: str = None, type="list"):
+    async def _cache_product(self, product: Dict[str, Any], query_string: str = None, tag="list"):
         """Helper method to cache product if db_manager is available."""
         if self.db_manager:
             try:
-                await self.db_manager.cache_product(
-                    product_id=product["product_id"],
-                    data=product,
-                    ttl=3600,
-                    type=type,
-                    query=query_string
+                await self.db_manager.set(
+                    key=product["product_id"],
+                    value=product,
+                    tag=tag,
                 )
             except Exception as e:
                 print(f"Error caching product: {str(e)}")
@@ -94,7 +93,9 @@ class KongaIntegration(GraphQLIntegration):
         
         for hit in data.get("hits", []):
             # print(hit)
+            product_id = self.generate_id()
             product = {
+                "product_id": product_id,
                 "name": hit.get("name", ""),
                 "brand": hit.get("brand", ""),
                 "category": self.extract_category(hit.get("name", "")),
@@ -121,7 +122,7 @@ class KongaIntegration(GraphQLIntegration):
                 "specifications": [],  # Not available in list view
                 "features": [],  # Not available in list view
                 "reviews": [],  # Not available in list view
-                "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
+                # "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
                 "url": f"{self.base_url}/product/{hit.get('url_key', '')}",
                 
                 # Additional Konga-specific fields
@@ -143,9 +144,10 @@ class KongaIntegration(GraphQLIntegration):
             products.append(product)
 
             # Cache the product with search parameters if db_manager is available
-            if self.db_manager:
-                query_string = f"search={search_params['search']}&page={search_params['page']}&limit={search_params['limit']}&sort={search_params['sort']}"
-                await self._cache_product(product, query_string, type="list")
+            # if self.db_manager:
+            #     query_string = f"search={search_params['search']}&page={search_params['page']}&limit={search_params['limit']}&sort={search_params['sort']}"
+            #     await self._cache_product(product, query_string, type="list")
+            await self.db_manager.set(key=product_id, value=product, tag="list")
         
         return {
             "products": products,
@@ -223,7 +225,7 @@ class KongaIntegration(GraphQLIntegration):
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
         if self.db_manager:
-            product = await self.db_manager.get_cached_product(product_id, type="list")
+            product = await self.db_manager.get(product_id, tag="list")
             if product:
                 return product
         return {}

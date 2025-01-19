@@ -65,4 +65,4 @@ async def handle_websocket_messages(websocket: WebSocket, user_id: str):
             await manager.handle_message(data, websocket, user_id)
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for user: {user_id}")
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)

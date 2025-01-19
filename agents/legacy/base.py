@@ -75,7 +75,7 @@ class BaseAgent:
         ):
         from api.product.services import list_products
 
-        # seems this was called before app started so put it here so that main take initialization
+        # seems this was called before app started so put it here so that main.py take initialization
         # Using Singleton design pattern
         self._ecommerce_manager = EcommerceManager(ProductDBManager(DB_PATH))
         
@@ -120,6 +120,7 @@ class BaseAgent:
         data = {
             "role": "assistant",
             "chat_id": chat_id,
+            "messageId": message_id,
             "images": images,
             "products": products,
             "sources": sources,
@@ -128,7 +129,7 @@ class BaseAgent:
         }
 
         await self.websocket_manager.send_json(ws_id, data)
-        await self.websocket_manager.send_json(ws_id, data)
+        await self.websocket_manager.send_json(ws_id, {"type": "messageEnd"})
 
 
         source_data= None

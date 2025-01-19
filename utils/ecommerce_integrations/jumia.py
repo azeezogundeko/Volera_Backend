@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 from ..ecommerce.base import ScrapingIntegration
-from ..db_manager import ProductDBManager
+from db.cache.dict import DiskCacheDB
 from utils import db_manager
 
 import json
@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 
 class JumiaIntegration(ScrapingIntegration):
-    def __init__(self, db_manager: ProductDBManager = None):
+    def __init__(self, db_manager: DiskCacheDB = None):
         super().__init__(
             name="jumia",
             base_url="https://www.jumia.com.ng",
@@ -337,8 +337,9 @@ class JumiaIntegration(ScrapingIntegration):
         """Transform scraped product list to standard format."""
         transformed = []
         for product in products:
+            product_id = self.generate_id()
             item = {
-                "product_id": self.hash_id(product.get("url", "")),
+                "product_id": product_id,
                 "name": product.get("name", ""),
                 "category": self.extract_category(product.get("name", "")),
                 "brand": self.extract_brands(product.get("name", "")),
@@ -353,11 +354,11 @@ class JumiaIntegration(ScrapingIntegration):
             }
             transformed.append(item)
 
-            await self.db_manager.cache_product(
-                product_id=self.hash_id(product.get("url", "")),
-                data=item,
-                type="list",
-                ttl=3600
+            await self.db_manager.set(
+                key=product_id,
+                value=item,
+                tag="list",
+
             )
         return transformed
 
@@ -492,8 +493,9 @@ class JumiaIntegration(ScrapingIntegration):
             product_list = []
             
             for product in products:
+                product_id = self.generate_id()
                 product_info = {
-                    "product_id": self.hash_id(product.get("url", "")),
+                    "product_id": product_id,
 
                     'category': product.get('categories', '')[0],
                     'name': product.get('displayName', ''),
@@ -508,6 +510,12 @@ class JumiaIntegration(ScrapingIntegration):
                     'source': self.name
                 }
                 product_list.append(product_info)
+
+                await self.db_manager.set(
+                    key=product_id,
+                    value=product_info,
+                    tag="list",
+                    )
             
             return product_list
         else:

@@ -19,7 +19,7 @@ reranker = ReRanker()
 def get_ecommerce_manager(request: Request) -> EcommerceManager:
     """Get EcommerceManager instance from request state."""
     return EcommerceManager(
-        db_manager=request.state.db_manager,
+        db_manager=request.state.db_cache,
         similarity_threshold=0.8
     )
 
@@ -67,15 +67,21 @@ async def list_products(
     
     # Check cache first using the combined cache key
     if not bypass_cache:
-        cached_data = await ecommerce_manager.db_manager.get_cached_product(
-            product_id=product_id,
-        )
-        if cached_data:
+        try:
+            cache_results = await ecommerce_manager.store.query(query)
+            
+        except Exception as e:
+            logger.error(e, exc_info=True)
+
+        if cache_results is not None:
+            logger.info(f"Cache hit for query: {query}")
+            results = await reranker.rerank(query, cache_results, len(cache_results))
+
             # For site-specific cache, verify the source matches
             if site != "all":
-                cached_data = [p for p in cached_data if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
+                results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
             
-            return post_process_results(page, limit, cached_data, sort, filters)
+            return post_process_results(page, limit, results, sort, filters)
 
     all_products = []
     
@@ -171,12 +177,15 @@ async def list_products(
     if successful_products:
         # Cache the successful results with the site-specific cache key
         results = await reranker.rerank(query, successful_products, len(results))
-        await ecommerce_manager.db_manager.cache_product(
-            product_id=product_id,
-            data=results,
-            ttl=3600,
-            query=cache_key
+        await ecommerce_manager.db_manager.set(
+            key=product_id,
+            value=results,
         )
+        try:
+            await ecommerce_manager.store.add(product_id, query, results)
+        
+        except Exception as e:
+            logger.error(e, exc_info=True)
         # return results
         return post_process_results(page, limit, results, sort, filters)
     
@@ -189,7 +198,7 @@ def post_process_results(
     results: List[Dict[str, Any]], 
     sort: Optional[str] = None, 
     filters: dict = None) -> List[Dict[str, Any]]:
-    
+        
     # Apply pagination
     print(f"Length of results: {len(results)}")
     start_index = (page - 1) * limit

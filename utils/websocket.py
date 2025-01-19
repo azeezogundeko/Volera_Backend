@@ -56,7 +56,7 @@ class WebSocketManager:
         """Get WebSocket instance by ID"""
         return self.websocket_map.get(ws_id)
 
-    async def send_sources(self, ws_id: int, metadata: List[SourceMetadata]) -> None:
+    async def send_sources(self, ws_id: int,message_id: str, metadata: List[SourceMetadata]) -> None:
         """Send sources to a specific WebSocket connection"""
         websocket = self.get_websocket(ws_id)
         if not websocket:
@@ -66,6 +66,7 @@ class WebSocketManager:
         try:
             sources_payload = {
                 "type": "sources",
+                "messageId": message_id,
                 "sources": [
                     {
                         "url": source["url"],
@@ -176,7 +177,7 @@ class WebSocketManager:
             logger.error(f"Error receiving JSON from WebSocket {ws_id}: {e}", exc_info=True)
             return ""
 
-    async def send_images(self, ws_id: int, images: List[ImageMetadata]) -> None:
+    async def send_images(self, ws_id: int, message_id, str, images: List[ImageMetadata]) -> None:
         websocket = self.get_websocket(ws_id)
         if not websocket:
             logger.error(f"WebSocket {ws_id} not found")
@@ -185,6 +186,7 @@ class WebSocketManager:
         try:
             sources_payload = {
                 "type": "image_search",
+                "messageId": message_id,
                 "data": images
             }
             await websocket.send_json(sources_payload)

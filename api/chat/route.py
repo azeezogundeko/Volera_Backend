@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
-from typing import List
+from typing import List, Literal
 
 from utils.logging import logger
 
@@ -37,6 +37,46 @@ async def get_saved_chats(
 
     
     return {"message": "Chat starred successfully", "data": chats}
+
+@router.get("/filter")
+async def filter_chats(
+    dateRange: Literal["all", "today", "week", "month"] = Query(),
+    sortBy: Literal["recent", "oldest"] = Query(),
+    focusMode: Literal["Q/A" ,"all", "product_hunt"] = Query(),
+    user: UserIn = Depends(get_current_user)
+):
+    # Calculate the date range filter
+    current_date = datetime.now(timezone.utc)
+    start_date = None
+
+    if dateRange == "today":
+        start_date = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif dateRange == "week":
+        start_date = current_date - timedelta(days=current_date.weekday())
+    elif dateRange == "month":
+        start_date = current_date.replace(day=1)
+
+    # Determine the sorting order
+    order_query = query.Query.order_desc("$createdAt") if sortBy == "recent" else query.Query.order_asc("$createdAt")
+
+    filters = [
+        query.Query.equal("user_id", user.id),
+        query.Query.equal("focus_mode", focusMode)
+    ]
+    if focusMode == "all":
+        filters.pop()
+
+    # Construct the query filters
+
+    if start_date:
+        filters.append(query.Query.greater_than_equal("$createdAt", start_date.isoformat()))
+
+    # Execute the query
+    response = await Chat.list(filters + [order_query])
+
+    # Prepare the response
+    response = {"chats": response["documents"]}
+    return response
 
 
 @router.post("/new", response_model=ChatOut)
@@ -105,9 +145,9 @@ async def delete_chat(chat_id: str, user: UserIn = Depends(get_current_user)):
     except AppwriteException:
         return 
     # Get all related messages and delete them
-    messages = await Message.list([Query.equal("chat_id", chat_id)])
+    messages = await Message.list([query.Query.equal("chat_id", chat_id)])
     
-    for message in messages:
+    for message in messages["documents"]:
         await Message.delete(message.id)
 
     return {"message": "Chat deleted successfully"}
@@ -121,6 +161,7 @@ async def star_chat(chat_id: str, user: UserIn = Depends(get_current_user)):
         return {"message": "Chat starred successfully"}
     except AppwriteException:
         raise HTTPException(status_code=404, detail="Chat not found")
+
 
 
 @router.delete("/unstar_chat/{chat_id}")

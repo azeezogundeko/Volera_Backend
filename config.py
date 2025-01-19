@@ -27,7 +27,7 @@ KONGA_ID = str(os.getenv("KONGA_ID"))
 
 DB_DIR = Path("data/db")
 DB_DIR.mkdir(parents=True, exist_ok=True)
-DB_PATH = DB_DIR / "product_cache.db"
+DB_PATH = DB_DIR / "cache"
 
 class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY")

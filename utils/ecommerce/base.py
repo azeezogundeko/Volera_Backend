@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Literal
 from enum import Enum
-import hashlib
+from appwrite.id import ID
+
 
 
 from ..request_session import http_client
@@ -56,11 +57,10 @@ class EcommerceIntegration(ABC):
         """Check if URL matches this integration's patterns."""
         return any(pattern in url for pattern in self.url_patterns)
 
-    def hash_id(self, url: str) -> str:
+    def generate_id(self) -> str:
         """Hash URL to a unique identifier."""
-        # Normalize the URL
-        normalized_url = url.split('?')[0].lower().rstrip('/')  # Remove query params and trailing slash
-        return hashlib.sha256(normalized_url.encode()).hexdigest()[:40]
+        return ID.unique(12)
+        
 
 class ScrapingIntegration(EcommerceIntegration):
     """Integration for websites that require scraping."""

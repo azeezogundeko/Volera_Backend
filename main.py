@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import asynccontextmanager
 
 from api import chat_router, auth_router, product_router, track_router
@@ -7,19 +6,22 @@ from _websockets import websocket_router
 from utils.logging import logger
 from utils._craw4ai import CrawlerManager
 from config import PORT, DB_PATH
-from utils.db_manager import ProductDBManager
+from db.cache.dict import DiskCacheDB, VectorStore
+# from utils.db_manager import ProductDBManager
 from utils.exceptions_handlers import validation_exception_handler
 from utils.request_session import http_client
 from utils.background import background_task
 
 import uvicorn
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 # Global database manager instance
-db_manager: ProductDBManager = None
+# db_manager: ProductDBManager = None
+db_cache: DiskCacheDB = None
+store: VectorStore = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,38 +29,36 @@ async def lifespan(app: FastAPI):
     Handle startup and shutdown events for the FastAPI application.
     This ensures proper initialization and cleanup of resources.
     """
-    # Initialize database manager on startup
-    global db_manager
+    global db_cache
+    global store
     try:
         logger.info("Preparing database...")
         await prepare_database()
         logger.info("Database preparation completed.")
         logger.info("Initializing database manager...")
-        db_manager = ProductDBManager(
-            db_path=str(DB_PATH),
-            cleanup_interval=3600,  # 1 hour cleanup interval
-            max_workers=4
-        )
-        logger.info("Database manager initialized successfully")
 
+        db_cache = DiskCacheDB(cache_dir=str(DB_PATH))
+
+        await db_cache.initialize()
+        logger.info("Database manager initialized successfully")
+        
         logger.info("Initializing HTTP client...")
-        try:
-            http_client.initialize()
-        except Exception as e:
-            logger.error(str(e))
+        http_client.initialize()
 
         logger.info("HTTP client initialized successfully")
         
         logger.info("Initializing web crawler...")
         await CrawlerManager.initialize()
         logger.info("Web crawler initialization completed.")
-        stats = await db_manager.get_cache_stats()
+        store = VectorStore()
+        logger.info("Initializing vector store...")
+        await store.initialize()
+        stats = await db_cache.get_stats()
         logger.info(f"Initial cache stats: {stats}")
         
         yield
         
     finally:
-        # Shutdown logic
         logger.info("Application is shutting down...")
         await http_client.close()
         logger.info("HTTP client cleaned up successfully")
@@ -68,12 +68,12 @@ async def lifespan(app: FastAPI):
 
         await background_task.close()
         logger.info("Background task closed successfully")
-        if db_manager:
-            logger.info("Cleaning up database manager...")
-            await db_manager.close()
-            logger.info("Database manager cleaned up successfully")
 
-# app = FastAPI()
+        db_cache.close()
+        logger.info("Database manager closed successfully")
+
+
+
 app = FastAPI(lifespan=lifespan)
 
 
@@ -98,17 +98,10 @@ app.router.lifespan_context = lifespan
 @app.middleware("http")
 async def add_db_manager(request: Request, call_next):
     """Add database manager to request state."""
-    request.state.db_manager = db_manager
+    request.state.db_cache = db_cache
     response = await call_next(request)
     return response
 
-@app.middleware("websocket")
-async def add_db_manager_ws(websocket: WebSocket, call_next):
-    """Add database manager to WebSocket state."""
-    # await websocket.accept()
-    websocket.state.db_manager = db_manager
-    response = await call_next(websocket)
-    return response
 
 
 @app.exception_handler(Exception)

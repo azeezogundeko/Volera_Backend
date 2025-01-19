@@ -7,25 +7,27 @@ from datetime import datetime
 
 from .logging import logger
 from .ecommerce.base import EcommerceIntegration
-from .db_manager import ProductDBManager
+# from .db_manager import ProductDBManager
+from db.cache.dict import DiskCacheDB, VectorStore
 
-from fastapi import WebSocket
+# from fastapi import WebSocket
 from pydantic import BaseModel
 
 
 class CacheEntry(BaseModel):
     data: Union[Dict[str, Any], List[Dict[str, Any]]]
-    timestamp: datetime
-    type: Literal["list", "detail"]
+    # timestamp: datetime
+    tag: Literal["list", "detail"]
     product_id: str
-    ttl: Optional[int] = None
+    # ttl: Optional[int] = None
     query: Optional[str] = None  # Store original query for similarity check
 
 class EcommerceManager:
-    def __init__(self, db_manager: ProductDBManager, similarity_threshold: float = 0.8):
+    def __init__(self, db_manager: DiskCacheDB, similarity_threshold: float = 0.8):
         self._integrations: Dict[str, EcommerceIntegration] = {}
         self.similarity_threshold = similarity_threshold
         self.db_manager = db_manager
+        self.store = VectorStore()
         
         # Register default integrations
         self._register_default_integrations()
@@ -82,7 +84,7 @@ class EcommerceManager:
             
             # Check cache first
             if not bypass_cache:
-                cached = await self.db_manager.get_cached_product(product_id)
+                cached = await self.db_manager.get(product_id)
                 if cached:
                     return cached if isinstance(cached, list) else [cached]
             
@@ -99,12 +101,14 @@ class EcommerceManager:
             )
             
             if products:
-                await self.db_manager.cache_product(
-                    product_id=product_id,
-                    data=products,
-                    ttl=ttl,
-                    query=processed_url
+                await self.db_manager.set(
+                    key=product_id,
+                    value=products,
                 )
+                # product_id=product_id,
+                # data=products,
+                # ttl=ttl,
+                # query=processed_url
             
             return products
             
@@ -122,13 +126,12 @@ class EcommerceManager:
         try:
             # Check cache first if not bypassing
             if not bypass_cache:
-                cached_product = await self.db_manager.get_cached_product(product_id, type="detail")
+                cached_product = await self.db_manager.get(product_id, tag="detail")
                 if cached_product:
-                    print("cache_hit")
                     return cached_product
 
             # Try to get from list cache for the URL
-            list_product = await self.db_manager.get_cached_product(product_id, type="list")
+            list_product = await self.db_manager.get(product_id, tag="list")
             if not list_product:
                 logger.error(f"Product {product_id} not found in cache")
                 return {}
@@ -150,11 +153,12 @@ class EcommerceManager:
             )
 
             if product:
-                await self.db_manager.cache_product(
+                await self.db_manager.set(
                     product_id=product_id,
-                    data=product,
-                    ttl=ttl
+                    value=product,
+                    tag="detail",
                 )
+                print(type(product))
                 return product
             
             return {}
@@ -162,42 +166,3 @@ class EcommerceManager:
         except Exception as e:
             logger.error(f"Error getting product detail for {product_id}: {str(e)}", exc_info=True)
             return {}
-
-
-    def get_ecommerce_manager_ws(self, websocket: WebSocket) -> EcommerceManager:
-        """Get EcommerceManager instance from WebSocket state."""
-        return EcommerceManager(
-            db_manager=websocket.state.db_manager,
-            similarity_threshold=0.8
-        )
-
-
-    # async def rerank_products_by_price(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on price."""
-    #     pass
-
-    # async def rerank_products_by_rating(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on rating."""
-    #     pass
-
-    # async def rerank_products_by_reviews(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on reviews."""
-    #     pass
-
-    # async def rerank_products_by_brand(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on brand."""
-    #     pass
-
-    # async def rerank_products_by_availability(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on availability."""
-    #     pass
-
-    # async def rerank_products_by_seller(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on seller."""
-    #     pass
-
-    # async def rerank_products_by_location(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     """Rerank products based on location."""
-    #     pass
-
- 

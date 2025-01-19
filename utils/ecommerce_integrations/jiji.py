@@ -3,11 +3,12 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 
 from ..ecommerce.base import ScrapingIntegration
-from ..db_manager import ProductDBManager
+# from ..db_manager import ProductDBManager
+from db.cache.dict import DiskCacheDB
 from bs4 import BeautifulSoup
 
 class JijiIntegration(ScrapingIntegration):
-    def __init__(self, db_manager: ProductDBManager = None):
+    def __init__(self, db_manager: DiskCacheDB = None):
         super().__init__(
             name="jiji",
             base_url="https://jiji.ng",
@@ -212,9 +213,10 @@ class JijiIntegration(ScrapingIntegration):
         # print("\n\n\n")
         transformed = []
         for product in products:
+            product_id = self.generate_id()
             p = {
                 "name": product.get("name", ""),
-                "product_id": self.hash_id(product.get("url", "")),
+                "product_id": product_id,
                 "category": self.extract_category(product.get("name", "")),
                 "brand": self.extract_brands(product.get("name", "")),
                 "current_price": self._clean_price(product.get("current_price", "")),
@@ -231,11 +233,10 @@ class JijiIntegration(ScrapingIntegration):
             }
             transformed.append(p)
 
-            await self.db_manager.cache_product(
-                product_id=self.hash_id(product.get("url", "")),
-                data=p,
-                type="list",
-                ttl=3600,
+            await self.db_manager.set(
+                key=product_id,
+                value=p,
+                tag="list",
             )
            
         return transformed
@@ -298,7 +299,7 @@ class JijiIntegration(ScrapingIntegration):
             "reviews": []  # Not available in Jiji schema
         }
         if self.db_manager:
-            product = await self.db_manager.get_cached_product(product_id, type="list")
+            product = await self.db_manager.get(product_id, tag="list")
             if product:
                 transformed.update({
                     "name": product["name"],
@@ -355,6 +356,7 @@ class JijiIntegration(ScrapingIntegration):
             # Iterate over the products and extract relevant information
             ps = []
             for product in products:
+                product_id = self.generate_id()
 
                 dt = {
                     "name": product.get('title'),
@@ -367,9 +369,15 @@ class JijiIntegration(ScrapingIntegration):
                     "original_price": 0.0,  
                     "discount": 0.0,
                     "source": self.name,
-                    "product_id": self.hash_id(product.get('url')),
+                    "product_id": product_id
                 }
                 ps.append(dt)
+
+                await self.db_manager.set(
+                    product_id,
+                    dt,
+                    tag="list"
+                )
 
             return ps
 
