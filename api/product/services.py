@@ -177,10 +177,10 @@ async def list_products(
     if successful_products:
         # Cache the successful results with the site-specific cache key
         results = await reranker.rerank(query, successful_products, len(results))
-        await ecommerce_manager.db_manager.set(
-            key=product_id,
-            value=results,
-        )
+        # await ecommerce_manager.db_manager.set(
+        #     key=product_id,
+        #     value=results,
+        # )
         try:
             await ecommerce_manager.store.add(product_id, query, results)
         

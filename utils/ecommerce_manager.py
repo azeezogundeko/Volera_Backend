@@ -80,13 +80,13 @@ class EcommerceManager:
             processed_url = self._preprocess_url(url)
             logger.info(f"Processing URL: {processed_url}")
             
-            product_id = self.generate_product_id(processed_url)
+            # product_id = self.generate_product_id(processed_url)
             
-            # Check cache first
-            if not bypass_cache:
-                cached = await self.db_manager.get(product_id)
-                if cached:
-                    return cached if isinstance(cached, list) else [cached]
+            # # Check cache first
+            # if not bypass_cache:
+            #     cached = await self.db_manager.get(product_id)
+            #     if cached:
+            #         return cached if isinstance(cached, list) else [cached]
             
             # Get integration
             integration = self.get_integration_for_url(processed_url)
@@ -100,11 +100,11 @@ class EcommerceManager:
                 bypass_cache=bypass_cache
             )
             
-            if products:
-                await self.db_manager.set(
-                    key=product_id,
-                    value=products,
-                )
+            # if products:
+            #     await self.db_manager.set(
+            #         key=product_id,
+            #         value=products,
+            #     )
                 # product_id=product_id,
                 # data=products,
                 # ttl=ttl,
@@ -154,7 +154,7 @@ class EcommerceManager:
 
             if product:
                 await self.db_manager.set(
-                    product_id=product_id,
+                    key=product_id,
                     value=product,
                     tag="detail",
                 )
