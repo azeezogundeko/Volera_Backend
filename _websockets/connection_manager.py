@@ -19,7 +19,21 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.connection_count: int = 0
 
-    def __config(self): ...
+    def __config(self, ws_message, new_content, session_id, websocket_id, optimization_mode): 
+        return {
+            "agent_results": {},
+            "ws_message": ws_message,
+            "human_response": new_content,
+            "ai_response": "",
+            "optimization_mode": optimization_mode,
+            "session_id": session_id,
+            "ws_id": websocket_id,
+            "chat_count": 0,
+            "chat_finished": False,
+            "chat_limit": 5,
+            "ai_files": [],
+            "message_data": None,
+            }
 
 
     async def connect(self, user_id: str, websocket: WebSocket) -> None:
@@ -118,6 +132,7 @@ class ConnectionManager:
         session_id = await self.start_session(user_id, data)
 
         new_content = await self.process_content(data.file_ids, session_id, ws_message.content)
+        await appwrite_session_manager.log_message(ws_message.content, session_id, 'human')
 
         state = {
             "agent_results": {},
@@ -131,6 +146,7 @@ class ConnectionManager:
             "chat_finished": False,
             "chat_limit": 5,
             "ai_files": [],
+            "message_logs": [],
             }
 
         processing_config = {
@@ -174,8 +190,7 @@ class ConnectionManager:
             logger.error(f"Error processing image: {e}")
 
         
-        print(content)
-        await appwrite_session_manager.log_message(session_id, content, 'human')
+        
 
         return content
 

@@ -31,7 +31,7 @@ class WebQueryAgent(BaseAgent):
         
         self.search_tool = GoogleSearchTool()
     
-    async def search(self, result: WebQueryAgentSchema, ws: WebSocket, query: str):
+    async def search(self, result: WebQueryAgentSchema, query: str):
         params = {
             "query": query,
             "site": "all",
@@ -85,9 +85,8 @@ class WebQueryAgent(BaseAgent):
                 return Command(goto=agent_manager.human_node, update=state)
             
             ws_id = state["ws_id"]
-            ws = self.websocket_manager.get_websocket(ws_id)
             await self.websocket_manager.send_progress(ws_id, "searching", 0)
-            response, task_id = await asyncio.wait_for(self.search(response.data, ws, data.search_query), timeout=self.timeout)
+            response, task_id = await asyncio.wait_for(self.search(response.data, data.search_query), timeout=self.timeout)
 
             state["task_id"] = task_id
             await self.websocket_manager.send_progress(ws_id, "searching", len(response["search"]))

@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Dict
+from typing import TypedDict, List, Dict, Optional
 
 from schema import (
     WSMessage, 
@@ -14,6 +14,13 @@ from schema import (
 # print(MONGODB_URL)
 # async_mongodb_client = AsyncMongoClient(MONGODB_URL)
 # print(async_mongodb_client)
+
+class MessageLog(TypedDict):
+    type: str
+    content: str 
+    images: Optional[List[dict]]
+    sources: Optional[List[dict]]
+    products: Optional[List[dict]] 
 
 class State(TypedDict):
     ws_id: int
@@ -33,4 +40,8 @@ class State(TypedDict):
     session_id: str
     ai_files: List[str] = []
     task_id: int
+    images: List[dict] = []
+    sources: List[dict] = []
+    products: List[dict] = []
     message_history: List[ModelMessage] = []
+    message_data: MessageLog = None

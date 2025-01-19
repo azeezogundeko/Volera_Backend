@@ -1,6 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from ast import literal_eval
+from typing import Any
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Dict
 
 
 class FileSchema(BaseModel):
@@ -21,10 +23,18 @@ class ChatOut(BaseModel):
     
 class MessageIn(BaseModel):
     id: str
-    content: str
+    content: str | None = None
     role: str
     created_at: datetime
-    metadata: str 
+    metadata: str | None = None
+    images: Optional[List[Dict[str, str]]] = []
+    products: Optional[List[Dict[str, Any]]] = []
+    sources: Optional[List[Dict[str, str]]] = []
+
+    @field_validator("images", "products", "sources", mode="before")
+    def validate_fields(cls, v):
+        return [literal_eval(item) for item in v]
+
 
 class MessageSchema(BaseModel):
     total: int

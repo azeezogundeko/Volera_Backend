@@ -33,7 +33,7 @@ async def extract_message_content(response_text: str) -> str:
             if isinstance(data, dict):
                 # Try nested data structure
                 if 'data' in data and isinstance(data['data'], dict):
-                    return data['data'].get('content', ''), data["file_ids"]
+                    return data['data'].get('content', '')
                 # Try direct content
                 if 'content' in data:
                     return data['content']
@@ -69,18 +69,9 @@ async def human_node(
         next_node = state.get("next_node", agent_manager.end)
         ws_id = state["ws_id"]
 
-        ai_files = state.get("ai_files", [])
-
-        if "ai_response" in state:
-            await appwrite_session_manager.log_message(state["session_id"],  state["ai_response"], 'assistant', ai_files)
-        
-        
-        # # Stream the AI's response if available
         # if "ai_response" in state:
-        #     try:
-        #         await websocket_manager.stream_final_response(ws_id, state["ai_response"])
-        #     except Exception as e:
-        #         logger.error(f"Error streaming AI response: {e}", exc_info=True)
+        await appwrite_session_manager.log_messages(state["message_data"])
+        # state["message_data"] = None
         
         # Receive user input with retries
         max_retries = 3
@@ -109,15 +100,14 @@ async def human_node(
             # raise RuntimeError("Failed to receive user input after multiple attempts")
         
         # Extract user input from response
-        user_input, user_files = await extract_message_content(response_text)
+        user_input = await extract_message_content(response_text)
         if not user_input:
             await websocket_manager.send_error_response(ws_id, "Failed to receive user input", "USER_INPUT_ERROR")
             return Command(goto=agent_manager.end, update=state)
             # raise ValueError("Failed to extract valid user input from response")
 
-
-        # Log messages and update history
-        await appwrite_session_manager.log_message(state["session_id"], state["human_response"], 'human', user_files)
+        # user_images = await appwrite_session_manager._process_files(user_files)
+        await appwrite_session_manager.log_message(state["human_response"], state["session_id"], 'human')
         
         # Update state with the user's input
         state["human_response"] = user_input

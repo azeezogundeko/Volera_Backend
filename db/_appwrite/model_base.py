@@ -114,6 +114,10 @@ class AppwriteModelBase:
     @classmethod
     async def get_file(cls, file_id):
         return await cls.client.get_file(file_id)
+        
+    @classmethod
+    async def get_file_metadata(cls, file_id):
+        return await cls.client.get_file_metadata(file_id)
 
 
     @classmethod

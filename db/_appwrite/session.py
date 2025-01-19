@@ -1,21 +1,23 @@
+# from asyncio import gather
 from asyncio import gather
 from typing import Dict, Any, Literal, Optional, List
 from datetime import datetime, timezone
 
 
-from api.chat.model import Message, File, Chat, MessageImage
+from api.chat.model import Message, File, Chat #, MessageImage
 
 from .base import async_appwrite
 from utils.logging import logger
-from typing import TypedDict
+from utils.websocket import ImageMetadata, SourceMetadata, ProductSchema
+# from typing import TypedDict
 
 from pydantic import BaseModel
 
 
-class ImageMetadata(TypedDict):
-    url: str
-    img_url: str
-    title: str
+# class ImageMetadata(TypedDict):
+#     url: str
+#     img_url: str
+#     title: str
 
 class FileMessage(BaseModel):
     fileData: bytes
@@ -27,30 +29,26 @@ class AppwriteSessionManager:
     #     """
     #     Initialize session management using existing async Appwrite client
     #     """
-    async def _process_files(self, files: List[FileMessage], session_id: str):
-        for file in files:
-            # f = InputFile.from_bytes(
-            #     file.fileData,
-            #     filename=file.fileName
-            # )
-            # file_id = File.get_unique_id()
-            # await File.create_file(file_id, f)
 
-            await File.create(
-                document_id=file_id,
-                data = {
-                    "name": file.fileName,
-                    "file_extension": file.fileExtension,
-                    "chat_id": session_id
-                    }
-                )
 
-                    # fs.append(
-                    #     FileDT(
-                    #         name=file["name"],
-                    #         file_extension=file["file_extension"],
-                    #         file_id=file_id
-                    # ))
+    #not supported yet
+    async def process_files(self, file_ids: List[str]): ...
+    #     if not file_ids:
+    #         return []
+
+    #     all_files = []
+
+    #     for file_id in file_ids:
+    #         try:
+    #             file = await File.get_file_metadata(file_id)
+    #             all_files.append(
+    #                 ImageMetadata(
+    #                     img_url="",
+    #                     title
+    #                 )
+    #             )
+    #         except Exception:
+    #             continue
 
 
     async def start_session(
@@ -91,42 +89,36 @@ class AppwriteSessionManager:
             logger.error(f"Failed to create session: {str(e)}")
             raise
 
+    async def log_messages(self, message_logs: List[Dict[str, Any]]):
+        # tasks = []
+        # print(message_logs)
+        document_id = Message.get_unique_id()
+        await Message.create(document_id, message_logs)
+
+        # logger.info(f"Saving {len(message_logs)} messages")
+        # for log in message_logs:
+        #     document_id = Message.get_unique_id()
+        #     tasks.append(Message.create(document_id,log))
+
+        # try:
+        #     results = await gather(*tasks, return_exceptions=True)
+        #     print(results)
+        #     logger.info(f"Saved {len(message_logs)} messages")
+        # except Exception as e:
+        #     logger.warning(f"Error saving message: {str(e)}", exc_info=True)
+
     async def log_message(
         self, 
-        session_id: str, 
         content: Any,
+        session_id: str, 
         message_type: Literal["human", "assistant"], 
-        images_payload: List[ImageMetadata]
         ):
-        
-
-
-        message_id = async_appwrite.get_unique_id() 
-        tasks = []
-        for image in images_payload:
-        
-            image_id = MessageImage.hash(image["title"])
-
-            tasks.append(MessageImage.get_or_create(image_id, {
-                "message_id": message_id,
-                "title": image["title"],
-                "image_url": image["img_url"],
-                "url": image["url"]
-                }))
-
-        await gather(*tasks, return_exceptions=True)
-
-        message_payload = dict(
+        message_id = Message.get_unique_id()
+        await Message.create(message_id, dict(
             content=content,
             chat_id=session_id,
             role=message_type,
-            metadata=str(
-                {
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-            )
-        )
-        await Message.create(message_id, message_payload)
+        ))
 
 
 

@@ -1,5 +1,5 @@
 # from abc import ABC
-from typing import Literal, TypeVar, Optional
+from typing import Literal, TypeVar, Optional, List
 
 from ..config import agent_manager
 from prompts import (
@@ -23,7 +23,7 @@ from schema.validations.agents_schemas import(
 
 from ..state import State
 from config import DB_PATH
-from utils.websocket import WebSocketManager
+from utils.websocket import WebSocketManager, ImageMetadata, ProductSchema, SourceMetadata
 from utils.background import background_task
 from utils.ecommerce_manager import EcommerceManager
 from schema.dataclass.decourator import extract_agent_results
@@ -90,6 +90,76 @@ class BaseAgent:
             sort,
             filters 
             )
+
+    def get_message_data(self, chat_id: str, type: str,  sources=None, images=None, products=None, content=None):
+        return {
+                "role": "assistant",
+                "chat_id": chat_id,
+                "images": images,
+                "products": products,
+                "sources": sources,
+                "type": type,
+                "content": content
+            }
+
+    async def send_signals(
+        self, 
+        state: State,
+        content: str,
+        images: List[ImageMetadata] = None,
+        sources: List[SourceMetadata] = None,
+        products : List[ProductSchema] = None        
+        )-> None:
+            
+        
+        ws_id = state["ws_id"]
+        message = state["ws_message"]
+        chat_id= message["chat_id"]
+        message_id= message["message_id"]  
+
+        data = {
+            "role": "assistant",
+            "chat_id": chat_id,
+            "images": images,
+            "products": products,
+            "sources": sources,
+            "type": "message",
+            "content": content
+        }
+
+        await self.websocket_manager.send_json(ws_id, data)
+        await self.websocket_manager.send_json(ws_id, data)
+
+
+        source_data= None
+        image_data=None
+        product_data=None
+        
+        
+        if sources is not None:
+            source_data = [str(source) for source in sources]
+            # await self.websocket_manager.send_sources(ws_id, sources)
+
+        if images is not None:
+            image_data = [str(image) for image in images]
+            # await self.websocket_manager.send_images(ws_id, images)
+
+
+        if products is not None:
+            product_data = [str(product) for product in products]
+            # await self.websocket_manager.send_product(ws_id, message_id, chat_id, products)
+         
+
+        message_data = self.get_message_data(
+            chat_id,
+             "message", 
+             content=content, 
+             sources=source_data, 
+             images=image_data, 
+             products=product_data
+        )
+        state["message_data"] = message_data
+
 
     @extract_agent_results
     async def run(self) -> RunResult:

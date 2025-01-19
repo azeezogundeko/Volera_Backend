@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from turtle import title
-from typing import List
+from typing import List, Literal
 
 import re
 
@@ -77,11 +77,14 @@ class SavedChat(AppwriteModelBase):
 class Message(AppwriteModelBase):
     collection_id = "messages"
 
-    content: str = AppwriteField(size=65535)
+    content: str = AppwriteField(size=65535, required=False)
     # is_deleted: bool = AppwriteField(required=False, type="bool", default=False)
-    role: str = AppwriteField(size=255)
+    role: Literal["human", "assistant"] = AppwriteField(size=20)
     metadata: dict = AppwriteField(type="json", required=False)
     chat_id: str = AppwriteField(required=True, size=255)
-    images: str = AppwriteField(required=False, type="array", default=[])
-    id_index = AppwriteField(type="index", index_type="key", index_attr=["chat_id"])
+    sources: str = AppwriteField(required=False, type="array", default=[])
+    images: List[dict] = AppwriteField(required=False, type="array", default=[])
+    type: Literal["product", "message", "image_search", "sources"] = AppwriteField(default="message", size=20)
+    products: List[dict] = AppwriteField(required=False, type="array", default=[])
     content_index = AppwriteField(type="index", index_type="fulltext", index_attr=["content"])
+    id_index = AppwriteField(type="index", index_type="key", index_attr=["chat_id"])

@@ -48,30 +48,28 @@ class WebWriterAgent(WriterAgent):
         sources, images = self.extract_results(state)
 
         task_id = state["task_id"]
-
-
-        await self.websocket_manager.send_sources(ws_id, sources)
-        await self.websocket_manager.send_images(ws_id, images)
-        await self.websocket_manager.send_json(ws_id, {"type":"message","content":content})
-        await self.websocket_manager.send_json(ws_id, {"type":"messageEnd","content":content})
+        product_data = None
 
         try:
             value = self.background_task.is_task_done(task_id)
             if value is False:
                 await self.websocket_manager.send_progress(ws_id, "searching", 0)
                 results = await self.background_task.wait_for_completion(task_id)
-                try:
-                    message = state["ws_message"]
-                    chat_id= message["chat_id"]
-                    message_id= message["message_id"]
-                    await self.websocket_manager.send_product(ws_id, message_id, chat_id, results)
-                except Exception as e:
-                    logger.error(f"Failed to send product: {str(e)}", exc_info=True)
+                product_data = results
+
+            else:
+                product_data = self.background_task.get_result(task_id)
                     
         except ValueError as e:
             logger.error(f"Error Retrieving Task {task_id}: {e}")
         
-        state["ai_response"] = content
+        await self.send_signals(
+            state,
+            content=content,
+            images=images,
+            sources=sources,
+            products=product_data
+        )
 
         await self.evaluate_chat_limit(state)
         logger.info("Continuing conversation for follow-up questions")
@@ -81,7 +79,7 @@ class WebWriterAgent(WriterAgent):
     def extract_results(self, state: State) -> RunResult:
         images = []
         sources = []
-        # image_files = []
+
         search_results = state["agent_results"][agent_manager.search_tool]
         for r in search_results["image"]:
             images.append(
@@ -101,7 +99,10 @@ class WebWriterAgent(WriterAgent):
                     title=r["title"]
                 )
             )
-        state["ai_files"] = images
+
+        state["images"] = images
+        state["sources"] = sources
+
         return sources, images
 
 web_writer_agent_node = WebWriterAgent()

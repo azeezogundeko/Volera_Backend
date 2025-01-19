@@ -68,6 +68,11 @@ class AsyncAppWriteClient:
             self.storage.get_file_download,
             self.bucket_id, file_id
         )
+    async def get_file_metadata(self, file_id):
+        return await self._run_in_executor(
+            self.storage.get_file,
+            self.bucket_id, file_id
+        )
 
     async def update_file(self, file_id, file, permissions = None, on_progress = None):
         return await self._run_in_executor(

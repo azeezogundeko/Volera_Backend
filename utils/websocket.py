@@ -68,11 +68,9 @@ class WebSocketManager:
                 "type": "sources",
                 "sources": [
                     {
-                        "pageContent": source["content"],
-                        "metadata": {
-                            "url": source["url"],
-                            "title": source["title"]
-                        }
+                        "url": source["url"],
+                        "content": source["content"],
+                        "title": source["title"]                       
                     }
                     for source in metadata
                 ]
