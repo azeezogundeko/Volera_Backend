@@ -2,25 +2,30 @@ import asyncio
 from datetime import datetime
 
 from utils.logging import logger
-
-from .model import PriceHistory
-from .scrape import TrackerWebScraper
-
-from ..product.model import Product
+from api.track.model import PriceHistory
+from api.track.scrape import TrackerWebScraper
+from api.product.model import Product
 
 import sentry_sdk
 from celery import Celery, shared_task
 from sentry_sdk import capture_exception
 from celery.schedules import crontab
 
+import os
+from dotenv import load_dotenv
 
-sentry_sdk.init(dsn="YOUR_SENTRY_DSN")
+load_dotenv()
 
-# Initialize Celery with SQLite as the broker and backend   
+redis_host = os.getenv('REDIS_URL', 'localhost')  # Default to localhost
+   # Default to no password
+
+# Construct the Redis broker URL
+# broker_url = f'redis://{redis_password}@{redis_host}'
+
 celery_app = Celery(
     'scraper',
-    broker='sqla+sqlite:///celery_broker.sqlite',  # SQLite broker
-    backend='db+sqlite:///celery_results.sqlite'   # SQLite result backend
+    broker=redis_host,
+    backend=redis_host
 )
 
 # Semaphore to limit concurrency
@@ -28,16 +33,24 @@ semaphore = asyncio.Semaphore(10)
 
 # Celery tasks
 @shared_task(bind=True, max_retries=3, retry_backoff=True)
-async def daily_scrape_trigger(self):
+def daily_scrape_trigger(self):
     try:
-        response = await Product.list()
-        product_ids = [product.id for product in response["documents"]]
-        await scrape_multiple_products(product_ids)  # Removed asyncio.run
+        # Run the async function within an event loop
+        asyncio.run(scrape_products())
     except Exception as e:
         logger.error(f"Error triggering daily scrape: {e}")
         capture_exception(e)
         raise self.retry(exc=e)
 
+
+async def scrape_products():
+    try:
+        response = await Product.list()
+        product_ids = [product.id for product in response["documents"]]
+        await scrape_multiple_products(product_ids)
+    except Exception as e:
+        logger.error(f"Error in scrape_products: {e}")
+        capture_exception(e)
 
 async def get_price(url, product_id, source):
     tracker = TrackerWebScraper()

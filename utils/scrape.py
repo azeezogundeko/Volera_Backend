@@ -4,7 +4,7 @@ from typing import List, Dict, TypeVar
 from utils.logging import logger
 from config import USER_AGENT
 
-from aiohttp import ClientSession, ClientTimeout
+from .request_session import http_client
 
 from langchain_community.document_loaders import AsyncHtmlLoader, AsyncChromiumLoader
 from langchain_community.document_transformers import BeautifulSoupTransformer, Html2TextTransformer
@@ -26,7 +26,7 @@ class Doc:
     def to_dict(self):
         return {"url": self.url, "page_content": self.page_content}
 
-class AsyncWebScraper:
+class TrackerWebScraper:
     def __init__(
         self, 
         no_words: int = 500,
@@ -40,45 +40,29 @@ class AsyncWebScraper:
         self.html2text_transformer = Html2TextTransformer()
         self.schema = schema
         self.header = {"User-Agent": USER_AGENT}
+        self.client = http_client
 
-
-    async def fetch_html(self, urls: List[str]) -> List[Document]:
-        """
-        Fetch HTML for static web pages.
-        """
-        loader = AsyncHtmlLoader(urls, verify_ssl=False, header_template=self.header)
-        return await loader.aload()
-
-    async def fetch_html_js(self, urls: List[str]) -> List[Document]:
-        """
-        Fetch HTML for dynamic web pages (with JavaScript rendering).
-        """
-        loader = AsyncChromiumLoader(urls)
-        return await loader.aload()
-
-    def extract_content(self, docs: List[Document], tags: List[str] = None) ->  List[Document]:
-        """
-        Extract content from specific HTML tags using BeautifulSoupTransformer.
-        """
-        transformed_docs = self.soup_transformer.transform_documents(docs, tags_to_extract=tags)
-        return transformed_docs
-        # return {doc.metadata['source']: doc.page_content[:self.no_words] for doc in transformed_docs}
-
-    def extract_text(self, docs: List[Document]) -> Dict[str, str]:
-        """
-        Extract plain text from HTML using Html2TextTransformer.
-        """
-        transformed_docs = self.html2text_transformer.transform_documents(docs)
-        return transformed_docs
-        # return WebResultDict(metadata=scraped_data.metadata, content=scraped_data.page_content)
+    def __jiji_schema(self):
+        return {
+        "name": "NuxtData",
+        "baseSelector": "script#__NUXT_DATA__",
+        "fields": [
+            {
+                "name": "nuxt_data",
+                "selector": "script#__NUXT_DATA__",
+                "type": "text" 
+            }
+        ]
+    }
         
     async def scrape(
         self,
         urls: List[str],
         timeout: int = 5,
         retries=3,
-        rate_limit=4,
+        rate_limit=5,
         ignore_errors=True,
+        site_name: str = None,
         use_js: bool = False,
         tags: List[str] = None,
         plain_text: bool = False
@@ -92,16 +76,11 @@ class AsyncWebScraper:
         :param plain_text: Extract plain text instead of tag-based content if True.
         :return: Extracted content as a dictionary.
         """
-        if use_js:
-            docs = await self.fetch_html_js(urls)
-        else:
-            docs = await self.scrape_websites(
-                urls, timeout, retries, rate_limit, ignore_errors)
-        
-        if plain_text:
-            return self.extract_text(docs)
 
-        return self.extract_content(docs, tags)
+        from .request_session import http_client
+        from . import _craw4ai as craw4ai
+
+        
 
 
 

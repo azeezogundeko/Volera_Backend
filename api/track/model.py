@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from db._appwrite.fields import AppwriteField
 from db._appwrite.model_base import AppwriteModelBase
+from appwrite.query import Query
 
 
 
@@ -15,18 +18,41 @@ class PriceHistory(AppwriteModelBase):
     price: float = AppwriteField(type="float", required=True, default=0.0)
 
 
+    @classmethod
+    async def get_current_price(cls, user_id: str, tracked_id: str)-> float:
+        price_history = await super().list(
+            queries=[
+                Query.equal("user_id", user_id),
+                Query.equal("tracked_id", tracked_id),
+                Query.order_desc("timestamp")  
+            ],
+            limit=1  
+        )
+        if price_history["documents"]:
+            return price_history["documents"].price  
+        return 0.0  
+
+
 class TrackedItem(AppwriteModelBase):
 
     collection_id = "tracked_item"
 
     user_id: str = AppwriteField(size=255, required=True, type="string")
+    target_price: float = AppwriteField(type="float", required=True)
+    current_price: float = AppwriteField(type="float", required=False)
     product_id: str = AppwriteField(size=255, required=True, type="string")
-    index = AppwriteField(type="index", index_type="key", index_attr=["user_id", "product_id"])
-    notification_enabled: bool  = AppwriteField(required=True, type="bool")
-    last_scraped_at: datetime = AppwriteField(type="datetime", required=False)
+    notification_enabled: bool  = AppwriteField(required=False, type="bool", default=True)
     price_change: bool = AppwriteField(type="bool", default=False)
-    alert_sent: bool = AppwriteField(required=True, type="bool", default=False)
+    alert_sent: bool = AppwriteField(required=False, type="bool", default=False)
+    index = AppwriteField(type="index", index_type="key", index_attr=["user_id", "product_id"])
  
+    
+    @classmethod
+    async def create(cls, product_id: str, tracked_price: float, current_price: float, user_id: str)-> TrackedItem:
+        return await super().create(
+            document_id=cls.get_unique_id(),
+            data={"product_id": product_id, "target_price": tracked_price, "user_id": user_id, "current_price": current_price}
+        )
 
 # class Product(AppwriteModelBase):
 #     collection_id = "product"
@@ -49,5 +75,3 @@ class TrackedItem(AppwriteModelBase):
 #     alert_sent: bool = AppwriteField(required=True, type="bool", default=False)
 #     target_price: float  = AppwriteField(size=40, required=True, type="float")
 #     product_id: str = AppwriteField(size=255, required=True, type="string")
-
-

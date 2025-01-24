@@ -1,22 +1,25 @@
+import subprocess
 from contextlib import asynccontextmanager
 
-from api import chat_router, auth_router, product_router, track_router
-from db._appwrite.db_register import prepare_database
+from config import PORT, DB_PATH
 from _websockets import websocket_router
+from db.cache.dict import DiskCacheDB, VectorStore
+from db._appwrite.db_register import prepare_database
+from api.auth.services import get_current_user
+from api import chat_router, auth_router, product_router, track_router
+
 from utils.logging import logger
 from utils._craw4ai import CrawlerManager
-from config import PORT, DB_PATH
-from db.cache.dict import DiskCacheDB, VectorStore
-# from utils.db_manager import ProductDBManager
-from utils.exceptions_handlers import validation_exception_handler
-from utils.request_session import http_client
 from utils.background import background_task
+from utils.request_session import http_client
+from utils.exceptions_handlers import validation_exception_handler
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.middleware.authentication import AuthenticationMiddleware
 
 # Global database manager instance
 # db_manager: ProductDBManager = None
@@ -86,6 +89,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+# app.add_middleware(AuthenticationMiddleware)
+
 app.include_router(chat_router, prefix="/api/chats", tags=["chat"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(product_router, prefix="/api/product", tags=["product"])
@@ -101,6 +106,27 @@ async def add_db_manager(request: Request, call_next):
     request.state.db_cache = db_cache
     response = await call_next(request)
     return response
+
+
+# @app.middleware("http")
+# async def authenticate(request: Request, call_next):
+#     """Add database manager to request state."""
+#     auth_header = request.headers.get("Authorization")
+    
+#     if auth_header:
+#         token = auth_header.split(" ")[1]  # Extract the token part from "Bearer <token>"
+#         print(token)
+#         request.user = await get_current_user(token)  # Pass the token to your auth function
+        
+#         if request.user is None:
+#             raise HTTPException(status_code=401, detail="User not found")
+#     else:
+#         raise HTTPException(status_code=401, detail="User not found")
+#         # request.user = None  
+
+#     response = await call_next(request)
+#     return response
+
 
 
 

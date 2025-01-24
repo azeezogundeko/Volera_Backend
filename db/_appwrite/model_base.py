@@ -1,6 +1,6 @@
-# from __future__ import annotations
+from __future__ import annotations
 
-from typing import Type, List, Dict, Optional, Any
+from typing import Type, List, Dict, Optional, Any, TypeVar
 from datetime import datetime
 from appwrite.client import AppwriteException
 from .base import AsyncAppWriteClient
@@ -9,6 +9,7 @@ from .fields import BaseField, Field
 
 from appwrite.query import Query
 
+# T = TypeVar('T', bound=AppwriteModelBase)
 
 
 class AppwriteModelBase:

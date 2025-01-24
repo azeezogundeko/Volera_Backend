@@ -48,7 +48,7 @@ class WishList(AppwriteModelBase):
 class Product(AppwriteModelBase):
     collection_id = "product"
 
-    title: str = AppwriteField(size=255, required=True, type="string")
+    name: str = AppwriteField(size=255, required=True, type="string")
     image: str = AppwriteField(size=255, required=True, type="string")
     current_price: float = AppwriteField(type="float", required=False,default=0.0)
     original_price: float = AppwriteField(type="float", required=False, default=0.0)

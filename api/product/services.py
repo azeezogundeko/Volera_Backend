@@ -1,4 +1,5 @@
 import asyncio
+import difflib
 from typing import List, Dict, Any, Optional
 # from datetime import timedelta
 from fastapi import Request
@@ -24,28 +25,70 @@ def get_ecommerce_manager(request: Request) -> EcommerceManager:
     )
 
 
-def sort_products(products: List[dict], sort_key: str, reverse: bool = False) -> List[dict]:
+def is_string_match(str1: str, str2: str, threshold=0.5):
+    # Convert both strings to lowercase for case-insensitive comparison
+    str1_lower = str1.lower()
+    str2_lower = str2.lower()
+    
+    # Calculate similarity ratio using SequenceMatcher
+    matcher = difflib.SequenceMatcher(None, str1_lower, str2_lower)
+    similarity_ratio = matcher.ratio()
+    
+    # Check if the ratio meets or exceeds the threshold
+    return similarity_ratio >= threshold
+
+
+def sort_products(products: List[dict], sort_key: str, reverse=False) -> List[dict]:
     """Sort the list of products based on the given key."""
-    return sorted(products, key=lambda x: x.get(sort_key), reverse=reverse)
 
-def filter_products(products: List[dict], filters: dict) -> List[dict]:
-    """Filter the list of products based on the given filters."""
-    for key, value in filters.items():
-        if key == "title":
-            products = [p for p in products if value.lower() in p.get("title", "").lower()]
-        # elif key == "currency":
-        #     products = [p for p in products if p.get("currency") 
-        elif key == "ratings":
-            products = [p for p in products if p.get("ratings") >= value]  
-        elif key == "feature":
-            products = [p for p in products if value in p.get("features", [])]
-        elif key == "price":  
-            products = [p for p in products if p.get("price") >= value] 
+    if sort_key == 'lowest price':
+        return sorted(products, key=lambda x: x.get('current_price', float('inf')), reverse=False)
+    elif sort_key == 'highest price':
+        return sorted(products, key=lambda x: x.get('current_price', float('-inf')), reverse=True)
+    elif sort_key in ['highest ratings', 'best rated']:
+        return sorted(products, key=lambda x: x.get('rating', float('inf')), reverse=True)
+    elif sort_key == 'most relevant':
+        # products are already reranked
+        return products
+    elif sort_key == 'price':
+        return sorted(products, key=lambda x: x.get('current_price', float('inf')), reverse=reverse)
+    elif sort_key == 'ratings':
+        return sorted(products, key=lambda x: x.get('rating', float('inf')), reverse=reverse)
+    return products  # Default return if no valid sort_key is provided.
 
-        elif key == "brand":  
-            products = [p for p in products if p.get("brand") == value] 
+
+def filter_products(products: List[dict], filters: Dict[str, str]) -> List[dict]:
+    """
+    Filter the list of products based on the given filters.
+    Supported filters: 'brand', 'category', 'price'.
+    """
+    # Ensure filters is not empty
+    if not filters:
+        return products
+
+    # Combine brand and category into a product name filter, if present
+    prod_name = None
+    if filters.get("brand") and filters.get("category"):
+        prod_name = f"{filters['brand']} {filters['category']}"
+
+    try:
+        # Filter by name match (brand + category)
+        # if prod_name:
+        #     products = [p for p in products if is_string_match(prod_name, p.get("name", ""))]
+
+        # Iterate over filters for additional filtering
+        for key, value in filters.items():
+            if key == "price":  # Price filter
+                products = [p for p in products if "current_price" in p and value >= p["current_price"]]
+            # elif key not in ("brand", "category"):  # Future support for additional keys
+            #     products = [p for p in products if key in p and p[key] == value]
+
+    except Exception as e:
+        # Log or handle the exception as needed
+        print(f"Error during filtering: {e}")
 
     return products
+
 
 async def list_products(
     ecommerce_manager: EcommerceManager,
@@ -55,7 +98,7 @@ async def list_products(
     bypass_cache: bool = False,
     page: int = 1,
     limit: int = 40,
-    sort: Optional[str] = None,
+    sort: Optional[Dict[str, Any]] = None,
     filters: dict = None
 ) -> List[Dict[str, Any]]:
     """Get product listings from supported e-commerce sites."""
@@ -196,22 +239,27 @@ def post_process_results(
     page,
     limit,
     results: List[Dict[str, Any]], 
-    sort: Optional[str] = None, 
+    sort: Optional[str] = None,
     filters: dict = None) -> List[Dict[str, Any]]:
         
-    # Apply pagination
-    print(f"Length of results: {len(results)}")
-    start_index = (page - 1) * limit
-    end_index = start_index + limit
-    results = results[start_index:end_index] 
-
-    print(f"Length of results after pagination: {len(results)}") 
+    # # Apply pagination
+    # start_index = (page - 1) * limit
+    # end_index = start_index + limit
+    # results = results[start_index:end_index] 
             
+    if filters:
+        # Check if any filter value is not None
+        filters = {key: value for key, value in filters.items() if value is not None}
     
+        # Check if there are remaining filters
+        if filters:
+            re = filter_products(results, filters)
+            if len(re) > 0:
+                results = re
+
     if sort:
         results = sort_products(results, sort)
-    if filters:
-        results = filter_products(results, filters)
+    
     return results
 
 
@@ -240,7 +288,7 @@ async def save_product(product: ProductDetail, user: UserIn):
         product.product_id, 
         dict(
         currency=product.currency,
-        title=product.name,
+        name=product.name,
         url=product.url,
         current_price=product.current_price,
         image=product.image,

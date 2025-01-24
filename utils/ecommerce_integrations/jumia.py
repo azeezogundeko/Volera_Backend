@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 from ..ecommerce.base import ScrapingIntegration
 from db.cache.dict import DiskCacheDB
-from utils import db_manager
+# from utils import db_manager
 
 import json
 from bs4 import BeautifulSoup
@@ -337,7 +337,8 @@ class JumiaIntegration(ScrapingIntegration):
         """Transform scraped product list to standard format."""
         transformed = []
         for product in products:
-            product_id = self.generate_id()
+            url = f"{self.base_url}{product.get('url', '')}"
+            product_id = self.generate_id(url)
             item = {
                 "product_id": product_id,
                 "name": product.get("name", ""),
@@ -347,7 +348,7 @@ class JumiaIntegration(ScrapingIntegration):
                 "original_price": self._clean_price(product.get("original_price", "")),
                 "discount": self._clean_discount(product.get("discount", "")),
                 "image": product.get("image", ""),
-                "url": f"{self.base_url}{product.get('url', '')}",
+                "url": url,
                 "source": "jumia",
                 "rating": self._clean_rating(product.get("rating", "0")),
                 "rating_count": self._clean_rating_count(product.get("rating_count", ""))
@@ -468,7 +469,7 @@ class JumiaIntegration(ScrapingIntegration):
             response = await self.client.get(url)
             html_content = response.text
         except Exception:
-            print(f"URL failed {url} throug {str(e)}")
+            # print(f"URL failed {url} throug {str(e)}")
             products = await super().get_product_list(url, **kwargs)
             return await self._transform_product_list(products)
 

@@ -21,6 +21,7 @@ MONGODB_URL = str(os.getenv("MONGODB_URL"))
 GOOGLE_SEARCH_ID = str(os.getenv("SEARCH_ENGINE_ID"))
 SEARXNG_BASE_URL = str(os.getenv("SEARXNG_BASE_URL"))
 USER_AGENT= os.getenv("USER_AGENT")
+ID_SECRET_KEY = os.getenv("ID_SECRET_KEY")
 
 KONGA_API_KEY = str(os.getenv("KONGA_API_KEY"))
 KONGA_ID = str(os.getenv("KONGA_ID"))

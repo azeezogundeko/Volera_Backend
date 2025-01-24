@@ -27,7 +27,8 @@ from utils.websocket import WebSocketManager, ImageMetadata, ProductSchema, Sour
 from utils.background import background_task
 from utils.ecommerce_manager import EcommerceManager
 from schema.dataclass.decourator import extract_agent_results
-from utils.db_manager import ProductDBManager
+# from utils.db_manager import ProductDBManager
+from db.cache.dict import DiskCacheDB
 
 from pydantic_ai import Agent
 from langgraph.types import Command
@@ -77,7 +78,7 @@ class BaseAgent:
 
         # seems this was called before app started so put it here so that main.py take initialization
         # Using Singleton design pattern
-        self._ecommerce_manager = EcommerceManager(ProductDBManager(DB_PATH))
+        self._ecommerce_manager = EcommerceManager(DiskCacheDB(cache_dir=str(DB_PATH)))
         
         return await list_products(
             self._ecommerce_manager, 

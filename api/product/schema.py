@@ -1,7 +1,9 @@
 import ast
-from typing import List, Optional, Dict, TypedDict
+from typing import List, Optional, Dict, Literal
+from dataclasses import dataclass
 
 from pydantic import BaseModel, field_validator, Field
+from fastapi import Form, UploadFile, File
 from datetime import datetime
 
 class Image(BaseModel):
@@ -62,7 +64,7 @@ class ProductDetail(BaseModel):
 class WishListProductSchema(BaseModel):
 
     id: str = Field(alias="$id", serialization_alias="product_id")
-    title: str
+    name: str
     image: str
     current_price: float
     original_price: float
@@ -90,8 +92,7 @@ class ProductResponse(BaseModel):
     category: Optional[str] = "Unknown Category"
     discount: Optional[float] = 0.0
     rating: Optional[float] = 0.0
-    reviews_count: Optional[str] = "0"
-    product_id: Optional[str] = None
+    reviews_count: Optional[int] = 0
     image: Optional[str] = None
     relevance_score: float = 0.0
     url: Optional[str] = None
@@ -107,3 +108,16 @@ class ProductResponse(BaseModel):
 
         else:
             return v
+
+
+@dataclass
+class SearchRequest:
+    query: str = Form()
+    images: List[UploadFile] = File(None)
+    site: Literal["all", "jumia.com.ng", "jiji.ng", "konga.com"] = Form("all")
+    max_results: int = Form(5)
+    bypass_cache: bool = Form(False)
+    page: int = Form(1)
+    limit: int = Form(50)
+
+

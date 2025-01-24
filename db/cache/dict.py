@@ -10,6 +10,8 @@ import faiss
 from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
 
+# from langchain.storage import LocalFileStore
+
 from utils.logging import logger
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 

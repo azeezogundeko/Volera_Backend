@@ -1,12 +1,23 @@
-from typing import List, Optional, Literal
+from typing import List
 
 from appwrite.client import AppwriteException
 
-from .schema import DashBoardStat, PriceHistorySchema, TrackedItemSchema, DetailedTrackedItemSchema
+from .schema import (
+    DashBoardStat, 
+    PriceHistorySchema,
+    TrackedItemSchema,
+    DetailedTrackedItemSchema,
+    TrackItemIn,
+    TrackedItemOut
+    )
+
 from .model import PriceHistory, TrackedItem
 from ..auth.services import get_current_user
 from ..chat.model import Chat
 from ..auth.schema import UserIn
+from ..product.model import Product
+from ..product.services import save_product
+from .scrape import EcommerceWebScraper
 
 from utils.logging import logger
 
@@ -65,7 +76,7 @@ async def get_price_history(
     return documents["documents"]
 
 
-@router.get("", response_model=List[TrackedItemSchema])
+@router.get("", response_model=List[TrackedItemOut])
 async def get_tracked_items(
     limit: int = Query(50),
     page: int = Query(1),
@@ -75,7 +86,27 @@ async def get_tracked_items(
         [query.Query.equal("user_id", user.id)], 
             limit=limit, offset=(page - 1) * limit)
 
-    return r["documents"]
+    products = []
+
+    for tracked_item in r["documents"]:
+        product = await Product.read(tracked_item.product_id)
+        products.append(product)
+
+    responses = []
+    for r, product in zip(r["documents"], products):
+        responses.append({
+            "id": r.id,
+            "productId": r.product_id,
+            "product": product.to_dict(),
+            "targetPrice": r.target_price,
+            "currentPrice": r.current_price,
+            "dateAdded": r.created_at,
+            "notificationEnabled": r.notification_enabled,
+            "alertSent": r.alert_sent,
+            
+        })
+
+    return responses
 
 
 @router.get("/{product_id}", response_model=DetailedTrackedItemSchema)
@@ -90,3 +121,21 @@ async def get_tracked_item(product_id: str, user: UserIn = Depends(get_current_u
         )["documents"]
     return {"tracked_item": tracked_item, "price_history": price_history}
 
+
+@router.post("", response_model=TrackedItemSchema)
+async def track_item(
+    request: Request,
+    payload: TrackItemIn,
+    user: UserIn = Depends(get_current_user)
+    ):
+    await save_product(payload.product, user)
+    return await TrackedItem.create(payload.productId, payload.targetPrice, payload.product.current_price, user.id)
+         
+
+@router.post("test")
+async def test_scrape(
+    url: str,
+    source: str
+):
+    scraper = EcommerceWebScraper()
+    return await scraper.get_product_details(url, source)

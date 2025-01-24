@@ -1,6 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from typing import List
+
+from ..product.schema import ProductDetail, ProductResponse, WishListProductSchema
 
 class FeatureSchema(BaseModel):
     label: str
@@ -22,31 +24,14 @@ class ProductIn(BaseModel):
     
 
 class TrackedItemSchema(BaseModel):
-    product_id: str
-    title: str
-    url: str
-    current_price: float = Field(serialization_alias="currentPrice")
+    product_id: str = Field(serialization_alias="productId")
     target_price: float = Field(serialization_alias="targetPrice")
-    image: str
-    date_added: datetime = Field(serialization_alias="dateAdded")
-    notification_enabled: bool 
-    currency: str = "₦"
-    features: List[str]
-    specifications: List[FeatureSchema]
-    # specs: List[FeatureSchema]
-    # price_history = List[PriceHistorySchema]
+    created_at: datetime = Field(serialization_alias="dateAdded")
+    notification_enabled: bool = Field(serialization_alias="notificationEnabled")
+    alert_sent: bool = Field(serialization_alias="alertSent")
 
-    @field_validator("specifications", mode="before")
-    def validate_specifications(cls, v):
-        # Ensure 'specifications' is a list, otherwise try to convert it.
-        if isinstance(v, str):
-            # Attempt to parse the string as JSON to convert it into a list of FeatureSchema objects
-            try:
-                import json
-                return json.loads(v)
-            except json.JSONDecodeError:
-                raise ValueError("Specifications should be a valid list or a JSON string representing a list.")
-        return v
+
+    
 
 class PriceHistorySchema(BaseModel):
     timestamp: datetime
@@ -61,4 +46,54 @@ class DashBoardStat(BaseModel):
     tracked_items: int = Field(default=0, serialization_alias="trackedItems")
     price_alerts: int = Field(default=0, serialization_alias="priceAlerts")
 
+class Product(ProductResponse):
+    product_id: str = Field(serialization_alias="productId", alias="id")
 
+# class ProductIn(ProductDetail):
+#     class Config:
+#         model_config = {
+#             "from_attributes": True,
+#             "exclude": {
+#                 "product_id",
+#                  "date_added", 
+#                  "rating_count", 
+#                  "reviews", 
+#                  "reviews_count", 
+#                  "stock", 
+#                  "is_free_shipping", 
+#                  "is_official_store", 
+#                  "is_pay_on_delivery", 
+#                  "express_delivery",
+#                  "categories",
+#                  "description",
+#                  "images",
+#                  "seller",
+#                  "original_price",
+#                  },
+#         }
+
+class TrackItemIn(BaseModel):
+    productId: str
+    targetPrice: float
+    product: ProductDetail
+
+# class TrackProduct(BaseModel):
+#     current_price: float
+#     url: str
+#     image: str
+#     name: str
+#     source: str
+#     brand: str
+#     reviews_count:int
+#     discount: float
+#     specifica
+
+class TrackedItemOut(BaseModel):
+    id:  str
+    notificationEnabled: bool 
+    currentPrice: float
+    product: WishListProductSchema
+    alertSent: bool
+    dateAdded: datetime
+    productId: str
+    targetPrice: float

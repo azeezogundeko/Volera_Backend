@@ -213,7 +213,8 @@ class JijiIntegration(ScrapingIntegration):
         # print("\n\n\n")
         transformed = []
         for product in products:
-            product_id = self.generate_id()
+            url = f"{self.base_url}{product.get("url", "")}"
+            product_id = self.generate_id(url)
             p = {
                 "name": product.get("name", ""),
                 "product_id": product_id,
@@ -223,7 +224,7 @@ class JijiIntegration(ScrapingIntegration):
                 "original_price": self._clean_price(product.get("original_price", "")),
                 "discount": self._clean_discount(product.get("discount", "")),
                 "image": product.get("image", ""),
-                "url": f"{self.base_url}{product.get("url", "")}",
+                "url": url,
                 "source": "jiji",
                 "location": product.get("location", ""),
                 "seller": {
@@ -326,6 +327,7 @@ class JijiIntegration(ScrapingIntegration):
 
 
     async def extract_product_list(self, url, **kwargs):
+        from utils._craw4ai import extract_data_with_css
         try:
             response = await self.client.get(url)
             html_content = response.text

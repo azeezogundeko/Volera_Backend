@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 import json
 from pydantic import BaseModel
-from crawl4ai import AsyncWebCrawler
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.extraction_strategy import (
     LLMExtractionStrategy,
     JsonCssExtractionStrategy,
@@ -78,6 +78,14 @@ async def chat_with_webpage(
         content=json.loads(llm_result.extracted_content),
         structured_data={"markdown": result.fit_markdown}
     )
+
+async def get_html(url: str, config: CrawlerRunConfig = None, **kwargs):
+    reponse = await CrawlerManager.get_crawler().arun(
+        url=url,
+        config=config,
+        exclude_external_links=False,
+    )
+    return reponse.html
 
 async def get_similar_chunks(
     url: str,

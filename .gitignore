@@ -4,3 +4,4 @@
 *.json
 *.txt
 /logs
+/data

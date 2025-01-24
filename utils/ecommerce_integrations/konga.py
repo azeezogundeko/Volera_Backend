@@ -93,7 +93,8 @@ class KongaIntegration(GraphQLIntegration):
         
         for hit in data.get("hits", []):
             # print(hit)
-            product_id = self.generate_id()
+            original_id = hit.get("sku", "")
+            product_id = self.generate_id(original_id)
             product = {
                 "product_id": product_id,
                 "name": hit.get("name", ""),
@@ -142,17 +143,12 @@ class KongaIntegration(GraphQLIntegration):
             }
             
             products.append(product)
-
-            # Cache the product with search parameters if db_manager is available
-            # if self.db_manager:
-            #     query_string = f"search={search_params['search']}&page={search_params['page']}&limit={search_params['limit']}&sort={search_params['sort']}"
-            #     await self._cache_product(product, query_string, type="list")
             await self.db_manager.set(key=product_id, value=product, tag="list")
         
         return {
             "products": products,
             "pagination": {
-                "page": data.get("page", 0) + 1,  # Convert to 1-based index
+                "page": data.get("page", 0) + 1, 
                 "limit": data.get("hitsPerPage", 40),
                 "total": data.get("nbHits", 0),
                 "total_pages": data.get("nbPages", 0)

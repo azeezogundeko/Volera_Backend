@@ -7,8 +7,8 @@ from datetime import datetime
 
 from .logging import logger
 from .ecommerce.base import EcommerceIntegration
-# from .db_manager import ProductDBManager
 from db.cache.dict import DiskCacheDB, VectorStore
+# from .db_manager import ProductDBManager
 
 # from fastapi import WebSocket
 from pydantic import BaseModel
@@ -16,11 +16,11 @@ from pydantic import BaseModel
 
 class CacheEntry(BaseModel):
     data: Union[Dict[str, Any], List[Dict[str, Any]]]
-    # timestamp: datetime
     tag: Literal["list", "detail"]
     product_id: str
+    # timestamp: datetime
     # ttl: Optional[int] = None
-    query: Optional[str] = None  # Store original query for similarity check
+    # query: Optional[str] = None  # Store original query for similarity check
 
 class EcommerceManager:
     def __init__(self, db_manager: DiskCacheDB, similarity_threshold: float = 0.8):
