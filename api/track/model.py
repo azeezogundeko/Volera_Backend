@@ -53,25 +53,3 @@ class TrackedItem(AppwriteModelBase):
             document_id=cls.get_unique_id(),
             data={"product_id": product_id, "target_price": tracked_price, "user_id": user_id, "current_price": current_price}
         )
-
-# class Product(AppwriteModelBase):
-#     collection_id = "product"
-
-#     current_price: float  = AppwriteField(type="float", required=True, default=0.0)
-#     image: str = AppwriteField(size=255, required=False, type="string")
-#     date_added:  datetime =  AppwriteField(type="datetime", required=True)
-#     currency: str = AppwriteField(size=5, required=True, type="string", default="₦")
-#     title: str = AppwriteField(size=255, required=True, type="string")
-#     url: AppwriteField(size=255, required=True, type="string")
-#     features: List[str] = AppwriteField(required=True, type="array", default=[])
-#     specifications: List[Specification] = AppwriteField(required=True, type="array", default=[])
-
-
-# class TrackedItem(AppwriteModelBase):
-
-#     collection_id = "track_tracked_item"
-#     user_id: str = AppwriteField(size=40, required=True, type="string")
-#     alert_price: float  = AppwriteField(size=40, required=True, type="float")
-#     alert_sent: bool = AppwriteField(required=True, type="bool", default=False)
-#     target_price: float  = AppwriteField(size=40, required=True, type="float")
-#     product_id: str = AppwriteField(size=255, required=True, type="string")

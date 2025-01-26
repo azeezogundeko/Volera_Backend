@@ -22,8 +22,6 @@ router = APIRouter()
 
 @router.post("/save_product")
 async def save_product(product: ProductDetail, user: UserIn = Depends(get_current_user)):
-    print(product)
-
     return await services.save_product(product, user)
 
 
@@ -73,7 +71,6 @@ async def search_products(
         sort=sort,
         filters=result.filter.__dict__
     )
-    print(f"Length of products: {len(products)}")
     return products
 
 @router.get("/detail/{product_id}", response_model=ProductDetail)
@@ -113,8 +110,6 @@ async def check_product_saved(product_id: str = Body(), user: UserIn = Depends(g
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
     except Exception as e:
-        print(str(e))
-        
         raise HTTPException(status_code=404, detail="Product not found")
     return product.to_dict()
 
@@ -149,49 +144,3 @@ async def get_saved_products(
 
     return products
  
-
-
-
-
-
-
-
-
-# @router.get("/cache/info/{url:path}")
-# async def get_cache_info(request: Request, url: str):
-#     """Get cache information for a URL."""
-#     return await services.get_cache_info(request, url)
-
-# @router.post("/cache/clear")
-# async def clear_cache(request: Request):
-#     """Clear all cached data."""
-#     await services.clear_cache(request)
-#     return {"message": "Cache cleared successfully"}
-
-# @router.post("/cache/cleanup")
-# async def cleanup_cache(request: Request):
-#     """Remove expired cache entries."""
-#     await services.remove_expired_cache(request)
-#     return {"message": "Expired cache entries removed"}
-
-# @router.post("/cache/ttl/{url:path}")
-# async def set_cache_ttl(
-#     request: Request,
-#     url: str,
-#     ttl: int = Query(..., description="New TTL in seconds")
-# ):
-#     """Set TTL for a cached URL."""
-#     success = await services.set_cache_ttl(request, url, ttl)
-#     if success:
-#         return {"message": "Cache TTL updated successfully"}
-#     return {"message": "URL not found in cache"}
-
-
-
-
-
-
-
-
-
-

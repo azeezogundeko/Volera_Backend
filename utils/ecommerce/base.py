@@ -1,14 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Literal
 from enum import Enum
-# from appwrite.id import ID
-from utils.id import ID
 
-
-
+from utils.url_shortener import URLShortener
 from ..request_session import http_client
 from ..scrape import TrackerWebScraper
-
 from ..entity_recognition import extract_brands, extract_categories
 
 
@@ -30,6 +26,7 @@ class EcommerceIntegration(ABC):
     ):
         self.name = name
         self.scraper = TrackerWebScraper()
+        self.url_shortner = URLShortener()
         self.base_url = base_url
         self.url_patterns = url_patterns
         self.integration_type = integration_type
@@ -58,9 +55,11 @@ class EcommerceIntegration(ABC):
         """Check if URL matches this integration's patterns."""
         return any(pattern in url for pattern in self.url_patterns)
 
-    def generate_id(self, text: str) -> str:
-        """Hash URL to a unique identifier."""
-        return ID.encrypt(text)
+    def generate_url_id(self, text: str) -> str:
+        return self.url_shortner.shorten_url(text)
+
+    def get_full_url(self, short_code: str) -> str:
+        return self.url_shortner.enlarge_url(short_code)
         
 
 class ScrapingIntegration(EcommerceIntegration):

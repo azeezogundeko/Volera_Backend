@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import List, TypedDict, Optional
+
 from  db._appwrite.model_base import AppwriteModelBase
 from db._appwrite.fields import AppwriteField
-from typing import List, TypedDict, Optional
 from appwrite.query import Query
 
 
@@ -11,15 +12,7 @@ class Specification(TypedDict):
     #collection_id = "specification"
     label: str #= AppwriteField(size=255, required=True)
     value:  str #= AppwriteField(size=255, required=True)
-   # product_id: str # = AppwriteField(size=255, required=True)
-
-# class Stores(AppwriteModelBase):
-#     collection_id = "product_stores"
-
-#     product_id: str = AppwriteField(type="string", size=255, required=True, )
-#     name: str = AppwriteField(size=255, required=True, type="string")
-#     price: float = AppwriteField(type="float", required=True, default=0.0)
-#     link: str = AppwriteField(size=255, required=True, type="string")
+    
 
 class WishList(AppwriteModelBase):
     collection_id = "wishlist"

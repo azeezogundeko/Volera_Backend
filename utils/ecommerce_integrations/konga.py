@@ -94,7 +94,7 @@ class KongaIntegration(GraphQLIntegration):
         for hit in data.get("hits", []):
             # print(hit)
             original_id = hit.get("sku", "")
-            product_id = self.generate_id(original_id)
+            product_id = self.generate_url_id(original_id)
             product = {
                 "product_id": product_id,
                 "name": hit.get("name", ""),

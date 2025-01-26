@@ -214,7 +214,7 @@ class JijiIntegration(ScrapingIntegration):
         transformed = []
         for product in products:
             url = f"{self.base_url}{product.get("url", "")}"
-            product_id = self.generate_id(url)
+            product_id = self.generate_url_id(url)
             p = {
                 "name": product.get("name", ""),
                 "product_id": product_id,
@@ -232,6 +232,7 @@ class JijiIntegration(ScrapingIntegration):
                     "verified": product.get("seller", {}).get("verified", False)
                 }
             }
+            print(url)
             transformed.append(p)
 
             await self.db_manager.set(

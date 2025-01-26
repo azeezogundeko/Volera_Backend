@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Type, List, Dict, Optional, Any, TypeVar
+from typing import Type, List, Dict, Optional, Any #, TypeVar
 from datetime import datetime
 from appwrite.client import AppwriteException
 from .base import AsyncAppWriteClient
 from utils.logging import logger
-from .fields import BaseField, Field
+from .fields import BaseField #, Field
 
 from appwrite.query import Query
 
@@ -285,7 +285,6 @@ class AppwriteModelBase:
             if isinstance(value, BaseField):
                 dict_fields.append({"key":name, **value.to_dict()})
 
-        print(dict_fields)
         # dict_fields.append({"key": "is_deleted", "value": {"required": True, "type": "bool", "default": False}})
         return dict_fields
 

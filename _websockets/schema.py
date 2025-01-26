@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 class HistoryItem(BaseModel):
@@ -26,7 +26,19 @@ class WebSocketMessage(BaseModel):
     parent_message_id: str = Field(alias="parentMessageId",default=None)
     optimization_mode: str = Field(default="fast", alias="optimizationMode")
     file_ids: Optional[List[str]]  = []
+    currentProducts: List[Any] = []
+    currentFilters: Dict[str, Any] = None
     # history: List[HistoryItem] | None = Field(default_factory=list)
 
     class Config:
         allow_population_by_field_name = True
+
+
+class RequestPayload(BaseModel):
+    message: str
+    currentProducts: List[Any]
+    currentFilters: Dict[str, Any]
+
+class RequestWebsockets(BaseModel):
+    type: str
+    data: RequestPayload

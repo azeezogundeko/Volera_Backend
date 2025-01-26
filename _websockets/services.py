@@ -2,7 +2,7 @@ from typing import Optional
 
 from api.auth import services
 from api.auth.schema import UserIn
-from .schema import WebSocketMessage
+from .schema import WebSocketMessage, RequestWebsockets
 from .connection_manager import manager
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -60,9 +60,13 @@ async def handle_websocket_messages(websocket: WebSocket, user_id: str):
     try:
         while True:
             raw_data = await websocket.receive_json()
-            print(raw_data)
-            data = WebSocketMessage(**raw_data)
-            await manager.handle_message(data, websocket, user_id)
+            if raw_data["type"] == "FILTER_REQUEST":
+                data = RequestWebsockets(**raw_data)
+                await manager.filter_mode(data, websocket, user_id)
+            else:
+                data = WebSocketMessage(**raw_data)
+                await manager.handle_message(data, websocket, user_id)
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for user: {user_id}")
         await manager.disconnect(websocket)

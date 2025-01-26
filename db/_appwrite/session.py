@@ -70,6 +70,7 @@ class AppwriteSessionManager:
             file_ids = metadata.get("file_ids")
             title = metadata.get("title")
 
+
             # fs = []
             # if files:
             #     await self._process_files(files, session_id)

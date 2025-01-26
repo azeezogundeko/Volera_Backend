@@ -249,11 +249,9 @@ class DiskCacheDB:
                 return product_dict
 
             else:
-                print("The first element is not a dictionary or list.")
                 return None
         else:
             # Handle the case where result is not a tuple
-            print("The result is not a tuple.")
             return result
 
     async def delete(self, key):

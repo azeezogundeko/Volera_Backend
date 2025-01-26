@@ -5,11 +5,12 @@ from crawl4ai import AsyncWebCrawler
 
 from utils.logging import logger
 from config import USER_AGENT, KONGA_API_KEY, KONGA_ID
-from utils.id import ID
 
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from algoliasearch.search.client import SearchClient
+
+from utils.url_shortener import URLShortener
 
 
 T = TypeVar('T', bound=BaseModel)
@@ -26,6 +27,7 @@ class EcommerceWebScraper:
 
         self.konga_client = SearchClient(KONGA_ID, KONGA_API_KEY)
         self.header = {"User-Agent": USER_AGENT}
+        self.shortener = URLShortener()
 
 
     async def get(self, url):
@@ -54,12 +56,12 @@ class EcommerceWebScraper:
             # Parse the JSON data
             data = loads(json_data)
 
-            # with open("jiji.json", )
+            with open("jumia.json", "w") as f:
+                dump(data, f, indent=4)
+
 
             if 'products' in data and len(data['products']) > 0:
                 product: dict = data['products'][0]
-                # price = product.get('prices', {}).get('rawPrice', 0.0)
-                print(product)
 
                 return {
                     'category': product.get('categories', '')[0],
@@ -75,13 +77,14 @@ class EcommerceWebScraper:
                     'source': "jumia"
                 }
                 
-
         else:
             return {}
             
 
     async def get_konga_product(self, product_id: str)-> Dict[str, Any]:
         hit =  await self.konga_client.get_object(self.konga_index_name, product_id)
+        with open("konga.json", "w") as f:
+            dump(hit, f, indent=4)
         return  {
                 "product_id": product_id,
                 "name": hit.get("name", ""),
@@ -132,43 +135,25 @@ class EcommerceWebScraper:
     async def get_jiji_product(self, url: str)-> Dict[str, Any]:
         from utils._craw4ai import  AsyncWebCrawler, JsonCssExtractionStrategy, CrawlerRunConfig
 
+        # # wait_for_images=True,
         # config = CrawlerRunConfig(
-        #     wait_for_images=True,
         #     bypass_cache=True,
+        #     wait_for="body",
         #     extraction_strategy= JsonCssExtractionStrategy(schema=self.get_jiji_schema())
         # )
 
         scraper: AsyncWebCrawler  = await self.get_crawler()
-        # response = await scraper.arun(url=url, config=config)
-        # print(response)
-        # extracted_content = loads(response.extracted_content)
+        response = await scraper.arun(url=url)
+        print(response.html)
+        extracted_content = loads(response.extracted_content)
+        print(extracted_content)
 
-        
+        # print(extracted_content)
+        with open("jiji.html", "w", encoding='utf-8') as f:
+            f.write(response.html)
 
         # return extracted_content
 
-        response = await scraper.arun(url=url, bypass_cache=True)
-
-        soup = BeautifulSoup(response.html, 'html.parser')
-
-        script_tag = soup.find('script', {'id': '__NUXT_DATA__'})
-
-        if script_tag:
-            # Parse the JSON data from the script tag
-            data = loads(script_tag.string)
-
-            with open("jiji.json", "w", encoding='utf-8') as f:
-                dump(data, f, ensure_ascii=False, indent=4)
-
-            
-
-            product = self.find_product(data)
-
-
-            return product
-            
-        else:
-            return {}
 
 
     def find_product(self, data)-> Dict[str, Any]:
@@ -181,9 +166,6 @@ class EcommerceWebScraper:
                 if key == 'product:price:amount':
                     product["current_price"] = value
                  
-
-
-
                 # Otherwise, recursively search through the value
                 result = self.find_product(value)
                 if result is not None:
@@ -219,6 +201,7 @@ class EcommerceWebScraper:
     ) -> Dict[str, Any]:
         
         # url = ID.decrypt(product_id)
+        # url = self.shortener.enlarge_url(product_id)
         
         if source == "jiji":
             return await self.get_jiji_product(url)
@@ -278,14 +261,14 @@ class EcommerceWebScraper:
                 "name": "Jiji Product Detail Schema",
                 "baseSelector": ".b-advert-seller-info-wrapper",
                 "fields": [
-                    {
-                        "name": "product_basic_info",
-                        "selector": ".b-advert-seller-info-wrapper",
-                        "type": "nested",
-                        "fields": [
+                            {
+                                "name": "product_basic_info",
+                                "selector": ".b-advert-seller-info-wrapper",
+                                "type": "nested",
+                                "fields": [
                             {
                                 "name": "name",
-                                "selector": ".b-advert-title-inner.qa-advert-title",
+                                "selector": "h1.qa-advert-title",  # Fixed: Removed erroneous .h1 class selector
                                 "type": "text"
                             },
                             {
@@ -295,22 +278,22 @@ class EcommerceWebScraper:
                             },
                             {
                                 "name": "images",
-                                "selector": ".VueCarousel-inner .VueCarousel-slide",  # Target all slides in carousel
+                                "selector": "img.qa-carousel-slide", # // Direct image selector
                                 "type": "list",
                                 "fields": [
                                     {
                                         "name": "url",
-                                        "selector": "picture source",  # Target the webp source
+                                        "selector": "img", # // Simplified selector
                                         "type": "attribute",
-                                        "attribute": "srcset"
+                                        "attribute": "src" # // Use src instead of srcset for direct URL
                                     },
                                     {
                                         "name": "alt",
-                                        "selector": "img.b-slider-image.qa-carousel-slide",
+                                        "selector": "img",
                                         "type": "attribute",
                                         "attribute": "alt",
                                         "optional": True
-                                    },   
+                                    }
                                 ]
                             },
                         ]

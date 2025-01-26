@@ -49,44 +49,12 @@ class DashBoardStat(BaseModel):
 class Product(ProductResponse):
     product_id: str = Field(serialization_alias="productId", alias="id")
 
-# class ProductIn(ProductDetail):
-#     class Config:
-#         model_config = {
-#             "from_attributes": True,
-#             "exclude": {
-#                 "product_id",
-#                  "date_added", 
-#                  "rating_count", 
-#                  "reviews", 
-#                  "reviews_count", 
-#                  "stock", 
-#                  "is_free_shipping", 
-#                  "is_official_store", 
-#                  "is_pay_on_delivery", 
-#                  "express_delivery",
-#                  "categories",
-#                  "description",
-#                  "images",
-#                  "seller",
-#                  "original_price",
-#                  },
-#         }
 
 class TrackItemIn(BaseModel):
     productId: str
     targetPrice: float
     product: ProductDetail
 
-# class TrackProduct(BaseModel):
-#     current_price: float
-#     url: str
-#     image: str
-#     name: str
-#     source: str
-#     brand: str
-#     reviews_count:int
-#     discount: float
-#     specifica
 
 class TrackedItemOut(BaseModel):
     id:  str

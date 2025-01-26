@@ -1,7 +1,13 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 
-from agents import copilot_agent_graph, web_agent_graph, insights_agent_graph
-from _websockets.schema import WebSocketMessage, FileMessage
+from agents import (
+    copilot_agent_graph,
+    web_agent_graph, 
+    insights_agent_graph,
+    filter_agent,
+    )
+from _websockets.schema import WebSocketMessage, RequestWebsockets
+# from api.product.services import filter_products
 from db._appwrite.session import appwrite_session_manager
 from utils.websocket import WebSocketManager
 from api.chat.model import File
@@ -128,6 +134,7 @@ class ConnectionManager:
         user_id: str
         ):
         websocket_id = self.websocket_manager.add_connection(websocket)
+
         ws_message = data.data
         session_id = await self.start_session(user_id, data)
 
@@ -155,13 +162,27 @@ class ConnectionManager:
                 }
             }
 
-        
         if data.focus_mode == "copilot":
             await self.copilot_mode(processing_config, state, websocket)
         elif data.focus_mode == "insights":
             await self.insights_mode(processing_config, state, websocket)
         elif data.focus_mode == "all":
             await self.QA_mode(processing_config, state, websocket)
+
+
+    async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str) -> List[Dict[str, Any]]:
+        websocket_id = self.websocket_manager.add_connection(websocket)
+        results, ai_response = await filter_agent(data.data.message, data.data.currentProducts, data.data.currentFilters)
+
+        await self.websocket_manager.send_json(
+            websocket_id,
+            {
+            "type": "FILTER_RESPONSE",
+            "filters": results,
+            "aiResponse": ai_response
+            }
+        )
+
         
 
     async def process_content(self, file_ids: List[str], session_id: str, content: str):

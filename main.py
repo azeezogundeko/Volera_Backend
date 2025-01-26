@@ -1,4 +1,3 @@
-import subprocess
 from contextlib import asynccontextmanager
 
 from config import PORT, DB_PATH

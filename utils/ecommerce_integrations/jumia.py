@@ -494,10 +494,10 @@ class JumiaIntegration(ScrapingIntegration):
             product_list = []
             
             for product in products:
-                product_id = self.generate_id()
+                url = f"{self.base_url}{product.get('url', '')}"
+                product_id = self.generate_url_id(url)
                 product_info = {
                     "product_id": product_id,
-
                     'category': product.get('categories', '')[0],
                     'name': product.get('displayName', ''),
                     'brand': product.get('brand', ''),
@@ -507,7 +507,7 @@ class JumiaIntegration(ScrapingIntegration):
                     'rating': product.get('rating', {}).get('average', ''),
                     'rating_count': product.get('rating', {}).get('totalRatings', ''),
                     'image': product.get('image', ''),
-                    'url': f"{self.base_url}{product.get('url', '')}",
+                    'url': url,
                     'source': self.name
                 }
                 product_list.append(product_info)

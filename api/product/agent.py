@@ -2,8 +2,8 @@ from pydantic_ai import Agent
 
 from .prompt import query_system_prompt
 from pydantic import BaseModel, Field, field_validator
-from schema import GeminiDependencies, GroqDependencies
-from typing import List, Any, Literal, Optional
+from schema import GeminiDependencies #, GroqDependencies
+# from typing import List, Any, Literal, Optional
 
 
 class Sort(BaseModel):

@@ -107,6 +107,7 @@ async def list_products(
     # Create a cache key that includes both query and site
     cache_key = f"{query}_{site}"
     product_id = ecommerce_manager.generate_product_id(cache_key)
+    cache_results = None
     
     # Check cache first using the combined cache key
     if not bypass_cache:
@@ -304,7 +305,7 @@ async def save_product(product: ProductDetail, user: UserIn):
 
     # if is_wishlist:
 
-    wishlist = await WishList.get_or_create(
+    wishlist = await WishList.create(
         WishList.get_unique_id(),
         {"user_id": user.id, "product_id": product.id}
     )

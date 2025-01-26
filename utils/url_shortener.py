@@ -1,10 +1,13 @@
 import diskcache as dc
 import secrets
 import string
+from typing import Optional
+
+from config import URL_CACHE_DIR
 
 
 class URLShortener:
-    def __init__(self, cache_dir='url_cache'):
+    def __init__(self, cache_dir=URL_CACHE_DIR):
         self.cache = dc.Cache(cache_dir)
         self.code_length = 6
         self.expiration = 30 * 24 * 60 * 60  # 30 days in seconds
@@ -25,7 +28,7 @@ class URLShortener:
             if self.cache.add(short_code, url, expire=self.expiration):
                 return short_code
 
-    def enlarge_url(self, short_code):
+    def enlarge_url(self, short_code) -> Optional[str]:
         """
         Retrieves the original URL for a given short code.
         
@@ -53,13 +56,12 @@ class URLShortener:
         """
         self.cache.close()
 
-
 # Example usage
 if __name__ == "__main__":
     shortener = URLShortener()
     
     # Shorten a URL
-    short_code = shortener.shorten_url("369779069")
+    short_code = shortener.shorten_url("https://www.example.com/very/long/url")
     print(f"Short code: {short_code}")
     
     # Enlarge a URL

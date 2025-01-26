@@ -30,6 +30,9 @@ DB_DIR = Path("data/db")
 DB_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DB_DIR / "cache"
 
+URL_CACHE_DIR = Path("data/url_cache")
+URL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
 class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))
