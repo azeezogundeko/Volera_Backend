@@ -138,4 +138,6 @@ async def test_scrape(
     source: str
 ):
     scraper = EcommerceWebScraper()
-    return await scraper.get_product_details(url, source)
+    results = await scraper.get_product_details(url, source)
+    print(results)
+    return results

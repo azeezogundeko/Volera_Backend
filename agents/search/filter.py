@@ -1,16 +1,24 @@
 from typing import List, Dict, Any
 
 from schema import GeminiDependencies
-# from api.product.schema import ProductResponse
 from .prompts import filter_agent_prompt
+from api.track.scrape import scraper
+from ..tools.google import google_search
 
 from pydantic_ai import Agent
-from pydantic import Field
+from pydantic import Field, BaseModel
+
 
 class FilterSchema(BaseModel):
     product_ids: List[str]
     ai_response: str = Field(description="The Filter Agent response")
 
+
+async def get_product_details(product_id: str, source: str):
+    return await scraper.get_product_details(product_id, source)
+
+async def search_product_informaton(query: str): 
+    return await google_search.search(query)
 
 agent = Agent(
     model="gemini-1.5-flash",
@@ -18,23 +26,21 @@ agent = Agent(
     name="Filter Agent",
     result_type=FilterSchema,
     system_prompt=filter_agent_prompt,
+    tools=[get_product_details, search_product_informaton]
 )
+
 
 async def filter_agent(user_query: str, products: List[Dict[str, Any]], current_filters)-> List[Dict[str, Any]]:
     query = f""""
                     User Query: {user_query}
                     \n\n
-
                     +++++++++++++++++++++++++++++++++++++++++++++
-
                     Current Filters: {current_filters}
-
                     +++++++++++++++++++++++++++++++++++++++++++++
-
                     \n\n
-
                     Product Database: {products}
-                    """
+                """
+
     response = await agent.run(query)
     product_ids = response.data.product_ids
     results = []
@@ -42,5 +48,4 @@ async def filter_agent(user_query: str, products: List[Dict[str, Any]], current_
         for product in products:
             if product["product_id"] == id: 
                 results.append(product)
-
     return results, response.data.ai_response

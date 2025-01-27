@@ -63,6 +63,12 @@ async def handle_websocket_messages(websocket: WebSocket, user_id: str):
             if raw_data["type"] == "FILTER_REQUEST":
                 data = RequestWebsockets(**raw_data)
                 await manager.filter_mode(data, websocket, user_id)
+
+            elif raw_data["type"] == "PRODUCT_DETAILS_REQUEST":
+                data = RequestWebsockets(**raw_data)
+                await manager.detail_mode(data, websocket, user_id)
+
+                
             else:
                 data = WebSocketMessage(**raw_data)
                 await manager.handle_message(data, websocket, user_id)

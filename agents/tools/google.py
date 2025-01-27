@@ -292,3 +292,5 @@ if __name__ == "__main__":
         print("Shopping search results:", json.dumps(shopping_results, indent=2))
     
     asyncio.run(test_search())
+
+google_search = GoogleSearchTool()

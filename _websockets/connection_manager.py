@@ -178,10 +178,14 @@ class ConnectionManager:
             websocket_id,
             {
             "type": "FILTER_RESPONSE",
+            "data": {
             "filters": results,
             "aiResponse": ai_response
-            }
+            }}
         )
+
+    async def detail_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str):
+        websocket_id = self.websocket_manager.add_connection(websocket)
 
         
 
@@ -209,9 +213,6 @@ class ConnectionManager:
                 """ 
         except Exception as e:
             logger.error(f"Error processing image: {e}")
-
-        
-        
 
         return content
 
