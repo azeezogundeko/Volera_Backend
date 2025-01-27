@@ -1,4 +1,4 @@
-from tabnanny import verbose
+from urllib.parse import urlparse
 from typing import TypeVar, Any, Dict, Union, List
 from json import loads, dump
 
@@ -85,7 +85,7 @@ class EcommerceWebScraper:
                     }
                     for img in basic_info.get("images", [])
                 ],
-                "source": "jumia",
+                "source": "Jumia",
                 "rating": self._clean_rating(basic_info.get("rating", "0")),
                 "rating_count": self._clean_rating_count(basic_info.get("reviews_count", "")),
                 "seller": {
@@ -130,7 +130,7 @@ class EcommerceWebScraper:
                     }
                     for img_path in hit.get("image_paths", [])
                 ],
-                "source": "konga",
+                "source": "Konga",
                 "rating": self._clean_rating(hit.get("rating", {}).get("average_rating", 0)),
                 "rating_count": hit.get("rating", {}).get("count", 0),
                 "seller": {
@@ -208,7 +208,7 @@ class EcommerceWebScraper:
             "description": description_from_meta,
             "original_price": 0.0,
             "images": images,
-            "source": "jiji",
+            "source": "Jiji",
             "rating": 0,  
             "rating_count": 0, 
             "seller": {
@@ -298,24 +298,32 @@ class EcommerceWebScraper:
 
         # return extracted_content
 
-
+    def extract_source(self, url) -> str:
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+       
+        # Identify the source based on the domain
+        if "jumia.com.ng" in domain:
+            return "jumia"
+        elif "jiji.ng" in domain:
+            return "jiji"
                 
 
     async def get_product_details(
         self,
         product_id: str,
-        source: str,
     ) -> Dict[str, Any]:
         
         # url = ID.decrypt(product_id)
         url = self.shortener.enlarge_url(product_id)
+        source = self.extract_source(url)
         
         if source == "jiji":
             return await self.get_jiji_product(url, product_id)
         elif source == "jumia":
             return await self.get_jumia_product(url, product_id)
-        elif source == "konga":
-            return await self.get_konga_product(url)
+        
+        return await self.get_konga_product(url)
 
     def _clean_specifications(self, specifications: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Clean and format specifications data."""

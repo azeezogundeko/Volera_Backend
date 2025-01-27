@@ -6,6 +6,7 @@ from . import services
 from .agent import query_agent
 from .schema import ProductResponse, ProductDetail, WishListProductSchema, SearchRequest
 from ..auth.schema import UserIn
+from ..track.scrape import scraper
 from ..auth.services import get_current_user
 from .model import Product, WishList
 from utils.logging import logger
@@ -88,6 +89,15 @@ async def get_product_detail(
         bypass_cache=bypass_cache,
         ttl=ttl
     )
+    if product is None:
+        try:
+            product = await Product.read(product_id)
+        except AppwriteException:
+            try:
+                product = await scraper.get_product_details(product_id)
+            except Exception as e:
+                logger.error(str(e), exc_info=True)
+                raise HTTPException(404, "Failed to Search")
     return product
 
 @router.get("/trending-products", response_model=List[ProductResponse])

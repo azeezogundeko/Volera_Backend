@@ -14,8 +14,8 @@ class FilterSchema(BaseModel):
     ai_response: str = Field(description="The Filter Agent response")
 
 
-async def get_product_details(product_id: str, source: str):
-    return await scraper.get_product_details(product_id, source)
+async def get_product_details(product_id: str):
+    return await scraper.get_product_details(product_id)
 
 async def search_product_informaton(query: str): 
     return await google_search.search(query)

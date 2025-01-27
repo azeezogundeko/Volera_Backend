@@ -134,17 +134,17 @@ class EcommerceManager:
             list_product = await self.db_manager.get(product_id, tag="list")
             if not list_product:
                 logger.error(f"Product {product_id} not found in cache")
-                return {}
+                return None
 
             product_url = list_product.get("url")
             if not product_url:
                 logger.error(f"Product URL not found for {product_id}")
-                return {}
+                return None
 
             integration = self.get_integration_for_url(product_url)
             if not integration:
                 logger.error(f"No integration found for product URL: {product_url}")
-                return {}
+                return None
             
             product = await integration.get_product_detail(
                 url=product_url,
@@ -158,11 +158,10 @@ class EcommerceManager:
                     value=product,
                     tag="detail",
                 )
-                print(type(product))
                 return product
             
-            return {}
+            return None
             
         except Exception as e:
             logger.error(f"Error getting product detail for {product_id}: {str(e)}", exc_info=True)
-            return {}
+            return None
