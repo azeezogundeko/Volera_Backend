@@ -6,6 +6,7 @@ from agents import (
     insights_agent_graph,
     filter_agent,
     response_agent,
+    comparison_agent,
     )
 from _websockets.schema import WebSocketMessage, RequestWebsockets
 # from api.product.services import filter_products
@@ -191,6 +192,13 @@ class ConnectionManager:
         query = data["query"]
         product = data["product"]
         await response_agent(websocket_id, query, product)
+
+    async def compare_mode(self, data: dict, websocket: WebSocket, user_id: str):
+        websocket_id = self.websocket_manager.add_connection(websocket)
+        data = data["data"]
+        query = data["query"]
+        products = data["products"]
+        await comparison_agent(websocket_id, query, products)
 
         
 

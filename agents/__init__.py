@@ -4,6 +4,7 @@ from .copilot.graph import copilot_agent_graph
 from .web.graph import web_agent_graph
 from .insights.graph import insights_agent_graph
 from .search.filter import filter_agent
+from .search.comparison import comparison_agent
 from .search.replier import response_agent
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "copilot_agent_graph",
     "filter_agent",
     "response_agent",
+    "comparison_agent",
 ]

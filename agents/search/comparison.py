@@ -1,8 +1,7 @@
-from typing import List, Dict, Any
 import asyncio
 
 from schema import GeminiDependencies
-from .prompts import replier_agent_prompt
+from .prompts import comparison_agent_prompt
 from ..tools.google import google_search
 
 from pydantic_ai import Agent
@@ -14,19 +13,19 @@ class ResponseSchema(BaseModel):
     ai_response: str = Field(description="The Agent response")
 
 
-async def search_product_informaton(query: str): 
+async def search_informaton(query: str): 
     return await google_search.search(query)
 
 agent = Agent(
     model="gemini-1.5-flash",
     deps_type=GeminiDependencies,
-    name="Response Agent",
+    name="Comparison Agent",
     result_type=ResponseSchema,
-    system_prompt=replier_agent_prompt,
-    tools=[search_product_informaton]
+    system_prompt=comparison_agent_prompt,
+    tools=[search_informaton]
 )
 
-async def response_agent(websocker_id, query, product): 
+async def comparison_agent(websocker_id, query, products): 
     message_history = []
     while True:
 
@@ -34,7 +33,7 @@ async def response_agent(websocker_id, query, product):
 
         USER QUESTION: {query}
 
-        PRODUCT IN QUESTION: {product}
+        PRODUCTS IN QUESTION: {products}
         
         """
 
@@ -44,9 +43,9 @@ async def response_agent(websocker_id, query, product):
         await websocket_manager.send_json(websocker_id,
         
         {
-            "type": "PRODUCT_DETAILS_RESPONSE", 
-            "aiResponse": response.data.ai_response,
-            "productId": product["product_id"]
+            "type": "COMPARE_RESPONSE", 
+            "message": response.data.ai_response,
+            "response": response.data.ai_response,
         })
 
         websocket = websocket_manager.get_websocket(websocker_id)
@@ -56,5 +55,5 @@ async def response_agent(websocker_id, query, product):
             break
         data = response["data"]
         query = data["query"]
-        product = data["product"]
+        products = data["products"]
     

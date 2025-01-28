@@ -141,7 +141,7 @@ class EcommerceWebScraper:
                 "features": [],  # Not available in list view
                 "reviews": [],  # Not available in list view
                 # "product_id": self.hash_id(f"{self.base_url}/product/{hit.get('url_key', '')}"),
-                "url": f"{self.base_url}/product/{hit.get('url_key', '')}",
+                "url": f"konga.com/product/{hit.get('url_key', '')}",
                 
                 # Additional Konga-specific fields
                 "sku": hit.get("sku", ""),

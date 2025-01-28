@@ -38,7 +38,7 @@ class ProductDetail(BaseModel):
     product_id: str
     name: Optional[str] = None
     brand: Optional[str] = None
-    categories: Optional[str] = None
+    category: Optional[str] = None
     currency: Optional[str] = "₦"
     description: Optional[str] = None
     current_price: Optional[float] = 0.0
