@@ -61,8 +61,13 @@ async def login(payload: LoginSchema):
    
 
     profile = await UserProfile.list(queries=[query.Query.equal("user_id", user.id)])
-    image_id = profile.avatar
+    profile = profile["documents"]
     image_data = None
+    if len(profile) == 0:
+        raise HTTPException(400, "User is not verified")
+
+    profile = profile[0]
+    image_id = profile.avatar
     if image_id:
         try:
             image_data = await UserProfile.get_file(image_id)
@@ -70,10 +75,11 @@ async def login(payload: LoginSchema):
             pass
 
     user = UserOut(
-        user_id=user.id,
+        id=user.id,
         email=user.email,
         first_name=first_name,
         last_name=last_name,
+        name= first_name + '_' + last_name,
         created_at=user.created_at,
         updated_at=user.updated_at,
         is_pro=is_pro,
