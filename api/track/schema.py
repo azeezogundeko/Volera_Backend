@@ -34,7 +34,7 @@ class TrackedItemSchema(BaseModel):
     
 
 class PriceHistorySchema(BaseModel):
-    timestamp: datetime
+    date: datetime
     price: float
 
 class DetailedTrackedItemSchema(BaseModel):

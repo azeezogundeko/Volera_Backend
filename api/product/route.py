@@ -92,6 +92,8 @@ async def get_product_detail(
     if product is None:
         try:
             product = await Product.read(product_id)
+            product = product.to_dict()
+            product["product_id"] = product.pop("$id")
         except AppwriteException:
             try:
                 product = await scraper.get_product_details(product_id)

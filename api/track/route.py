@@ -62,14 +62,14 @@ async def get_price_history(
         logger.error(e.message)
         return []
 
-@router.get("/price-history/{product_id}", response_model=List[PriceHistorySchema])
+@router.get("/price-history/{track_id}", response_model=List[PriceHistorySchema])
 async def get_price_history(
-    product_id: str, 
+    track_id: str, 
     user: UserIn = Depends(get_current_user)
     ):
     
     documents = await PriceHistory.list([
-        query.Query.equal("product_id", product_id), 
+        query.Query.equal("tracked_id", track_id), 
         query.Query.equal("user_id", user.id)
         ]
     )
@@ -109,17 +109,20 @@ async def get_tracked_items(
     return responses
 
 
-@router.get("/{product_id}", response_model=DetailedTrackedItemSchema)
-async def get_tracked_item(product_id: str, user: UserIn = Depends(get_current_user)):
-
-    tracked_item = await TrackedItem.read(product_id, [query.Query.equal("user_id", user.id)])
-    price_history = await PriceHistory.list(
-        [
-            query.Query.equal("product_id", product_id), 
-            query.Query.equal("user_id", user.id)
-            ]
-        )["documents"]
-    return {"tracked_item": tracked_item, "price_history": price_history}
+@router.get("/{track_id}", response_model=TrackedItemOut)
+async def get_tracked_item(track_id: str, user: UserIn = Depends(get_current_user)):
+    tracked_item = await TrackedItem.read(track_id)
+    product = await Product.read(tracked_item.product_id)
+    return {
+        "id": tracked_item.id,
+        "productId": tracked_item.product_id,
+        "product": product.to_dict(),
+        "targetPrice": tracked_item.target_price,
+        "currentPrice": tracked_item.current_price,
+        "dateAdded": tracked_item.created_at,
+        "notificationEnabled": tracked_item.notification_enabled,
+        "alertSent": tracked_item.alert_sent,
+   }
 
 
 @router.post("", response_model=TrackedItemSchema)
