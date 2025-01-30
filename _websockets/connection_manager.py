@@ -174,31 +174,23 @@ class ConnectionManager:
 
     async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str) -> List[Dict[str, Any]]:
         websocket_id = self.websocket_manager.add_connection(websocket)
-        results, ai_response = await filter_agent(data.data.message, data.data.currentProducts, data.data.currentFilters)
+        await filter_agent(websocket_id, data.data.message, user_id, data.data.currentProducts, data.data.currentFilters)
 
-        await self.websocket_manager.send_json(
-            websocket_id,
-            {
-            "type": "FILTER_RESPONSE",
-            "data": {
-            "filters": results,
-            "aiResponse": ai_response
-            }}
-        )
+        
 
     async def detail_mode(self, data: dict, websocket: WebSocket, user_id: str):
         websocket_id = self.websocket_manager.add_connection(websocket)
         data = data["data"]
         query = data["query"]
         product = data["product"]
-        await response_agent(websocket_id, query, product)
+        await response_agent(websocket_id, user_id, query, product)
 
     async def compare_mode(self, data: dict, websocket: WebSocket, user_id: str):
         websocket_id = self.websocket_manager.add_connection(websocket)
         data = data["data"]
         query = data["query"]
         products = data["products"]
-        await comparison_agent(websocket_id, query, products)
+        await comparison_agent(websocket_id, user_id, query, products)
 
         
 

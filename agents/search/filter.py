@@ -3,7 +3,9 @@ from typing import List, Dict, Any
 from schema import GeminiDependencies
 from .prompts import filter_agent_prompt
 from api.track.scrape import scraper
+from ..legacy.llm import track_llm_call, check_credits
 from ..tools.google import google_search
+from utils.websocket import websocket_manager
 
 from pydantic_ai import Agent
 from pydantic import Field, BaseModel
@@ -30,7 +32,7 @@ agent = Agent(
 )
 
 
-async def filter_agent(user_query: str, products: List[Dict[str, Any]], current_filters)-> List[Dict[str, Any]]:
+async def filter_agent(websocket_id, user_query: str, user_id, products: List[Dict[str, Any]], current_filters)-> List[Dict[str, Any]]:
     query = f""""
                     User Query: {user_query}
                     \n\n
@@ -41,11 +43,35 @@ async def filter_agent(user_query: str, products: List[Dict[str, Any]], current_
                     Product Database: {products}
                 """
 
+    has_credits =  await check_credits(user_id, "text")
+    if has_credits is False:
+        await websocket_manager.send_json(
+            websocket_id, {
+                "type": "ERROR",
+                "message": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊"
+            }
+        )
+
+        return
+
     response = await agent.run(query)
+    await track_llm_call(user_id, "gemini-1.5-flash", "text")
+
     product_ids = response.data.product_ids
     results = []
     for id in product_ids:
         for product in products:
             if product["product_id"] == id: 
                 results.append(product)
-    return results, response.data.ai_response
+
+    # return results, response.data.ai_response
+
+    await websocket_manager.send_json(
+            websocket_id,
+            {
+            "type": "FILTER_RESPONSE",
+            "data": {
+            "filters": results,
+            "aiResponse": response.data.ai_response
+            }}
+        )

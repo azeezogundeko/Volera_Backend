@@ -332,6 +332,16 @@ class AppwriteModelBase:
                             default=field.get("default", None),
                             array=field.get("array", None)
                             )
+                    elif field.get("type") == "int":
+                        await cls.client.create_integer_attribute(
+                            collection_id=cls.collection_id,
+                            key=field["key"],
+                            required=field.get("required", False),
+                            min=field.get("min", None),
+                            max=field.get("max", None),
+                            default=field.get("default", None),
+                            array=field.get("array", None)
+                            )
 
                     elif field.get("type") == "index":
                         await cls.client.create_index(
@@ -360,6 +370,7 @@ class AppwriteModelBase:
                             field["default"],
                             field["array"]
                         )
+                    
                     elif field.get("type") == "string":
                         await cls.client.create_string_attribute(
                             collection_id=cls.collection_id,

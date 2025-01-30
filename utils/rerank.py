@@ -150,6 +150,8 @@ class ReRanker:
         rerankrequest = RerankRequest(query=query, passages=docs)
         reranked = self.ranker.rerank(rerankrequest)
 
+        reranked = reranked[:k]
+
         print(f"Length of reranked: {len(reranked)}")   
 
         products = [

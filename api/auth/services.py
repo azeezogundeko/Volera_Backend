@@ -105,7 +105,7 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
     response = await asyncio.to_thread(user_db.create_argon2_user, **payload)
     await asyncio.to_thread(user_db.update_labels, user_id, ["users"])
     validation_code = generate_random_six_digit_number()
-    await asyncio.to_thread(user_db.update_prefs, user_id, {"validation_code": validation_code, "theme": "black", "notification": True})
+    await asyncio.to_thread(user_db.update_prefs, user_id, {"validation_code": validation_code, "theme": "black", "notification": True, "credits": 100})
 
     background_tasks.add_task(send_new_user_email, validation_code, payload["email"])
 

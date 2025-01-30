@@ -97,12 +97,12 @@ async def list_products(
     max_results: int = 5,
     bypass_cache: bool = False,
     page: int = 1,
-    limit: int = 40,
+    limit: int = 25,
     sort: Optional[Dict[str, Any]] = None,
     filters: dict = None
 ) -> List[Dict[str, Any]]:
     """Get product listings from supported e-commerce sites."""
-    
+    print(limit)
     
     # Create a cache key that includes both query and site
     cache_key = f"{query}_{site}"
@@ -119,13 +119,13 @@ async def list_products(
 
         if cache_results is not None:
             logger.info(f"Cache hit for query: {query}")
-            results = await reranker.rerank(query, cache_results, len(cache_results))
+            results = await reranker.rerank(query, cache_results, limit)
 
             # For site-specific cache, verify the source matches
             if site != "all":
                 results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
             
-            return post_process_results(page, limit, results, sort, filters)
+            return post_process_results(results, sort, filters)
 
     all_products = []
     
@@ -220,7 +220,7 @@ async def list_products(
     
     if successful_products:
         # Cache the successful results with the site-specific cache key
-        results = await reranker.rerank(query, successful_products, len(results))
+        results = await reranker.rerank(query, successful_products, limit)
         # await ecommerce_manager.db_manager.set(
         #     key=product_id,
         #     value=results,
@@ -231,14 +231,12 @@ async def list_products(
         except Exception as e:
             logger.error(e, exc_info=True)
         # return results
-        return post_process_results(page, limit, results, sort, filters)
+        return post_process_results(results, sort, filters)
     
     return []
 
 
 def post_process_results(
-    page,
-    limit,
     results: List[Dict[str, Any]], 
     sort: Optional[str] = None,
     filters: dict = None) -> List[Dict[str, Any]]:

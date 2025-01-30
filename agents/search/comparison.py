@@ -2,6 +2,7 @@ import asyncio
 
 from schema import GeminiDependencies
 from .prompts import comparison_agent_prompt
+from ..legacy.llm import check_credits, track_llm_call
 from ..tools.google import google_search
 
 from pydantic_ai import Agent
@@ -25,7 +26,7 @@ agent = Agent(
     tools=[search_informaton]
 )
 
-async def comparison_agent(websocker_id, query, products): 
+async def comparison_agent(websocker_id,user_id, query, products): 
     message_history = []
     while True:
 
@@ -36,6 +37,18 @@ async def comparison_agent(websocker_id, query, products):
         PRODUCTS IN QUESTION: {products}
         
         """
+
+        has_credits =  await check_credits(user_id, "text")
+        if has_credits is False:
+            await websocket_manager.send_json(websocker_id,
+        
+            data={
+                "type": "ERROR", 
+                "message": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊",
+                # "response": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊"
+            })
+            break
+
 
         response = await agent.run(query, message_history=message_history)
         message_history = message_history + response.new_messages()

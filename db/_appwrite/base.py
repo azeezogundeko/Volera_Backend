@@ -180,6 +180,20 @@ class AsyncAppWriteClient:
                 array
             )
 
+    async def create_integer_attribute(
+        self, collection_id, key, required, min=None, max=None, default=None, array=None):
+            return await self._run_in_executor(
+                self.database.create_integer_attribute,
+                self.database_id,
+                collection_id,
+                key,
+                required,
+                min,
+                max,
+                default,
+                array
+            )
+
     async def update_document(
         self, collection_id: str, document_id: str, document_data: Dict[str, Any]) -> Dict[str, Any]:
         return await self._run_in_executor(

@@ -1,4 +1,5 @@
 # from abc import ABC
+from datetime import datetime, timezone
 from typing import Literal, TypeVar, Optional, List
 
 from ..config import agent_manager
@@ -21,6 +22,7 @@ from schema.validations.agents_schemas import(
     WebSchema,
     )
 
+from .llm import check_credits, track_llm_call
 from ..state import State
 from config import DB_PATH
 from utils.websocket import WebSocketManager, ImageMetadata, ProductSchema, SourceMetadata
@@ -29,11 +31,15 @@ from utils.ecommerce_manager import EcommerceManager
 from schema.dataclass.decourator import extract_agent_results
 # from utils.db_manager import ProductDBManager
 from db.cache.dict import DiskCacheDB
+from schema.validations.agents_schemas import BaseSchema
 
 from pydantic_ai import Agent
 from langgraph.types import Command
+
 from pydantic_ai.result import RunResult
-from schema.validations.agents_schemas import BaseSchema
+from pydantic_ai.tools import AgentDeps
+from pydantic_ai import models, messages as _messages
+from pydantic_ai.settings import ModelSettings
 
 BaseSchemaType = TypeVar('BaseSchemaType', bound=BaseSchema)
 
@@ -50,6 +56,7 @@ class BaseAgent:
     ):
         self.timeout = timeout
         self.agent_name = name
+        self.model = model
         self.background_task = background_task
         
         self.websocket_manager = WebSocketManager()
@@ -162,6 +169,43 @@ class BaseAgent:
         )
         state["message_data"] = message_data
 
+    async def call_llm(
+        self, 
+        user_id: str, 
+        user_prompt: str,
+        type: str,
+        message_history: list[_messages.ModelMessage] | None = None,
+        model: models.Model | models.KnownModelName | None = None,
+        deps: AgentDeps = None,
+        model_settings: ModelSettings | None = None,
+        infer_name: bool = True) -> RunResult:
+            
+        if check_credits(user_id, type) is False:
+            raise 
+            
+        tokens = {}
+            
+        result =  await self.llm.run(
+            user_prompt=user_prompt,
+            message_history=message_history,
+            model=model,
+            deps=deps,
+            infer_name=infer_name,
+            model_settings=model_settings        
+        )
+
+        cost = result.cost()
+        tokens["input_tokens"] = cost.request_tokens
+        tokens["output_tokens"] = cost.response_tokens
+        tokens["total_tokens"] = cost.total_tokens
+
+        await track_llm_call(user_id, self.model, type, tokens)
+
+        return result
+
+    
+
+
 
     @extract_agent_results
     async def run(self) -> RunResult:
@@ -223,141 +267,3 @@ class BaseAgent:
 
 
 
-
-
-
-
-
-def create_meta_agent(prompt)-> Agent:
-    return Agent(
-            name=agent_manager.meta_agent,
-            retries=3,
-            system_prompt=prompt,
-            model="gemini-1.5-flash",
-            deps_type=GeminiDependencies,
-            result_type=MetaAgentSchema,
-        )
-
-def create_planner_agent()-> Agent:
-    return Agent(
-            name=agent_manager.planner_agent,
-            retries=3,
-            system_prompt=planner_agent_prompt,
-            model="gemini-2.0-flash-exp",
-            deps_type=GeminiDependencies,
-            result_type=PlannerAgentSchema,
-        )
-def create_copilot_agent(prompt)-> Agent:
-    return Agent(
-            name=agent_manager.copilot_mode,
-            retries=3,
-            system_prompt=prompt,
-            model="gemini-2.0-flash-exp",
-            deps_type=GeminiDependencies,
-            result_type=FeedbackResponseSchema,
-        )
-
-def create_search_agent():
-    return Agent(
-                name=agent_manager.search_agent,
-                retries=3,
-                system_prompt=search_agent_prompt,
-                model="gemini-1.5-flash",
-                deps_type=GeminiDependencies,
-                result_type=SearchAgentSchema
-            )
-
-def create_insights_agent(prompt):
-    return Agent(
-                name=agent_manager.insights_agent,
-                retries=3,
-                system_prompt=prompt,
-                model="groq:llama3-groq-70b-8192-tool-use-preview",
-                deps_type=GroqDependencies,
-                result_type=InsightsSchema
-            )
-
-def create_policy_agent()-> Agent:  
-    return Agent(
-            name=agent_manager.policy_agent,
-            retries=3,
-            system_prompt=policy_assistant_prompt,
-            model="groq:llama3-70b-8192",
-            deps_type=GroqDependencies,
-            result_type=PolicySchema
-        )
-
-def create_human_agent(prompt)-> Agent:  
-    return Agent(
-            name=agent_manager.human_node,
-            retries=3,
-            system_prompt=prompt,
-            model="gemini-1.5-flash",
-            deps_type=GeminiDependencies,
-            result_type=HumanSchema
-        )
-
-# writer_agent = Agent(
-#             name=agent_manager.meta_agent,
-#             retries=3,
-#             system_prompt=insights_prompt,
-#             model=model,
-#             deps_type=...,
-#         )
-
-
-def create_reviewer_agent(prompt)-> Agent:
-    return Agent(
-        name=agent_manager.reviewer_agent,
-        retries=3,
-        system_prompt=prompt,
-        model="groq:llama3-70b-8192",
-        deps_type=GroqDependencies,
-        result_type=ReviewerSchema
-    )
-
-def create_web_agent(prompt)-> Agent:
-    return Agent(
-        name=agent_manager.reviewer_agent,
-        retries=3,
-        system_prompt=prompt,
-        model="groq:llama3-70b-8192",
-        deps_type=GroqDependencies,
-        result_type=WebSchema
-    )
-
-def create_writer_agent(prompt)-> Agent:
-    return Agent(
-        name=agent_manager.writer_agent,
-        retries=3,
-        system_prompt=prompt,
-        model="gemini-2.0-flash-exp",
-        deps_type=GeminiDependencies,
-        result_type=ReviewerSchema
-    )
-
-# shop_agent = Agent(
-#             name=agent_manager.meta_agent,
-#             retries=3,
-#             system_prompt="",
-#             model=model,
-#             deps_type=...,
-#         )
-
-# memory_agent = Agent(
-#             name=agent_manager.meta_agent,
-#             retries=3,
-#             system_prompt="",
-#             model=model,
-#             deps_type=...,
-#         )
-
-def create_comparison_agent(prompts)-> Agent:
-    return Agent(
-        name=agent_manager.comparison_agent,
-        retries=3,
-        system_prompt=prompts,
-        model="groq:llama3-70b-8192",
-        deps_type=GroqDependencies,
-        result_type=ComparisonSchema
-    )
