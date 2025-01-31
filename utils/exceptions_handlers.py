@@ -1,5 +1,7 @@
 from fastapi.exceptions import RequestValidationError
+from fastapi import status
 from fastapi.responses import JSONResponse
+from .exceptions import PaymentRequiredError
 
 async def validation_exception_handler(request, exc):
     if isinstance(exc, RequestValidationError):
@@ -16,7 +18,7 @@ async def validation_exception_handler(request, exc):
             status_code=400,
             content={
                 "status": "error",
-                "message": str(exc)  # Convert ValueError to string
+                "message":"Bad Request"  # Convert ValueError to string
             }
         )
     return JSONResponse(
@@ -26,3 +28,12 @@ async def validation_exception_handler(request, exc):
             "message": "Internal server error"
         }
     )
+
+
+async def payment_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        content={"message": str(exc), "error": str(exc)},
+    )
+
+    # if isinstance(exc, PaymentRequiredError):

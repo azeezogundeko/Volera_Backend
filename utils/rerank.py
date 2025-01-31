@@ -9,7 +9,7 @@ from typing import List
 
 
 # from .prompt import information_extractor_prompt
-from .decorator import async_retry
+# from .decorator import async_retry
 from .logging import logger
 
 import httpx
@@ -150,7 +150,7 @@ class ReRanker:
         rerankrequest = RerankRequest(query=query, passages=docs)
         reranked = self.ranker.rerank(rerankrequest)
 
-        reranked = reranked[:k]
+        # reranked = reranked[:k]
 
         print(f"Length of reranked: {len(reranked)}")   
 

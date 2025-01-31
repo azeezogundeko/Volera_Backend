@@ -1,6 +1,6 @@
 import random
 import asyncio
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime, timedelta, timezone
 import hashlib
 
@@ -11,6 +11,7 @@ from .model import UserProfile, UserPreferences
 from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from .schema import UserIn, TokenData, UserOut
 from .schema_in import ProfileSchema, UserCreate
+from agents.legacy.llm import check_credits, track_llm_call
 
 from utils.emails import send_new_user_email
 
@@ -57,8 +58,8 @@ def decode_access_token(token: str) -> dict:
 
 async def get_user(email: str) -> Optional[UserIn]:
     try:
-        hashed_email = hash_email(email)
-        user = await asyncio.to_thread(user_db.get, hashed_email)
+        user_id = hash_email(email)
+        user = await asyncio.to_thread(user_db.get, user_id)
         
         return UserIn(**user)
     except AppwriteException:
@@ -71,9 +72,19 @@ async def authenticate_user(email: str, password: str) -> Optional[UserIn]:
         return None
     return user
 
+async def credit_check(amount: int):
+    async def dependency(current_user: UserIn = Depends(get_current_user)):
+        credits = await check_credits(current_user.id, "amount", amount)
+        if credits is False:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires {amount} credits to access this resource"
+            )
+        return current_user
+    return Depends(dependency)
 
 # Dependency to get current user
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
+async def   get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
     try:
         payload = decode_access_token(token)
         email: str = payload.get("sub")

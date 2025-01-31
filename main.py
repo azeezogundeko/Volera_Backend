@@ -1,18 +1,22 @@
 from contextlib import asynccontextmanager
+from asyncio import create_task
 
 from config import PORT, DB_PATH
 from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
 from db._appwrite.db_register import prepare_database, WaitList
-from api.auth.services import get_current_user, hash_email
-from api import chat_router, auth_router, product_router, track_router
+from api.auth.services import hash_email
+from api import chat_router, auth_router, product_router, track_router, queue_worker
 
 from utils.logging import logger
+from utils.queue import PRIORITY_LEVELS
+from utils.middleware import AuthenticationMiddleware
 from utils._craw4ai import CrawlerManager
 from utils.background import background_task
 from utils.request_session import http_client
 from utils.emails import send_waitlist_email
-from utils.exceptions_handlers import validation_exception_handler
+from utils.exceptions import PaymentRequiredError
+from utils.exceptions_handlers import validation_exception_handler, payment_exception_handler
 
 import uvicorn
 from fastapi import FastAPI, Request, Body
@@ -59,6 +63,10 @@ async def lifespan(app: FastAPI):
         await store.initialize()
         stats = await db_cache.get_stats()
         logger.info(f"Initial cache stats: {stats}")
+
+        for level in range(PRIORITY_LEVELS):
+            create_task(queue_worker(level))
+    
         
         yield
         
@@ -90,7 +98,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# app.add_middleware(AuthenticationMiddleware)
+
+app.add_middleware(AuthenticationMiddleware)
 
 app.include_router(chat_router, prefix="/api/chats", tags=["chat"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -149,6 +158,10 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
 @app.exception_handler(RequestValidationError)
 async def validation_exception(request: Request, exc: RequestValidationError):
     return await validation_exception_handler(request, exc)
+
+@app.exception_handler(PaymentRequiredError)
+async def payment_exception(request: Request, exc: PaymentRequiredError):
+    return await payment_exception_handler(request, exc)
     
 if __name__ == "__main__":
     logger.info("Starting FastAPI server.")

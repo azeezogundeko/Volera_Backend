@@ -43,7 +43,7 @@ async def filter_agent(websocket_id, user_query: str, user_id, products: List[Di
                     Product Database: {products}
                 """
 
-    has_credits =  await check_credits(user_id, "text")
+    has_credits, credits =  await check_credits(user_id, "text")
     if has_credits is False:
         await websocket_manager.send_json(
             websocket_id, {
@@ -55,7 +55,7 @@ async def filter_agent(websocket_id, user_query: str, user_id, products: List[Di
         return
 
     response = await agent.run(query)
-    await track_llm_call(user_id, "gemini-1.5-flash", "text")
+    await track_llm_call(user_id, "text")
 
     product_ids = response.data.product_ids
     results = []

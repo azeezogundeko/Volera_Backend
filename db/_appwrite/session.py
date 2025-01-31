@@ -1,14 +1,14 @@
 # from asyncio import gather
 from asyncio import gather
 from typing import Dict, Any, Literal, Optional, List
-from datetime import datetime, timezone
+# from datetime import datetime, timezone
 
 
-from api.chat.model import Message, File, Chat #, MessageImage
 
-from .base import async_appwrite
+from api.chat.model import Message,  Chat #, MessageImage
+# from .base import async_appwrite
 from utils.logging import logger
-from utils.websocket import ImageMetadata, SourceMetadata, ProductSchema
+# from utils.websocket import ImageMetadata, SourceMetadata, ProductSchema
 # from typing import TypedDict
 
 from pydantic import BaseModel

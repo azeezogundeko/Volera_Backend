@@ -15,7 +15,7 @@ class LLMCall(AppwriteModelBase):
 
 import asyncio
 
-async def check_credits(user_id: str, type: str) -> bool:
+async def check_credits(user_id: str, type: str, amount: int = None) -> bool:
     """
     Checks if the user has enough credits and deducts the required amount.
 
@@ -23,27 +23,27 @@ async def check_credits(user_id: str, type: str) -> bool:
     :param type: The type of request ("text" or "image").
     :return: True if the user has enough credits, otherwise False.
     """
-    cost_map = {"text": 5, "image": 10}
+    cost_map = {"text": 5, "image": 10, "amount": amount}
     cost = cost_map.get(type)
 
     if cost is None:
-        raise ValueError("Invalid type. Must be 'text' or 'image'.")
+        raise ValueError("Invalid type. Must be 'text' or 'image' or 'amount'.")
 
     # Fetch user preferences (credits balance)
     user_pref = await asyncio.to_thread(user_db.get_prefs, user_id)
     credits = user_pref.get("credits", 0)  # Default to 0 if not found
  
     if int(credits) < cost:
-        return False  # Not enough credits
+        return False, credits
 
     # # Deduct credits
     # new_credits = credits - cost
     # await asyncio.to_thread(user_db.update_prefs, user_id, {"credits": new_credits})
 
-    return True  # Sufficient credits and deduction successful
+    return True, credits  # Sufficient credits and deduction successful
 
 
-async def track_llm_call(user_id: str, model: str, type: str, tokens: dict = None) -> None:
+async def track_llm_call(user_id: str, type: str, amount=None, tokens: dict = None) -> None:
     """
     Tracks an LLM call, logs usage details, and deducts user credits.
 
@@ -53,7 +53,7 @@ async def track_llm_call(user_id: str, model: str, type: str, tokens: dict = Non
     :param tokens: A dictionary containing token usage details.
     """
 
-    cost_map = {"text": 5, "image": 10}
+    cost_map = {"text": 5, "image": 10, "amount": amount}
     cost = cost_map.get(type)
 
     if cost is None:
@@ -63,7 +63,7 @@ async def track_llm_call(user_id: str, model: str, type: str, tokens: dict = Non
 
     data = {
         "user_id": user_id,
-        "model_name": model,
+        # "model_name": model,
         "input_tokens": tokens.get("input_tokens", 0),
         "output_tokens": tokens.get("output_tokens", 0),
         "total_tokens": tokens.get("total_tokens", 0),

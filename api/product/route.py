@@ -1,4 +1,5 @@
 from typing import List, Optional, Literal
+import time
 
 from appwrite.client import AppwriteException
 
@@ -9,13 +10,17 @@ from ..auth.schema import UserIn
 from ..track.scrape import scraper
 from ..auth.services import get_current_user
 from .model import Product, WishList
+
 from utils.logging import logger
+from utils.decorator import credit_required
+from utils.queue import processing_semaphore, determine_priority, request_queues,  QUEUE_TIMEOUT, limiter
 from utils.image import image_analysis, get_product_prompt, IMAGE_DESCRIPTION_PROMPT
 
 from appwrite import query
-from fastapi import APIRouter, Query, Request, Depends, Body
+from fastapi import APIRouter, Query, Request, Depends, Body, status
 from fastapi.exceptions import HTTPException
 import asyncio
+
 
 
 router = APIRouter()
@@ -27,58 +32,122 @@ async def save_product(product: ProductDetail, user: UserIn = Depends(get_curren
 
 
 @router.post("/search", response_model=List[ProductResponse])
+@limiter.limit(times=100, minutes=1) 
+@credit_required(10)
 async def search_products(
     request: Request,
-    payload: SearchRequest = Depends(),
-    
+    payload: SearchRequest = Depends()
 ):
-  
-    "" "Search for products across supported e-commerce sites."""
-    query = payload.query
-    sort=None
-    filter = None
-    if payload.images is not None:
-        image_data = await asyncio.gather(*(image.read() for image in payload.images))
-        description = await image_analysis(
-            image_data,
-            get_product_prompt(query, 
-            IMAGE_DESCRIPTION_PROMPT)
-            )
-        logger.info(f"Image analysis result: {query}")
-
-
-        query = f"""
-        USER QUERY: {query}
-
-        IMAGE DESCRIPTIONS: {description}
-        
-        """
-
+    """Optimized search endpoint with queueing and prioritization"""
     try:
+        # Try immediate processing
+        if processing_semaphore.locked():
+            priority = determine_priority(request.state.user)
+            response_channel = asyncio.Queue(maxsize=1)
+            
+            if request_queues[priority].full():
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Queue overflow"
+                )
+                
+            await request_queues[priority].put({
+                "request": request,
+                "payload": payload,
+                "response_channel": response_channel,
+                "timestamp": time.time()
+            })
+            
+            try:
+                result = await asyncio.wait_for(
+                    response_channel.get(),
+                    timeout=QUEUE_TIMEOUT
+                )
+                if "error" in result:
+                    raise HTTPException(500, result["error"])
+                return result
+            except asyncio.TimeoutError:
+                raise HTTPException(504, "Queue processing timeout")
+
+        # Process immediately if capacity available
+        async with processing_semaphore:
+            return await process_request(request.state.user, request, payload)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Critical system error: {str(e)}")
+        raise HTTPException(500, "Internal server error")
+
+
+async def process_request(user: UserIn, request: Request, payload: SearchRequest):
+    """Core request processing with enhanced error handling"""
+    try:
+        # Image processing
+        query = payload.query
+        if payload.images:
+            image_data = await asyncio.gather(
+                *(image.read() for image in payload.images)
+            )
+            description = await image_analysis(
+                image_data,
+                get_product_prompt(query, IMAGE_DESCRIPTION_PROMPT)
+            )
+            logger.info(f"Image analysis completed: {query[:50]}...")
+            query = f"USER QUERY: {query}\nIMAGE DESCRIPTIONS: {description}"
+
+        # Query agent execution
         response = await query_agent.run(query)
         result = response.data
-        query = result.reviewed_query
-        sort=result.sort
-        filter= result.filter.__dict__
+        processed_query = result.reviewed_query
+        sort_params = result.sort
+        filter_params = result.filter.__dict__
+
+        # Product listing
+        ecommerce_manager = services.get_ecommerce_manager(request)
+        products = await services.list_products(
+            ecommerce_manager=ecommerce_manager,
+            query=processed_query,
+            site=payload.site,
+            max_results=payload.max_results,
+            bypass_cache=payload.bypass_cache,
+            page=payload.page,
+            limit=payload.limit,
+            sort=sort_params,
+            filters=filter_params
+        )
+        
+        return products
+
+    except asyncio.CancelledError:
+        logger.warning("Request processing cancelled")
+        raise
     except Exception as e:
-        logger.error(f"Error running query agent: {e}")
-    
-    ecommerce_manager = services.get_ecommerce_manager(request)
-    products = await services.list_products(
-        ecommerce_manager=ecommerce_manager,
-        query=query,
-        site=payload.site,
-        max_results=payload.max_results,
-        bypass_cache=payload.bypass_cache,
-        page=payload.page,
-        limit=payload.limit,
-        sort=sort,
-        filters=filter
-    )
-    return products
+        logger.error(f"Processing failure: {str(e)}")
+        raise
+
+
+async def queue_worker(priority_level: int):
+    """Process queued requests with priority handling"""
+    while True:
+        request_data = await request_queues[priority_level].get()
+        async with processing_semaphore:
+            try:
+                result = await process_request(
+                    request_data["request"],
+                    request_data["payload"]
+                )
+                await request_data["response_channel"].put(result)
+            except Exception as e:
+                await request_data["response_channel"].put({
+                    "error": f"Priority {priority_level} processing failed: {str(e)}"
+                })
+            finally:
+                request_queues[priority_level].task_done()
 
 
 @router.get("/detail/{product_id}", response_model=ProductDetail)
+@credit_required(2)
 async def get_product_detail(
     request: Request,
     product_id: str,

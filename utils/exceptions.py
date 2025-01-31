@@ -17,3 +17,7 @@ class WebSocketProcessingError(Exception):
 class NoItemFound(Exception):
     def __init__(self, message):
         super().__init__(message)
+
+class PaymentRequiredError(Exception):
+    def __init__(self, message):
+        super().__init__(message)

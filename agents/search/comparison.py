@@ -38,7 +38,7 @@ async def comparison_agent(websocker_id,user_id, query, products):
         
         """
 
-        has_credits =  await check_credits(user_id, "text")
+        has_credits, credits =  await check_credits(user_id, "text")
         if has_credits is False:
             await websocket_manager.send_json(websocker_id,
         
@@ -52,6 +52,7 @@ async def comparison_agent(websocker_id,user_id, query, products):
 
         response = await agent.run(query, message_history=message_history)
         message_history = message_history + response.new_messages()
+        await track_llm_call(user_id, "text")
 
         await websocket_manager.send_json(websocker_id,
         

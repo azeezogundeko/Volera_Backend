@@ -1,10 +1,15 @@
 import asyncio
 import functools
 import inspect
-from typing import TypeVar, Callable, Optional, Type, Union, Any, Dict, Tuple
-from utils.logging import logger
+from typing import TypeVar, Callable, Optional, Type, Union, Any, Dict, Tuple, Coroutine
+from functools import wraps
+
+from .logging import logger
 import time
 from difflib import SequenceMatcher
+
+from fastapi import HTTPException, status, Depends
+from fastapi.requests import Request
 
 T = TypeVar('T')
 
@@ -231,37 +236,54 @@ class AsyncCache:
             del self.cache[key]
 
 
-# Example usage:
-if __name__ == "__main__":
-    # Example of how to use the cache decorator
-    @AsyncCache(ttl=60, similarity_threshold=0.85)  # Cache results for 60 seconds
-    async def fetch_data(query: str) -> Dict[str, Any]:
-        # Simulate an API call
-        await asyncio.sleep(1)
-        return {"query": query, "timestamp": time.time()}
 
-    async def test_cache():
-        # First call - will execute the function
-        result1 = await fetch_data("iphone 15 pro max")
-        print("First call:", result1)
-        
-        # Similar query - should return cached result
-        result2 = await fetch_data("iphone 15 pro")
-        print("Similar query:", result2)
-        
-        # Very different query - will execute the function
-        result3 = await fetch_data("macbook pro")
-        print("Different query:", result3)
-        
-        # Similar to first query - should use cache
-        result4 = await fetch_data("iphone15 pro max")
-        print("Similar to first:", result4)
-        
-        # Wait for cache to expire
-        await asyncio.sleep(61)
-        
-        # Should execute the function again
-        result5 = await fetch_data("iphone 15 pro max")
-        print("After expiry:", result5)
+def credit_required(amount: int):
+    from agents.legacy.base import check_credits, track_llm_call
+    from .exceptions import PaymentRequiredError
 
-    asyncio.run(test_cache())
+    """
+    Decorator that checks and deducts credits before processing the request.
+    Refunds credits if the operation fails.
+    """
+    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]):
+        @wraps(func)
+        async def wrapper(
+            request: Request,
+            *args,
+            **kwargs
+        ):
+            current_user = request.state.user
+  
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required."
+                )
+    
+            # 1. Check available credits
+            has_credit, credits = await check_credits(current_user.id, "amount", amount)
+            if has_credit is False:
+                raise PaymentRequiredError(f"Insufficient credits. Required: {amount}, Available: {credits}")
+
+            # 2. Execute the endpoint logic
+            result = await func(request, *args, **kwargs)
+
+            # 3. Final commit if everything succeeds
+            await track_llm_call(current_user.id, type="amount", amount=amount)
+
+            return result
+        return wrapper
+    return decorator
+
+# async def refund_credits(db: AsyncSession, user_id: str, amount: int):
+#     """Atomic credit refund operation"""
+#     try:
+#         await db.execute(
+#             update(User)
+#             .where(User.id == user_id)
+#             .values(credits=User.credits + amount)
+#         )
+#         await db.commit()
+#     except Exception as e:
+#         await db.rollback()
+#         logger.error(f"Failed to refund credits: {str(e)}")

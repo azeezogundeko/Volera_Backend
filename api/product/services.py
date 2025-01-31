@@ -112,7 +112,7 @@ async def list_products(
             cache_results = await ecommerce_manager.store.query(query)
             if cache_results is not None:
                 logger.info(f"Cache hit for query: {query}")
-                results = await reranker.rerank(query, cache_results, limit)
+                results = await reranker.rerank(query, cache_results)
                 if site != "all":
                     results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
                 return post_process_results(page, limit, results, sort, filters)
@@ -214,7 +214,7 @@ async def list_products(
     ]
 
     if successful_products:
-        results = await reranker.rerank(query, successful_products, limit)
+        results = await reranker.rerank(query, successful_products)
         try:
             await ecommerce_manager.store.add(product_id, query, results)
         except Exception as e:
@@ -249,7 +249,7 @@ def post_process_results(
     if sort:
         results = sort_products(results, sort)
     
-    return results
+    return results[:limit]
 
 
 async def get_product_detail(
