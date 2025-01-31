@@ -3,18 +3,20 @@ from contextlib import asynccontextmanager
 from config import PORT, DB_PATH
 from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
-from db._appwrite.db_register import prepare_database
-from api.auth.services import get_current_user
+from db._appwrite.db_register import prepare_database, WaitList
+from api.auth.services import get_current_user, hash_email
 from api import chat_router, auth_router, product_router, track_router
 
 from utils.logging import logger
 from utils._craw4ai import CrawlerManager
 from utils.background import background_task
 from utils.request_session import http_client
+from utils.emails import send_waitlist_email
 from utils.exceptions_handlers import validation_exception_handler
 
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, Body
+from fastapi.background import BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -106,6 +108,12 @@ async def add_db_manager(request: Request, call_next):
     response = await call_next(request)
     return response
 
+@app.post("/api/waitlist")
+async def save_waitlist(b: BackgroundTasks, email: str = Body()): 
+    user_id = hash_email(email)
+    await WaitList.get_or_create(user_id, {"email": email})
+    b.add_task(send_waitlist_email, email)
+    return {"message": "success", "data": email}
 
 # @app.middleware("http")
 # async def authenticate(request: Request, call_next):

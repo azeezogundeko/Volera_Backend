@@ -6,10 +6,15 @@ from api.product.model import Product, WishList
 from api.auth.model import UserProfile, UserPreferences
 from agents.legacy.llm import LLMCall
 
+from .fields import AppwriteField
+
+class WaitList(AppwriteModelBase):
+    collection_id= "waitlist"
+    email: str = AppwriteField()
 
 AppwriteModelBase.register_model(TrackedItem)
 AppwriteModelBase.register_model(Product)
-# AppwriteModelBase.register_model(LLMCall)
+AppwriteModelBase.register_model(WaitList)
 AppwriteModelBase.register_model(WishList)
 AppwriteModelBase.register_model(MessageImage)
 AppwriteModelBase.register_model(PriceHistory)

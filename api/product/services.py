@@ -97,146 +97,136 @@ async def list_products(
     max_results: int = 5,
     bypass_cache: bool = False,
     page: int = 1,
-    limit: int = 25,
+    limit: int = 40,
     sort: Optional[Dict[str, Any]] = None,
     filters: dict = None
 ) -> List[Dict[str, Any]]:
     """Get product listings from supported e-commerce sites."""
-    print(limit)
     
-    # Create a cache key that includes both query and site
     cache_key = f"{query}_{site}"
     product_id = ecommerce_manager.generate_product_id(cache_key)
-    cache_results = None
     
-    # Check cache first using the combined cache key
+    # Cache check
     if not bypass_cache:
         try:
             cache_results = await ecommerce_manager.store.query(query)
-            
+            if cache_results is not None:
+                logger.info(f"Cache hit for query: {query}")
+                results = await reranker.rerank(query, cache_results, limit)
+                if site != "all":
+                    results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
+                return post_process_results(page, limit, results, sort, filters)
         except Exception as e:
             logger.error(e, exc_info=True)
 
-        if cache_results is not None:
-            logger.info(f"Cache hit for query: {query}")
-            results = await reranker.rerank(query, cache_results, limit)
-
-            # For site-specific cache, verify the source matches
-            if site != "all":
-                results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
-            
-            return post_process_results(results, sort, filters)
-
-    all_products = []
-    
-    # Get all available integrations
     integrations = ecommerce_manager._integrations.values()
-    
-    # Filter integrations based on site parameter
     if site and site != "all":
-        # Filter for specific site
         integrations = [i for i in integrations if i.matches_url(site)]
         if not integrations:
-            print(f"No supported integration found for site: {site}")
+            logger.info(f"No supported integration found for site: {site}")
             return []
-    
-    # Group integrations by type
+
+    # Prepare integrations
     direct_integrations = [i for i in integrations if i.integration_type in ["api", "graphql"]]
     scraping_integrations = [i for i in integrations if i.integration_type == "scraping"]
+    all_products = []
 
-    # Handle direct API/GraphQL integrations
-    for integration in direct_integrations:
-        try:
-            results = await integration.get_product_list(
-                url="",  # Empty URL since we're using direct API
+    # Parallel processing for direct integrations
+    if direct_integrations:
+        direct_tasks = [
+            integration.get_product_list(
+                url="",
                 search=query,
-                page=page-1,  # Convert to 0-based index
+                page=page-1,
                 limit=limit,
                 sort=sort
-            )
-            if isinstance(results, dict) and "products" in results:
-                products = results["products"]
-                for product in products:
-                    product["source"] = integration.name
-                all_products.extend(products)
-            elif isinstance(results, list):
-                for product in results:
-                    product["source"] = integration.name
-                all_products.extend(results)
-        except Exception as e:
-            print(f"Error with {integration.name}: {str(e)}")
-
-    # Handle scraping-based integrations
-    if scraping_integrations:
-        # Search each scraping site separately to ensure all sites are covered
-        all_search_results = []
-        for integration in scraping_integrations:
-            try:
-                site_patterns = integration.url_patterns
-                site_results = await google_search.search_shopping(query, site="|".join(site_patterns))
-                if site_results:
-                    all_search_results.extend(site_results)
-            except Exception as e:
-                logger.info(f"Error searching {integration.name}: {str(e)}")
-        
-        if all_search_results:
-            # Distribute max_results across all sites
-            results_per_site = max(1, max_results // len(scraping_integrations))
-            urls = []
-            for integration in scraping_integrations:
-                # Filter URLs for this integration
-                integration_urls = [
-                    result["link"] for result in all_search_results 
-                    if integration.matches_url(result["link"])
-                ][:results_per_site]
-                urls.extend(integration_urls)
-            
-            tasks = [
-                ecommerce_manager.process_url(
-                    url=url,
-                    bypass_cache=bypass_cache,
-                    ttl=3600
-                ) for url in urls
-            ]
-            results = await asyncio.gather(*tasks)
-            
-            for result in results:
-                if isinstance(result, dict):
-                    products = result.get("products", [])
-                    if products:
-                        all_products.extend(products)
-                elif isinstance(result, list):
-                    all_products.extend(result)
-
-    # Filter out failed extractions and ensure all products have a source
-    successful_products = [
-        p for p in all_products 
-        if isinstance(p, dict) and p.get("source") not in [
-            "failed_extraction", 
-            "unsupported_site", 
-            "error"
+            ) for integration in direct_integrations
         ]
+        direct_results = await asyncio.gather(*direct_tasks, return_exceptions=True)
+        
+        for integration, result in zip(direct_integrations, direct_results):
+            if isinstance(result, Exception):
+                logger.error(f"Error with {integration.name}: {str(result)}")
+                continue
+            products = []
+            if isinstance(result, dict):
+                products = result.get("products", [])
+            elif isinstance(result, list):
+                products = result
+            for p in products:
+                p["source"] = integration.name
+            all_products.extend(products)
+
+    # Parallel processing for scraping integrations
+    if scraping_integrations:
+        # Parallel search across all scraping sites
+        search_tasks = [
+            google_search.search_shopping(query, site="|".join(integration.url_patterns))
+            for integration in scraping_integrations
+        ]
+        search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+        
+        # Process search results
+        all_search_results = []
+        for integration, result in zip(scraping_integrations, search_results):
+            if isinstance(result, Exception):
+                logger.error(f"Search error {integration.name}: {str(result)}")
+                continue
+            if result:
+                all_search_results.extend(result)
+
+        # Process product URLs in parallel
+        if all_search_results:
+            results_per_site = max(1, max_results // len(scraping_integrations))
+            url_tasks = []
+            url_integration_map = {}
+            
+            # Map URLs to their integrations
+            for result in all_search_results:
+                for integration in scraping_integrations:
+                    if integration.matches_url(result["link"]):
+                        if url_integration_map.get(integration.name, 0) < results_per_site:
+                            url_tasks.append(
+                                ecommerce_manager.process_url(
+                                    url=result["link"],
+                                    bypass_cache=bypass_cache,
+                                    ttl=3600
+                                )
+                            )
+                            url_integration_map[integration.name] = url_integration_map.get(integration.name, 0) + 1
+                        break
+
+            # Process URLs in parallel
+            if url_tasks:
+                url_results = await asyncio.gather(*url_tasks)
+                for result in url_results:
+                    if isinstance(result, dict):
+                        products = result.get("products", [])
+                        all_products.extend(products)
+                    elif isinstance(result, list):
+                        all_products.extend(result)
+
+    # Filter and process results
+    excluded_sources = {"failed_extraction", "unsupported_site", "error"}
+    successful_products = [
+        p for p in all_products
+        if isinstance(p, dict) and p.get("source") not in excluded_sources
     ]
-    
+
     if successful_products:
-        # Cache the successful results with the site-specific cache key
         results = await reranker.rerank(query, successful_products, limit)
-        # await ecommerce_manager.db_manager.set(
-        #     key=product_id,
-        #     value=results,
-        # )
         try:
             await ecommerce_manager.store.add(product_id, query, results)
-        
         except Exception as e:
             logger.error(e, exc_info=True)
-        # return results
-        return post_process_results(results, sort, filters)
-    
+        return post_process_results(page, limit, results, sort, filters)
+
     return []
 
 
 def post_process_results(
+    page,
+    limit,
     results: List[Dict[str, Any]], 
     sort: Optional[str] = None,
     filters: dict = None) -> List[Dict[str, Any]]:

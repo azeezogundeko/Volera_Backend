@@ -32,16 +32,18 @@ async def search_products(
     payload: SearchRequest = Depends(),
     
 ):
+  
     "" "Search for products across supported e-commerce sites."""
     query = payload.query
     sort=None
+    filter = None
     if payload.images is not None:
         image_data = await asyncio.gather(*(image.read() for image in payload.images))
         description = await image_analysis(
             image_data,
-             get_product_prompt(query, 
-             IMAGE_DESCRIPTION_PROMPT)
-             )
+            get_product_prompt(query, 
+            IMAGE_DESCRIPTION_PROMPT)
+            )
         logger.info(f"Image analysis result: {query}")
 
 
@@ -57,6 +59,7 @@ async def search_products(
         result = response.data
         query = result.reviewed_query
         sort=result.sort
+        filter= result.filter.__dict__
     except Exception as e:
         logger.error(f"Error running query agent: {e}")
     
@@ -70,9 +73,10 @@ async def search_products(
         page=payload.page,
         limit=payload.limit,
         sort=sort,
-        filters=result.filter.__dict__
+        filters=filter
     )
     return products
+
 
 @router.get("/detail/{product_id}", response_model=ProductDetail)
 async def get_product_detail(

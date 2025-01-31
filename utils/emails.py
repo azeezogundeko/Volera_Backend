@@ -77,6 +77,10 @@ def send_email(
     finally:
         smtp.quit()
 
+def send_waitlist_email(user_email):
+    subject = "Thanks for Joining! Your Volera Waitlist Spot is Reserved ✅"
+    html_content = waitlist_template(user_email, "")
+    send_email(user_email, html_content, subject)
 
 def send_new_user_email(verification_code, email):
     from datetime import datetime
@@ -196,4 +200,88 @@ def new_users_template(verification_code, year):
     </div>
     </body>
     </html>
+    """
+
+def waitlist_template(user_email, privacy_link):
+    return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>You're On the Volera Waitlist!</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #0a0a0a; color: #ffffff; font-family: Arial, sans-serif;">
+            
+            <!-- Main Container -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; margin: 0 auto;">
+                <tr>
+                    <td style="padding: 40px 20px;">
+                        
+                        <!-- Header -->
+                        <div style="text-align: center; margin-bottom: 40px;">
+                            <h1 style="color: #34d399; margin: 0 0 10px 0; font-size: 28px;">Volera</h1>
+                            <p style="color: #9ca3af; margin: 0;">Your Smart Shopping Companion</p>
+                        </div>
+
+                        <!-- Confirmation Message -->
+                        <div style="background: #0c0c0c; border-radius: 12px; padding: 30px; margin-bottom: 40px;">
+                            <p style="color: #34d399; text-align: center; margin: 0 0 15px 0;">
+                                🎉 Welcome to the Future of Shopping!
+                            </p>
+                            <h2 style="font-size: 22px; text-align: center; margin: 0 0 20px 0;">
+                                Hello {user_email},<br>You're Now on the Waitlist!
+                            </h2>
+                            <p style="color: #9ca3af; line-height: 1.6; text-align: center;">
+                                Thank you for joining our community of smart shoppers. While we prepare your access, here's what to expect:
+                            </p>
+                        </div>
+
+                        <!-- Feature Highlights -->
+                        <div style="background: #0c0c0c; border-radius: 12px; padding: 30px; margin-bottom: 40px;">
+                            <div style="margin-bottom: 25px;">
+                                <h3 style="color: #34d399; margin: 0 0 15px 0;">🔮 Coming Soon:</h3>
+                                <div style="color: #d1d5db; padding-left: 20px;">
+                                    <p style="margin: 15px 0;">✅ AI-powered product discovery across all major retailers</p>
+                                    <p style="margin: 15px 0;">✅ Real-time price tracking & deal alerts</p>
+                                    <p style="margin: 15px 0;">✅ Personalized shopping assistant 24/7</p>
+                                </div>
+                            </div>
+
+                            <div style="border-top: 1px solid #ffffff10; padding-top: 25px;">
+                                <p style="color: #9ca3af; text-align: center; line-height: 1.6;">
+                                    "Volera helped me save 32% on my electronics purchases last year"<br>
+                                    - Sarah J., Early Beta Tester
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Closing -->
+                        <div style="text-align: center; margin-bottom: 40px;">
+                            <p style="color: #9ca3af; line-height: 1.6;">
+                                We'll email you as soon as your access is ready.<br>
+                                Stay tuned for exclusive early-bird offers!
+                            </p>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="text-align: center; color: #6b7280; font-size: 12px;">
+                            <p>Follow our journey:<br>
+                            <a href="[LinkedIn Placeholder]" style="color: #6b7280; text-decoration: underline;">LinkedIn</a> |
+                            <a href="[X Placeholder]" style="color: #6b7280; text-decoration: underline;">X</a> |
+                            <a href="[Bluesky Placeholder]" style="color: #6b7280; text-decoration: underline;">Bluesky</a> |
+                            <a href="[WhatsApp Community Placeholder]" style="color: #6b7280; text-decoration: underline;">Join our WhatsApp Community</a>
+                            </p>
+                            <p>© 2024 Volera. All rights reserved.</p>
+                            <p>
+                                <a href="{privacy_link}" style="color: #6b7280; text-decoration: underline;">Privacy Policy</a>
+                            </p>
+                        </div>
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+        </html>    
     """
