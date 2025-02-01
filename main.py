@@ -6,7 +6,7 @@ from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
 from db._appwrite.db_register import prepare_database, WaitList
 from api.auth.services import hash_email
-from api import chat_router, auth_router, product_router, track_router, queue_worker
+from api import chat_router, auth_router, product_router, track_router, queue_worker, payment_router
 
 from utils.logging import logger
 from utils.queue import PRIORITY_LEVELS
@@ -106,6 +106,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(product_router, prefix="/api/product", tags=["product"])
 app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
 app.include_router(track_router, prefix="/api/track", tags=["track"])
+app.include_router(payment_router, prefix="/api/payments", tags=["payment"])
 
 app.router.lifespan_context = lifespan
 
@@ -152,7 +153,6 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"message": "INTERNAL SERVER ERROR", "error": str(exc)},
     )
-
 
 
 @app.exception_handler(RequestValidationError)

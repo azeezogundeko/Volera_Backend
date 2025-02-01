@@ -21,7 +21,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
-from appwrite.services.users import Users
+from appwrite.query import Query
 
 
 
@@ -55,6 +55,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 def decode_access_token(token: str) -> dict:
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
+async def get_user_by_email(email: str):
+    try:
+        kwgs = dict(
+            queries = [Query.equal('email', email)]
+        )
+
+        users: str | Any | bytes | Nones = await asyncio.to_thread(user_db.list, **kwgs)
+        user = users["users"][0]
+        return UserIn(**user)
+    except Exception:
+        return None
 
 async def get_user(email: str) -> Optional[UserIn]:
     try:
@@ -67,7 +78,7 @@ async def get_user(email: str) -> Optional[UserIn]:
     
 
 async def authenticate_user(email: str, password: str) -> Optional[UserIn]:
-    user = await get_user(email)
+    user = await get_user_by_email(email)
     if not user or not verify_password(password, user.password):
         return None
     return user
@@ -84,7 +95,7 @@ async def credit_check(amount: int):
     return Depends(dependency)
 
 # Dependency to get current user
-async def   get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
     try:
         payload = decode_access_token(token)
         email: str = payload.get("sub")
@@ -94,14 +105,14 @@ async def   get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     
-    user = await get_user(token_data.email)
+    user = await get_user_by_email(token_data.email)
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
 
 async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks):
-    user = await get_user(payload.email)
+    user = await get_user_by_email(payload.email)
     if user:
         raise HTTPException(status_code=400, detail="Email already exists")
 
