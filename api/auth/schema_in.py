@@ -19,8 +19,16 @@ class ProfileSchema:
     preferred_categories: Optional[List[str]] = Form(default=[])  # No alias needed, matches client request
     notification_preferences: Optional[List[str]] = Form(default=[]) # No alias needed, matches client request
 
-# @dataclass
-# class PreferencesSchema:
+@dataclass
+class Profile:
+    avatar: Optional[UploadFile] = File(None)
+    first_name: Optional[Literal["male", "female"]] = Form(None)
+    last_name: Optional[Literal["male", "female"]] = Form(None)
+    email: Optional[str] = Form(None)
+    phone: Optional[str] = Form(None)
+    address: Optional[str] = Form(None)
+    city: Optional[str] = Form(None)
+    country: Optional[str] = Form(None)
     
 
 class LoginSchema(BaseModel):

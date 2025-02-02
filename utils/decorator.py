@@ -275,6 +275,25 @@ def credit_required(amount: int):
         return wrapper
     return decorator
 
+def auth_required():
+    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]):
+        @wraps(func)
+        async def wrapper(
+            request: Request,
+            *args,
+            **kwargs
+        ):
+            current_user = request.state.user
+  
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required."
+                )
+            result = await func(request, *args, **kwargs)
+            return result
+        return wrapper
+    return decorator
 # async def refund_credits(db: AsyncSession, user_id: str, amount: int):
 #     """Atomic credit refund operation"""
 #     try:

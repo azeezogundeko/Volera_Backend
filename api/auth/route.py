@@ -1,19 +1,19 @@
 import asyncio
 
-from appwrite.client import AppwriteException
-from fastapi.background import BackgroundTasks
 from . import services
-from .schema import User, UserIn, UserPublic, UserOut, UserProfileOut
-from .schema_in import UserCreate, LoginSchema, ProfileSchema
 from db import user_db
 from .model import UserProfile
-from appwrite.input_file import InputFile
+from utils.decorator import auth_required
+from .schema import UserIn, UserPublic, UserOut, UserProfileOut
+from .schema_in import UserCreate, LoginSchema, ProfileSchema, Profile
+
 from appwrite import query
-
-
+from fastapi import Request
+from appwrite.client import AppwriteException
+from fastapi.background import BackgroundTasks
 
 from fastapi import Depends, HTTPException, APIRouter, UploadFile, File
-# from fastapi.responses import JSONResponse
+
 
 
 router = APIRouter()
@@ -24,12 +24,13 @@ async def register_user(payload: UserCreate, background_tasks: BackgroundTasks):
     return await services.create_new_user(payload, background_tasks)
 
 
+@auth_required
 @router.post("/verify_account")
 async def verify_account(
-    verification_code: int,
-    user: UserIn = Depends(services.get_current_user),
-):
+    request: Request,
+    verification_code: int):
 
+    user: UserIn = request.state.user
     valid_code = user.prefs["validation_code"]
 
     if verification_code == valid_code:
@@ -40,15 +41,17 @@ async def verify_account(
         raise HTTPException(status_code=400, detail="Invalid verification code")
 
 
+@auth_required
 @router.get("/resend-verification-code")
 async def resend_verification_code(
+    request: Request,
     background_tasks: BackgroundTasks,
-    user: UserIn = Depends(services.get_current_user),
-):
-    
+    ):
+    user = request.state.user
     background_tasks.add_task(services.send_new_user_email, user.prefs["vaidation_code"], user.email)
     return {"message": "success"}
     
+
 
 @router.post("/login", response_model=UserPublic)
 async def login(payload: LoginSchema):
@@ -90,11 +93,13 @@ async def login(payload: LoginSchema):
         "token": {"access_token": access_token, "token_type": "bearer"}
         }
 
+@auth_required
 @router.post("/onboarding", response_model=UserProfileOut)
 async def create_user_profile(
+    request: Request,
     profile: ProfileSchema = Depends(),
-    user: UserIn = Depends(services.get_current_user)
 ):
+    user: UserIn = request.state.user
     result = await services.create_user_profile(user, profile)
     return {
         "message": "success",
@@ -102,28 +107,93 @@ async def create_user_profile(
         "error": None
     }
 
+@auth_required
 @router.post("/notifications")
 async def set_notifications(
-    notifications: bool,
-    user: UserIn = Depends(services.get_current_user)):
+    request: Request,
+    notifications: bool ):
         
+    user = request.state.user      
     return await asyncio.to_thread(user_db.update_prefs, user.id, {"notification": notifications})
 
 
-@router.post("/profile-picture")
+@auth_required
+@router.post("/profile/image")
 async def update_profile_image(
-    profilePicture: UploadFile = File(...),
-    user: UserIn = Depends(services.get_current_user)):
+    request: Request, 
+    profilePicture: UploadFile = File(...)
+):
+    user: UserIn = request.state.user
     
-    file = InputFile.from_bytes(
-        profilePicture.file.read(),
-        profilePicture.filename
-    )
-    profile = UserProfile.list([query.Query.equal("user_id", user.id)], limit=1)
-    await UserProfile.update_file(profile["documents"][0].id, file)
-     
+    # Upload profile image and get file ID
+    file_id = await UserProfile.upload_profile_image(user.id, profilePicture)
+    
+    return {
+        "message": "Profile image uploaded successfully",
+        "file_id": file_id
+    }
 
 
-@router.get("/me", response_model=User)
-async def get_me(current_user: UserIn = Depends(services.get_current_user)):
-    return current_user
+@auth_required
+@router.get("/profile")
+async def get_profile(request: Request): 
+    user: UserIn = request.state.user 
+    profile = await UserProfile.read(user.id)
+    first_name, last_name = services.split_name(user.name)
+
+    avatar = await UserProfile.get_file(profile.avatar)
+
+    return {
+        "first_name": first_name,
+        "last_name": last_name,
+        "gender": profile.gender,
+        "email": user.email,
+        "address": profile.address,
+        "city": profile.city,
+        "phone": profile.phone,
+        "country": profile.country,
+        "avatar": avatar,
+    }
+
+
+@auth_required
+@router.put("/profile")
+async def update_profile(request: Request, payload: Profile = Depends()): 
+    user: UserIn = request.state.user
+
+    current_first_name, current_last_name = services.split_name(user.name)
+
+    # Extract first and last name from payload, using current names as defaults
+    first_name = payload.first_name or current_first_name
+    last_name = payload.last_name or current_last_name
+
+    # Construct the new full name
+    new_name = f"{first_name}_{last_name}"
+
+    # Prepare update payload
+    update_data = {k: v for k, v in payload.__dict__.items() if v is not None}
+
+    # Remove first_name and last_name from update_data as they're handled separately
+    update_data.pop('first_name', None)
+    update_data.pop('last_name', None)
+
+    # Perform updates
+    tasks = []
+
+    # Handle avatar upload separately
+    avatar = update_data.pop('avatar', None)
+    if avatar:
+        tasks.append(UserProfile.upload_profile_image(user.id, avatar))
+
+    if new_name != user.name:
+        # Update user's name in the user database
+        tasks.append(asyncio.to_thread(user_db.update_name, user.id, new_name))
+
+    if update_data:
+        # Update user profile
+        tasks.append(UserProfile.update(user.id, update_data))
+
+    if tasks:
+        await asyncio.gather(*tasks)
+
+    return {"message": "Profile updated successfully"}

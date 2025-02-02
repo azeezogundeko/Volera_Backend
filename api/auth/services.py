@@ -34,6 +34,20 @@ def hash_email(email: str) -> str:
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
+def split_name(full_name: str):
+    # Try splitting by underscore
+    if '_' in full_name:
+        parts = full_name.split('_')
+        return parts[0], parts[-1]
+    
+    # Try splitting by space
+    parts = full_name.split()
+    if len(parts) > 1:
+        return parts[0], parts[-1]
+    
+    # If no clear split, use the full name as first name
+    return full_name, ''
+
 
 
 def generate_random_six_digit_number():
