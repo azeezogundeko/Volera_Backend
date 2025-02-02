@@ -177,9 +177,9 @@ async def create_user_profile(
 
 
     user_profile = await UserProfile.create(
-        document_id=UserProfile.get_unique_id(),
+        document_id=user.id,
         data={
-            "user_id": user.id,
+            # "user_id": user.id,
             "phone": payload.phone,
             "gender": payload.gender,
             "city": payload.city,
@@ -189,13 +189,13 @@ async def create_user_profile(
         }
     )
     user_preferences = await UserPreferences.create(
-        document_id=UserProfile.get_unique_id(),
+        document_id=user.id,
         data={
             "interest": payload.interests,
             "price_range": payload.price_range,
             "shopping_frequency": payload.shopping_frequency,
             "notification_preferences": payload.notification_preferences,
-            "user_id": user.id
+            # "user_id": user.id
         }
     )
 

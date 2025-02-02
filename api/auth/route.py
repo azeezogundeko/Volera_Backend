@@ -6,12 +6,13 @@ from .model import UserProfile
 from utils.decorator import auth_required
 from .schema import UserIn, UserPublic, UserOut, UserProfileOut
 from .schema_in import UserCreate, LoginSchema, ProfileSchema, Profile
+from utils.logging import logger
 
 from appwrite import query
 from fastapi import Request
 from appwrite.client import AppwriteException
 from fastapi.background import BackgroundTasks
-
+from fastapi.exceptions import HTTPException
 from fastapi import Depends, HTTPException, APIRouter, UploadFile, File
 
 
@@ -121,7 +122,7 @@ async def set_notifications(
 @router.post("/profile/image")
 async def update_profile_image(
     request: Request, 
-    profilePicture: UploadFile = File(...)
+    profilePicture: UploadFile = File()
 ):
     user: UserIn = request.state.user
     
@@ -138,10 +139,15 @@ async def update_profile_image(
 @router.get("/profile")
 async def get_profile(request: Request): 
     user: UserIn = request.state.user 
-    profile = await UserProfile.read(user.id)
+    try:
+        profile = await UserProfile.read(user.id)
+    except AppwriteException:
+        raise HTTPException(400, "User has not created a profile")
+    
     first_name, last_name = services.split_name(user.name)
-
-    avatar = await UserProfile.get_file(profile.avatar)
+    avatar = None
+    if profile.avatar is not None:
+        avatar = await UserProfile.get_file(profile.avatar)
 
     return {
         "first_name": first_name,
@@ -160,40 +166,55 @@ async def get_profile(request: Request):
 @router.put("/profile")
 async def update_profile(request: Request, payload: Profile = Depends()): 
     user: UserIn = request.state.user
+    try:
 
-    current_first_name, current_last_name = services.split_name(user.name)
+        current_first_name, current_last_name = services.split_name(user.name)
 
-    # Extract first and last name from payload, using current names as defaults
-    first_name = payload.first_name or current_first_name
-    last_name = payload.last_name or current_last_name
+        # Extract first and last name from payload, using current names as defaults
+        first_name = payload.first_name or current_first_name
+        last_name = payload.last_name or current_last_name
 
-    # Construct the new full name
-    new_name = f"{first_name}_{last_name}"
+        # Construct the new full name
+        new_name = f"{first_name}_{last_name}"
 
-    # Prepare update payload
-    update_data = {k: v for k, v in payload.__dict__.items() if v is not None}
+        # Prepare update payload
+        update_data = {k: v for k, v in payload.__dict__.items() if v is not None}
 
-    # Remove first_name and last_name from update_data as they're handled separately
-    update_data.pop('first_name', None)
-    update_data.pop('last_name', None)
+        # Remove first_name and last_name from update_data as they're handled separately
+        update_data.pop('first_name', None)
+        update_data.pop('last_name', None)
 
-    # Perform updates
-    tasks = []
+        # Perform updates
+        tasks = []
 
-    # Handle avatar upload separately
-    avatar = update_data.pop('avatar', None)
-    if avatar:
-        tasks.append(UserProfile.upload_profile_image(user.id, avatar))
+        # Handle avatar upload separately
+        avatar = update_data.pop('avatar', None)
+        email = update_data.pop('email', None)
+        if avatar is not None:
+            tasks.append(UserProfile.upload_profile_image(user.id, avatar))
 
-    if new_name != user.name:
-        # Update user's name in the user database
-        tasks.append(asyncio.to_thread(user_db.update_name, user.id, new_name))
+        if email:
+            if user.email != email:
+                try:
+                    tasks.append(asyncio.to_thread(user_db.update_email, user.id, email))
+                except AppwriteException:
+                    raise HTTPException(status_code=400, detail="Email has already been used")
+        
+        if new_name != user.name:
+            # Update user's name in the user database
+            tasks.append(asyncio.to_thread(user_db.update_name, user.id, new_name))
 
-    if update_data:
-        # Update user profile
-        tasks.append(UserProfile.update(user.id, update_data))
+        if update_data:
+            # Update user profile
+            try:
+                profile = await UserProfile.read(user.id)
+                tasks.append(UserProfile.update(profile.id, update_data))
+            except AppwriteException:
+                tasks.append(UserProfile.create(user.id, update_data))
 
-    if tasks:
-        await asyncio.gather(*tasks)
+        if tasks:
+            await asyncio.gather(*tasks)
 
-    return {"message": "Profile updated successfully"}
+        return {"message": "Profile updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating profile: {e}", exc_info=True)

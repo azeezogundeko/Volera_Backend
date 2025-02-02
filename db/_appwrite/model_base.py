@@ -110,7 +110,9 @@ class AppwriteModelBase:
     
     @classmethod
     async def update_file(cls, file_id, file, permissions = None, on_progress = None):
-        return await cls.client.update_file(file_id, file, permissions, on_progress)
+        await cls.delete_file(file_id)
+        await cls.create_file(file_id, file, permissions, on_progress)
+        return await cls.client.update_file(file_id, permissions, on_progress)
 
     @classmethod
     async def get_file(cls, file_id):
@@ -119,6 +121,19 @@ class AppwriteModelBase:
     @classmethod
     async def get_file_metadata(cls, file_id):
         return await cls.client.get_file_metadata(file_id)
+
+    @classmethod
+    async def delete_file(cls, file_id: str) -> None:
+        """
+        Delete a file from storage.
+
+        :param file_id: The ID of the file to delete
+        """
+        try:
+            await cls.client.delete_file(file_id)
+        except Exception as e:
+            # Log the error or handle it as needed
+            print(f"Error deleting file {file_id}: {e}")
 
 
     @classmethod

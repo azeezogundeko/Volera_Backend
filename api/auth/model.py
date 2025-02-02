@@ -1,4 +1,6 @@
 from typing import Literal, List
+
+from appwrite.client import AppwriteException
 from db._appwrite.model_base import AppwriteModelBase
 from db._appwrite.fields import AppwriteField
 from appwrite.input_file import InputFile
@@ -9,13 +11,13 @@ class UserProfile(AppwriteModelBase):
     collection_id = "user_profile"
     
     avatar = AppwriteField(size=255, required=False)
-    gender: Literal["male", "female"] = AppwriteField(required=True, size=40)
-    phone: str = AppwriteField(size=40)
-    address: str = AppwriteField(size=255)
-    city: str = AppwriteField(size=255)
-    country: str = AppwriteField(size=255)
-    user_id: str = AppwriteField(size=255)
-    user_hash = AppwriteField(type="index", index_attr=["user_id"], index_type="key")
+    gender: Literal["male", "female"] = AppwriteField(required=False, size=40)
+    phone: str = AppwriteField(size=40, required=False)
+    address: str = AppwriteField(size=255, required=False)
+    city: str = AppwriteField(size=255, required=False)
+    country: str = AppwriteField(size=255, required=False)
+    # user_id: str = AppwriteField(size=255)
+    # user_hash = AppwriteField(type="index", index_attr=["user_id"], index_type="key")
 
     @classmethod
     async def upload_profile_image(cls, user_id: str, file: UploadFile) -> str:
@@ -36,19 +38,19 @@ class UserProfile(AppwriteModelBase):
         )
         
         # Find existing profile
-        existing_profile = await cls.list(
-            queries=[query.Query.equal("user_id", user_id)], 
-            limit=1
-        )
         
-        # If profile exists, update the file
-        if existing_profile["documents"]:
-            profile_doc = existing_profile["documents"][0]
-            file_id = await cls.update_file(profile_doc.id, input_file)
-            return file_id
+        profile = await cls.get_or_create(user_id, {'avatar': None})
+        avatar = profile.avatar
+        if avatar is not None:
+            file_id = avatar
+            await cls.update_file(avatar, input_file)
+            
+        else:
+            file_id = cls.get_unique_id()
+            await cls.create_file(file_id, input_file)
         
-        # If no profile exists, create a new one with the file
-        file_id = await cls.create_file(user_id, input_file)
+        await cls.update(profile.id, {"avatar": file_id}) 
+
         return file_id
 
 
@@ -62,5 +64,5 @@ class UserPreferences(AppwriteModelBase):
     preferred_categories: List[str] = AppwriteField(array=True, type="array", default=[])
     notification_preferences: List[str] = AppwriteField(array=True, type="array",default=[])
 
-    user_id: str = AppwriteField(size=255)
-    user_hash = AppwriteField(type="index", index_attr=["user_id"], index_type="key")
+    # user_id: str = AppwriteField(size=255)
+    # user_hash = AppwriteField(type="index", index_attr=["user_id"], index_type="key")

@@ -74,10 +74,10 @@ class AsyncAppWriteClient:
             self.bucket_id, file_id
         )
 
-    async def update_file(self, file_id, file, permissions = None, on_progress = None):
+    async def update_file(self, file_id, permissions = None, on_progress = None):
         return await self._run_in_executor(
             self.storage.update_file,
-            self.bucket_id, file_id, file, permissions, on_progress
+            self.bucket_id, file_id, permissions, on_progress
         )
 
     def _run_in_executor(self, func, *args, **kwargs):
@@ -311,6 +311,18 @@ class AsyncAppWriteClient:
                 print(f"Error creating collection {collection_name}: {e}")
         return results
 
+    async def delete_file(self, file_id: str) -> None:
+        """
+        Delete a file from storage.
+
+        :param file_id: The ID of the file to delete
+        """
+        return await self._run_in_executor(
+            self.storage.delete_file,
+            self.bucket_id,
+            file_id
+        )
+
 # Singleton instance
 async_appwrite = AsyncAppWriteClient()
 
@@ -349,5 +361,3 @@ class AsyncUsersWrapper(Users):
         sync_methods = inspect.getmembers(self.sync_class_instance, predicate=inspect.ismethod)
         # Return the list of method names from the SyncClass instance
         return [method[0] for method in sync_methods]
-
-

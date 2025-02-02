@@ -22,8 +22,9 @@ class ProfileSchema:
 @dataclass
 class Profile:
     avatar: Optional[UploadFile] = File(None)
-    first_name: Optional[Literal["male", "female"]] = Form(None)
-    last_name: Optional[Literal["male", "female"]] = Form(None)
+    first_name: Optional[str] = Form(None)
+    last_name: Optional[str] = Form(None)
+    gender: Optional[Literal["male", "female"]] = Form(None)
     email: Optional[str] = Form(None)
     phone: Optional[str] = Form(None)
     address: Optional[str] = Form(None)

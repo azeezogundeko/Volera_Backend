@@ -275,9 +275,13 @@ def credit_required(amount: int):
         return wrapper
     return decorator
 
-def auth_required():
-    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]):
-        @wraps(func)
+def auth_required(func=None):
+    """
+    Decorator to require authentication.
+    Can be used with or without parentheses.
+    """
+    def decorator(f):
+        @wraps(f)
         async def wrapper(
             request: Request,
             *args,
@@ -290,9 +294,13 @@ def auth_required():
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required."
                 )
-            result = await func(request, *args, **kwargs)
+            result = await f(request, *args, **kwargs)
             return result
         return wrapper
+
+    # Support using decorator with or without parentheses
+    if func:
+        return decorator(func)
     return decorator
 # async def refund_credits(db: AsyncSession, user_id: str, amount: int):
 #     """Atomic credit refund operation"""
