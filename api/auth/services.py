@@ -11,10 +11,8 @@ from .model import UserProfile, UserPreferences
 from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from .schema import UserIn, TokenData, UserOut
 from .schema_in import ProfileSchema, UserCreate
-from agents.legacy.llm import check_credits, track_llm_call
 
 from utils.emails import send_new_user_email
-
 
 from appwrite.input_file import InputFile
 from jose import JWTError, jwt
@@ -83,16 +81,6 @@ async def authenticate_user(email: str, password: str) -> Optional[UserIn]:
         return None
     return user
 
-async def credit_check(amount: int):
-    async def dependency(current_user: UserIn = Depends(get_current_user)):
-        credits = await check_credits(current_user.id, "amount", amount)
-        if credits is False:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Requires {amount} credits to access this resource"
-            )
-        return current_user
-    return Depends(dependency)
 
 # Dependency to get current user
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserIn:
@@ -127,7 +115,14 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
     response = await asyncio.to_thread(user_db.create_argon2_user, **payload)
     await asyncio.to_thread(user_db.update_labels, user_id, ["users"])
     validation_code = generate_random_six_digit_number()
-    await asyncio.to_thread(user_db.update_prefs, user_id, {"validation_code": validation_code, "theme": "black", "notification": True, "credits": 100})
+    await asyncio.to_thread(user_db.update_prefs, user_id, 
+        {
+            "validation_code": validation_code, 
+            "theme": "black", 
+            "notification": True, 
+            "credits": 100,
+            "timezone": payload.timezone 
+            })
 
     background_tasks.add_task(send_new_user_email, validation_code, payload["email"])
 
@@ -195,4 +190,3 @@ async def create_user_profile(
             "profile": user_profile.to_dict(),
             "preference": user_preferences.to_dict()
         }
-

@@ -1,6 +1,7 @@
 from typing import Any, List, Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
+from pydantic import EmailStr
 
 class BaseSchema(BaseModel):
     message: str
@@ -45,11 +46,11 @@ class UserIn(BaseModel):
     emailVerification: bool
     phoneVerification: bool
     mfa: bool
-    email: str
+    email: EmailStr
     prefs: Dict[str, Any]
     targets: List[Target]
     accessedAt: Optional[str] = ''
-
+    timezone: Optional[str] = "UTC"
 
 class UserOut(BaseModel):
     id: str
@@ -104,4 +105,3 @@ class UserPublic(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
-

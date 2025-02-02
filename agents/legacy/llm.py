@@ -13,7 +13,6 @@ class LLMCall(AppwriteModelBase):
     total_tokens = AppwriteField(type="int")
 
 
-import asyncio
 
 async def check_credits(user_id: str, type: str, amount: int = None) -> bool:
     """
@@ -44,6 +43,7 @@ async def check_credits(user_id: str, type: str, amount: int = None) -> bool:
 
 
 async def track_llm_call(user_id: str, type: str, amount=None, tokens: dict = None) -> None:
+    from api.payments.services import record_credit_transaction
     """
     Tracks an LLM call, logs usage details, and deducts user credits.
 
@@ -78,4 +78,10 @@ async def track_llm_call(user_id: str, type: str, amount=None, tokens: dict = No
     credits = user_pref.get("credits", 0)
 
     new_credits = int(credits) - cost
-    await asyncio.to_thread(user_db.update_prefs, user_id, {"credits": new_credits})
+
+    task = [
+        record_credit_transaction(user_id, -cost),
+        asyncio.to_thread(user_db.update_prefs, user_id, {"credits": new_credits})
+    ]
+
+    await asyncio.gather(*task)
