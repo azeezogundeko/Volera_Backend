@@ -27,6 +27,7 @@ KONGA_API_KEY = str(os.getenv("KONGA_API_KEY"))
 KONGA_ID = str(os.getenv("KONGA_ID"))
 
 PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY"))
+PAYSTACK_SECRET_KEY_TEST = str(os.getenv("PAYSTACK_SECRET_KEY_TEST"))
 
 DB_DIR = Path("data/db")
 DB_DIR.mkdir(parents=True, exist_ok=True)
