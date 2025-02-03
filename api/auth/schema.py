@@ -81,7 +81,7 @@ class UserPreferenceSchemaOut(BaseModel):
     price_range: Optional[str] = None
     shopping_frequency: Optional[str] = None
     preferred_categories: Optional[List[str]] = []
-    notification_prefrences: Optional[List[str]] = []
+    notification_preferences: Optional[List[str]] = []
 
 
 class UserProfileData(BaseModel):

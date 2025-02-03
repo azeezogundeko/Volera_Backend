@@ -1,4 +1,5 @@
 import pytz
+import hashlib
 from datetime import datetime
 
 from api.auth.schema import UserIn
@@ -54,12 +55,15 @@ class DailyUsage(AppwriteModelBase):
         :param user_timezone: The user's timezone (e.g. "America/New_York").
         """
         # Convert the provided timestamp to the user's local timezone.
+        if user_timezone is None:
+            user_timezone = 'UTC'
         tz = pytz.timezone(user_timezone)
         local_time = timestamp.astimezone(tz)
+        short_user_id = hashlib.md5(user_id.encode()).hexdigest()[:8]
         day_str = local_time.strftime("%Y-%m-%d")
         
         # Build a unique document id for daily usage (e.g. "userID_2024-01-15")
-        document_id = f"{user_id}_{day_str}"
+        document_id = f"{short_user_id}_{day_str}"
         
         try:
             # Try to read the existing document.

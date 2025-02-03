@@ -58,9 +58,10 @@ class UserProfile(AppwriteModelBase):
 class UserPreferences(AppwriteModelBase):
 
     collection_id = "user_preference"
+    
     interest: List[str] = AppwriteField(array=True, type="array", default=[])
-    price_range: str = AppwriteField(size=255)
-    shopping_frequency: str = AppwriteField(size=255)
+    price_range: str = AppwriteField(size=255, required=False)
+    shopping_frequency: str = AppwriteField(size=255, required=False)
     preferred_categories: List[str] = AppwriteField(array=True, type="array", default=[])
     notification_preferences: List[str] = AppwriteField(array=True, type="array",default=[])
 

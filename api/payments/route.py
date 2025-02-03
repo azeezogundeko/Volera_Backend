@@ -111,7 +111,7 @@ async def verify_payment(
             asyncio.to_thread(user_db.update_prefs, user.id, {"credits": new_credits}),
             asyncio.to_thread(user_db.update_labels, user.id, ["subscribed"]),
             Subscription.create(Subscription.get_unique_id(), data),
-            record_credit_transaction(user.id, pplan["credits"])
+            # record_credit_transaction(user.id, pplan["credits"])
         ]
 
         await asyncio.gather(*tasks)
@@ -161,6 +161,7 @@ async def get_billing_data(
         plan_name = plan["documents"][0].plan.upper()
 
     current_credits = prefs.get("credits", 0)
+    total_usage = -total_usage
         
     return {
         "currentPlan": plan_name + " Plan",
@@ -170,7 +171,7 @@ async def get_billing_data(
         "creditHistory": [
             {
                 "date": du.created_at,
-                "credits": du.total_credits
+                "credits": -du.total_credits
             }
             for du in credit_usage
         ]        

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from asyncio import create_task
 
-from config import PORT, DB_PATH
+from config import PORT, DB_PATH, SENTRY_API_KEY
 from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
 from db._appwrite.db_register import prepare_database, WaitList
@@ -19,6 +19,7 @@ from utils.exceptions import PaymentRequiredError
 from utils.exceptions_handlers import validation_exception_handler, payment_exception_handler
 
 import uvicorn
+import sentry_sdk
 from fastapi import FastAPI, Request, Body
 from fastapi.background import BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -125,26 +126,6 @@ async def save_waitlist(b: BackgroundTasks, email: str = Body()):
     b.add_task(send_waitlist_email, email)
     return {"message": "success", "data": email}
 
-# @app.middleware("http")
-# async def authenticate(request: Request, call_next):
-#     """Add database manager to request state."""
-#     auth_header = request.headers.get("Authorization")
-    
-#     if auth_header:
-#         token = auth_header.split(" ")[1]  # Extract the token part from "Bearer <token>"
-#         print(token)
-#         request.user = await get_current_user(token)  # Pass the token to your auth function
-        
-#         if request.user is None:
-#             raise HTTPException(status_code=401, detail="User not found")
-#     else:
-#         raise HTTPException(status_code=401, detail="User not found")
-#         # request.user = None  
-
-#     response = await call_next(request)
-#     return response
-
-
 
 
 @app.exception_handler(Exception)
@@ -162,7 +143,23 @@ async def validation_exception(request: Request, exc: RequestValidationError):
 @app.exception_handler(PaymentRequiredError)
 async def payment_exception(request: Request, exc: PaymentRequiredError):
     return await payment_exception_handler(request, exc)
-    
+
+# sentry_sdk.init(
+#     dsn=SENTRY_API_KEY,
+#     # Add data like request headers and IP for users,
+#     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+#     send_default_pii=True,
+#     # Set traces_sample_rate to 1.0 to capture 100%
+#     # of transactions for tracing.
+#     traces_sample_rate=1.0,
+#     _experiments={
+#         # Set continuous_profiling_auto_start to True
+#         # to automatically start the profiler on when
+#         # possible.
+#         "continuous_profiling_auto_start": True,
+#     },
+# )
+
 if __name__ == "__main__":
     logger.info("Starting FastAPI server.")
     uvicorn.run(app, port=int(PORT))  # Ensure PORT is an integer
