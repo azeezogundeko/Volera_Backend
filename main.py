@@ -56,9 +56,9 @@ async def lifespan(app: FastAPI):
 
         logger.info("HTTP client initialized successfully")
         
-        logger.info("Initializing web crawler...")
-        await CrawlerManager.initialize()
-        logger.info("Web crawler initialization completed.")
+        # logger.info("Initializing web crawler...")
+        # await CrawlerManager.initialize()
+        # logger.info("Web crawler initialization completed.")
         store = VectorStore()
         logger.info("Initializing vector store...")
         await store.initialize()
@@ -161,8 +161,8 @@ async def payment_exception(request: Request, exc: PaymentRequiredError):
 # )
 
 if __name__ == "__main__":
-    from installer import ensure_playwright_installed
-    ensure_playwright_installed()
+    # from installer import ensure_playwright_installed
+    # ensure_playwright_installed()
 
     logger.info("Starting FastAPI server.")
     uvicorn.run(app, port=int(PORT))  # Ensure PORT is an integer
