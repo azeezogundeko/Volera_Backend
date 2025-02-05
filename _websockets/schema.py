@@ -42,3 +42,4 @@ class RequestPayload(BaseModel):
 class RequestWebsockets(BaseModel):
     type: str
     data: RequestPayload
+    # messageId: str

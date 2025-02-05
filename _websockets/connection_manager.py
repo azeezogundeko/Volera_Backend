@@ -7,6 +7,7 @@ from agents import (
     filter_agent,
     response_agent,
     comparison_agent,
+    product_agent,
     )
 from _websockets.schema import WebSocketMessage, RequestWebsockets
 # from api.product.services import filter_products
@@ -172,25 +173,39 @@ class ConnectionManager:
             await self.QA_mode(processing_config, state, websocket)
 
 
-    async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str) -> List[Dict[str, Any]]:
+    async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str, history) -> List[Dict[str, Any]]:
         websocket_id = self.websocket_manager.add_connection(websocket)
-        await filter_agent(websocket_id, data.data.message, user_id, data.data.currentProducts, data.data.currentFilters)
+        return await filter_agent(
+            websocket_id,
+            data.data.message, user_id,
+            data.data.currentProducts,
+            data.data.currentFilters,
+            history,
+            )
 
         
 
-    async def detail_mode(self, data: dict, websocket: WebSocket, user_id: str):
+    async def detail_mode(self, data: dict, websocket: WebSocket, user_id: str, history):
         websocket_id = self.websocket_manager.add_connection(websocket)
         data = data["data"]
         query = data["query"]
         product = data["product"]
-        await response_agent(websocket_id, user_id, query, product)
+        return await response_agent(websocket_id, user_id, query, product, history)
 
-    async def compare_mode(self, data: dict, websocket: WebSocket, user_id: str):
+    async def agent_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id: str, history):
+        websocket_id = self.websocket_manager.add_connection(websocket)
+        # data = data["data"]
+        # query = data["message"]
+        # product = data["product"]
+        d = data.data
+        return await product_agent(websocket_id, user_id, d.message, d.currentProducts, history)
+
+    async def compare_mode(self, data: dict, websocket: WebSocket, user_id: str, message_history):
         websocket_id = self.websocket_manager.add_connection(websocket)
         data = data["data"]
         query = data["query"]
         products = data["products"]
-        await comparison_agent(websocket_id, user_id, query, products)
+        return await comparison_agent(websocket_id, user_id, query, products, message_history)
 
         
 
@@ -253,6 +268,13 @@ class ConnectionManager:
         
         # Fallback: truncate content
         return content[:max_length] + '...'
+
+    async def send_error(self, websocket: WebSocket):
+        await websocket.send_json({
+        "type": "ERROR",
+        "message": "Oops! Something went wrong on our end. Please try again later."
+    })
+
 
 
 

@@ -146,8 +146,8 @@ async def queue_worker(priority_level: int):
                 request_queues[priority_level].task_done()
 
 
+# @credit_required(2)
 @router.get("/detail/{product_id}", response_model=ProductDetail)
-@credit_required(2)
 async def get_product_detail(
     request: Request,
     product_id: str,
@@ -163,16 +163,16 @@ async def get_product_detail(
         ttl=ttl
     )
     if product is None:
+        # try:
+        #     product = await Product.read(product_id)
+        #     product = product.to_dict()
+        #     product["product_id"] = product.pop("$id")
+        # except AppwriteException:
         try:
-            product = await Product.read(product_id)
-            product = product.to_dict()
-            product["product_id"] = product.pop("$id")
-        except AppwriteException:
-            try:
-                product = await scraper.get_product_details(product_id)
-            except Exception as e:
-                logger.error(str(e), exc_info=True)
-                raise HTTPException(404, "Failed to Search")
+            product = await scraper.get_product_details(product_id)
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(404, "Failed to Search")
     return product
 
 @router.get("/trending-products", response_model=List[ProductResponse])

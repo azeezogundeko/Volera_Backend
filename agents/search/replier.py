@@ -26,43 +26,44 @@ agent = Agent(
     tools=[search_product_informaton]
 )
 
-async def response_agent(websocker_id, user_id, query, product): 
-    message_history = []
-    while True:
+async def response_agent(websocker_id, user_id, query, product, message_history): 
+    # message_history = []
+    # while True:
 
-        query = f"""
+    query = f"""
 
-        USER QUESTION: {query}
+    USER QUESTION: {query}
 
-        PRODUCT IN QUESTION: {product}
-        
-        """
-        has_credits, credits = await check_credits(user_id, "text")
-        if has_credits is False:
-            await websocket_manager.send_json(websocker_id, {
-                "type": "ERROR",
-                "message": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊"
-            })
-            break
-
-        response = await agent.run(query, message_history=message_history)
-        await track_llm_call(user_id,  "text")
-        message_history = message_history + response.new_messages()
-
-        await websocket_manager.send_json(websocker_id,
-        
-        {
-            "type": "PRODUCT_DETAILS_RESPONSE", 
-            "aiResponse": response.data.ai_response,
-            "productId": product["product_id"]
+    PRODUCT IN QUESTION: {product}
+    
+    """
+    has_credits, credits = await check_credits(user_id, "text")
+    if has_credits is False:
+        await websocket_manager.send_json(websocker_id, {
+            "type": "ERROR",
+            "message": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊"
         })
+        return []
 
-        websocket = websocket_manager.get_websocket(websocker_id)
+    response = await agent.run(query, message_history=message_history)
+    await track_llm_call(user_id,  "text")
+    message_history = message_history + response.new_messages()
 
-        response = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
-        if response is None:
-            break
-        data = response["data"]
-        query = data["query"]
-        product = data["product"]
+    await websocket_manager.send_json(websocker_id,
+    
+    {
+        "type": "PRODUCT_DETAILS_RESPONSE", 
+        "aiResponse": response.data.ai_response,
+        "productId": product["product_id"]
+    })
+
+    return message_history
+        # websocket = websocket_manager.get_websocket(websocker_id)
+
+        # response = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
+        # if response is None:
+        #     break
+        # data = response["data"]
+        # query = data["query"]
+        # product = data["product"]
     

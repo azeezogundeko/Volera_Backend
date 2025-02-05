@@ -32,7 +32,7 @@ agent = Agent(
 )
 
 
-async def filter_agent(websocket_id, user_query: str, user_id, products: List[Dict[str, Any]], current_filters)-> List[Dict[str, Any]]:
+async def filter_agent(websocket_id, user_query: str, user_id, products: List[Dict[str, Any]], current_filters, history)-> List[Dict[str, Any]]:
     query = f""""
                     User Query: {user_query}
                     \n\n
@@ -52,7 +52,7 @@ async def filter_agent(websocket_id, user_query: str, user_id, products: List[Di
             }
         )
 
-        return
+        return []
 
     response = await agent.run(query)
     await track_llm_call(user_id, "text")
@@ -75,3 +75,5 @@ async def filter_agent(websocket_id, user_query: str, user_id, products: List[Di
             "aiResponse": response.data.ai_response
             }}
         )
+
+    return []

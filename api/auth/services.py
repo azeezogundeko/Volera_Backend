@@ -87,6 +87,13 @@ async def get_user(email: str) -> Optional[UserIn]:
         return UserIn(**user)
     except AppwriteException:
         return None
+
+async def get_user_by_id(user_id) -> Optional[UserIn]:
+    try:
+        user = await asyncio.to_thread(user_db.get, user_id)
+        return UserIn(**user)
+    except Exception:
+        return None
     
 
 async def authenticate_user(email: str, password: str) -> Optional[UserIn]:

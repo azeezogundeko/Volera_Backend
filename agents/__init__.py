@@ -6,6 +6,7 @@ from .insights.graph import insights_agent_graph
 from .search.filter import filter_agent
 from .search.comparison import comparison_agent
 from .search.replier import response_agent
+from .search.product import product_agent
 
 __all__ = [
     "agent_manager",
@@ -16,4 +17,5 @@ __all__ = [
     "filter_agent",
     "response_agent",
     "comparison_agent",
+    "product_agent"
 ]

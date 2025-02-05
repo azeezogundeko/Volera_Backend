@@ -31,6 +31,11 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}")
         try:
+            await websocket.send_json(
+                {
+                    "type": "ERROR",
+                    "message":  "Oops! Something went wrong while processing your request. Please try again later."}
+                )
             await websocket.close(code=1011)
         except:
             pass

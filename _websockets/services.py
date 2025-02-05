@@ -1,4 +1,5 @@
 from typing import Optional
+import asyncio
 
 from api.auth import services
 from api.auth.schema import UserIn
@@ -55,25 +56,62 @@ async def authenticate_user(websocket: WebSocket, token: str) -> Optional[UserIn
         return None
 
 
-async def handle_websocket_messages(websocket: WebSocket, user_id: str):
-    """Handle incoming WebSocket messages."""
-    try:
-        while True:
-            raw_data = await websocket.receive_json()
-            if raw_data["type"] == "FILTER_REQUEST":
-                data = RequestWebsockets(**raw_data)
-                await manager.filter_mode(data, websocket, user_id)
+async def handle_request(raw_data: dict, websocket, user_id, history):
+    request_type = raw_data.get("type")
+    new_history = []
+    
+    if request_type in ["FILTER_REQUEST", "AGENT_REQUEST"]:
+        data = RequestWebsockets(**raw_data)
+        if request_type == "FILTER_REQUEST":
+            new_history = await manager.filter_mode(data, websocket, user_id, history)
+        else:  # AGENT_REQUEST
+            new_history = await manager.agent_mode(data, websocket, user_id, history)
 
-            elif raw_data["type"] == "PRODUCT_DETAILS_REQUEST":
-                
-                await manager.detail_mode(raw_data, websocket, user_id)
-            elif raw_data["type"] == "COMPARE_REQUEST":
-                await manager.compare_mode(raw_data, websocket, user_id)
-                
-            else:
-                data = WebSocketMessage(**raw_data)
-                await manager.handle_message(data, websocket, user_id)
+    elif request_type == "PRODUCT_DETAILS_REQUEST":
+        new_history = await manager.detail_mode(raw_data, websocket, user_id, history)
 
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for user: {user_id}")
-        await manager.disconnect(websocket)
+    elif request_type == "COMPARE_REQUEST":
+        new_history = await manager.compare_mode(raw_data, websocket, user_id, history)
+
+    elif request_type == "message":
+        data = WebSocketMessage(**raw_data)
+        await manager.handle_message(data, websocket, user_id)
+    else:
+        # Optionally handle unknown request types
+        print(f"Unknown request type: {request_type}")
+
+    return new_history
+
+
+
+async def handle_websocket_messages(websocket: WebSocket, user_id):
+    history = []
+    
+    while True:
+        try:
+            # Wait for a message with a 300 second timeout.
+            raw_data = await asyncio.wait_for(websocket.receive_json(), timeout=500.0)
+            if raw_data is None:
+                continue
+            new_history = await handle_request(raw_data, websocket, user_id, history)
+               # Ensure new_history is iterable before concatenating.
+            if new_history is None:
+                new_history = []
+            history += new_history
+
+        except WebSocketDisconnect:
+            await websocket.close()
+            break
+
+        except asyncio.TimeoutError:
+            # Handle the timeout specifically.
+            logger.error("WebSocket timeout occurred. Disconnecting websocket.")
+            await websocket.close()
+            break
+
+        # except Exception as e:
+        #     # Log any other exceptions and send an error message back.
+        #     logger.error(f"Error processing message: {e}", exc_info=True)
+        #     await manager.send_error(websocket)
+        #     break
+
