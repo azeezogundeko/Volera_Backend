@@ -161,5 +161,8 @@ async def payment_exception(request: Request, exc: PaymentRequiredError):
 # )
 
 if __name__ == "__main__":
+    from installer import ensure_playwright_installed
+    ensure_playwright_installed()
+
     logger.info("Starting FastAPI server.")
     uvicorn.run(app, port=int(PORT))  # Ensure PORT is an integer

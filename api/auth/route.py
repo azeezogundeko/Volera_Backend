@@ -1,4 +1,5 @@
 import asyncio
+import base64
 
 from . import services
 from db import user_db
@@ -64,18 +65,18 @@ async def login(payload: LoginSchema):
     first_name, last_name = user.name.rsplit("_", 1)
     is_pro = True if "pro_user" in user.labels else False
    
-
-    profile = await UserProfile.list(queries=[query.Query.equal("user_id", user.id)])
-    profile = profile["documents"]
-    image_data = None
-    if len(profile) == 0:
+    try:
+        profile = await UserProfile.read(user.id)
+    except AppwriteException:
         raise HTTPException(400, "User is not verified")
-
-    profile = profile[0]
+    
+    image_data = None
+    
     image_id = profile.avatar
     if image_id:
         try:
-            image_data = await UserProfile.get_file(image_id)
+            raw_image_data = await UserProfile.get_file(image_id)
+            image_data = base64.b64encode(raw_image_data).decode("utf-8")
         except AppwriteException:
             pass
 
