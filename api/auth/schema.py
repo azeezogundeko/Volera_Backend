@@ -100,7 +100,7 @@ class Token(BaseModel):
 
 class UserPublic(BaseModel):
     token: Token
-    user: UserOut
+    user: Dict[str, Any]
 
 
 class TokenData(BaseModel):

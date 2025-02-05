@@ -42,7 +42,7 @@ class UserCreate(BaseModel):
     first_name: str = Field(alias="firstName")
     last_name: str = Field(alias="lastName")
     password: str
-    timezone: str = Field(default="UTC")
+    timezone: Optional[str] = "UTC"
     # country: str
 
     @field_validator('password')

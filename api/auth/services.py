@@ -127,38 +127,39 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
 
     hashed_password = get_password_hash(payload.password)
     user_id=hash_email(payload.email)
-    payload = dict(
+    p = dict(
         user_id=user_id,
         email=payload.email,
         password=hashed_password,
         name=payload.first_name + "_" + payload.last_name
     )
-    response = await asyncio.to_thread(user_db.create_argon2_user, **payload)
-    await asyncio.to_thread(user_db.update_labels, user_id, ["users"])
+    response = await asyncio.to_thread(user_db.create_argon2_user, **p)
+    await asyncio.to_thread(user_db.update_labels, user_id, ["unsubscribed"])
     validation_code = generate_random_six_digit_number()
     await asyncio.to_thread(user_db.update_prefs, user_id, 
         {
             "validation_code": validation_code, 
             "theme": "black", 
             "notification": True, 
-            "credits": 100,
-            "timezone": payload.timezone 
+            "credits": 500,
+            "timezone": payload.timezone
             })
 
-    background_tasks.add_task(send_new_user_email, validation_code, payload["email"])
+    background_tasks.add_task(send_new_user_email, validation_code, p["email"])
 
     first_name, last_name = response["name"].rsplit("_", 1)
 
-    user = UserOut(
+    user = dict(
         user_id=response["$id"],
         email=response["email"],
         first_name=first_name,
         last_name=last_name,
+        is_pro=False,
         created_at=response["$createdAt"],
         updated_at=response["$updatedAt"]
     )
     
-    access_token = create_access_token(data={"sub": payload["email"]})
+    access_token = create_access_token(data={"sub": p["email"]})
     return  {
         "user": user,
         "token": {"access_token": access_token, "token_type": "bearer"}

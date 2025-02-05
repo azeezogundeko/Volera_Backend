@@ -97,7 +97,7 @@ def new_users_template(verification_code, year):
     <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Your Email - ShopLM</title>
+    <title>Verify Your Email - Volera</title>
     <style>
         body {{
         font-family: 'Arial', sans-serif;
@@ -178,22 +178,22 @@ def new_users_template(verification_code, year):
         <div class="email-content">
         <!-- Header -->
         <div class="email-header">
-            <h1>ShopLM</h1>
+            <h1>Volera</h1>
         </div>
         <!-- Body -->
         <div class="email-body">
             <h2>Verify Your Email Address</h2>
             <p>Thank you for signing up for Volera! To complete your registration, please use the verification code below:</p>
             <div class="verification-code">{verification_code}</div>
-            <p>Enter this code in the ShopLM app to verify your email address.</p>
+            <p>Enter this code in the Volera app to verify your email address.</p>
             <p>If you didn’t request this, you can safely ignore this email.</p>
         </div>
         <!-- Footer -->
         <div class="email-footer">
             <p> {year} Volera. All rights reserved.</p>
             <p>
-            <a href="https://shoplm.com/terms">Terms of Service</a> | 
-            <a href="https://shoplm.com/privacy">Privacy Policy</a>
+            <a href="https://volera.app/terms">Terms of Service</a> | 
+            <a href="https://volera.app/privacy">Privacy Policy</a>
             </p>
         </div>
         </div>

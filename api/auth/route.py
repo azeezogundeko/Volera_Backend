@@ -63,24 +63,23 @@ async def login(payload: LoginSchema):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = services.create_access_token(data={"sub": payload.email})
     first_name, last_name = user.name.rsplit("_", 1)
-    is_pro = True if "pro_user" in user.labels else False
+    is_pro = True if "subscribed" in user.labels else False
+    image_data = None
    
     try:
         profile = await UserProfile.read(user.id)
-    except AppwriteException:
-        raise HTTPException(400, "User is not verified")
-    
-    image_data = None
-    
-    image_id = profile.avatar
-    if image_id:
-        try:
-            raw_image_data = await UserProfile.get_file(image_id)
-            image_data = base64.b64encode(raw_image_data).decode("utf-8")
-        except AppwriteException:
-            pass
+        image_id = profile.avatar
+        if image_id:
+            try:
+                raw_image_data = await UserProfile.get_file(image_id)
+                image_data = base64.b64encode(raw_image_data).decode("utf-8")
+            except AppwriteException:
+                pass
 
-    user = UserOut(
+    except AppwriteException:
+        pass
+
+    user = dict(
         id=user.id,
         email=user.email,
         first_name=first_name,
