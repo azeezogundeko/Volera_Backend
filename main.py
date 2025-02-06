@@ -6,7 +6,16 @@ from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
 from db._appwrite.db_register import prepare_database, WaitList
 from api.auth.services import hash_email
-from api import chat_router, auth_router, product_router, track_router, queue_worker, payment_router
+
+from api import (
+    chat_router, 
+    auth_router, 
+    product_router, 
+    track_router, 
+    queue_worker, 
+    payment_router, 
+    admin_router
+)
 
 from utils.logging import logger
 from utils.queue import PRIORITY_LEVELS
@@ -102,12 +111,13 @@ app.add_middleware(
 
 app.add_middleware(AuthenticationMiddleware)
 
-app.include_router(chat_router, prefix="/api/chats", tags=["chat"])
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
-app.include_router(product_router, prefix="/api/product", tags=["product"])
+app.include_router(chat_router, prefix="/api/chats", tags=["Chat"])
+app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
+app.include_router(product_router, prefix="/api/product", tags=["Product"])
 app.include_router(websocket_router, prefix="/websocket", tags=["WebSocket"])
-app.include_router(track_router, prefix="/api/track", tags=["track"])
-app.include_router(payment_router, prefix="/api/payments", tags=["payment"])
+app.include_router(track_router, prefix="/api/track", tags=["Track"])
+app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
+app.include_router(payment_router, prefix="/api/payments", tags=["Payment"])
 
 app.router.lifespan_context = lifespan
 

@@ -1,21 +1,23 @@
 import asyncio
 import base64
 
-from . import services
 from db import user_db
+from . import services
 from .model import UserPreferences, UserProfile
-from utils.decorator import auth_required
-from .schema import UserIn, UserPublic, UserOut, UserProfileOut, UserPreferenceSchemaOut
+from .email import send_forgot_password_email
+from .schema import UserIn, UserPublic, UserPreferenceSchemaOut
 from .schema_in import UserCreate, LoginSchema, ProfileSchema, Profile
-from utils.logging import logger
 from config import APPWRITE_BUCKET_ID, APPWRITE_ENDPOINT
 
-from appwrite import query
+from utils.decorator import auth_required
+from utils.logging import logger
+
+# from appwrite import query
 from fastapi import Request
 from appwrite.client import AppwriteException
 from fastapi.background import BackgroundTasks
 from fastapi.exceptions import HTTPException
-from fastapi import Depends, HTTPException, APIRouter, UploadFile, File
+from fastapi import Depends, HTTPException, APIRouter, UploadFile, File, Body
 
 
 
@@ -40,8 +42,73 @@ async def verify_account(
         await asyncio.to_thread(user_db.update_status, user.id, True)
         await asyncio.to_thread(user_db.update_email_verification, user.id, True)
         return {"message": "success"}
-    else:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
+    raise HTTPException(status_code=400, detail="Invalid verification code")
+
+
+@router.post("/forgot_password")
+async def forgot_password(background_tasks: BackgroundTasks, email: str = Body()):
+    user = await services.get_user_by_email(email)
+    if user is None:
+        raise HTTPException(status_code=400, detail="Email does not exist")
+
+    code = services.generate_random_six_digit_number()
+    user_db.update_prefs(user.id, {"code": code})
+    first_name, last_name = services.split_name(user.name)
+    # send user email for otp
+    background_tasks.add_task(send_forgot_password_email, email, first_name, code)
+
+    return {"message": "success"}
+
+    
+@router.post("/verify_code")
+async def verify_password_code(code: int = Body(), email: str= Body()):
+    user = await services.get_user_by_email(email)
+
+    if user is None:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    password_code = user.prefs.get("code")
+
+    if password_code != code:
+        raise HTTPException(400, "Code is invalid")
+
+
+    return {'message': 'success'}
+
+
+@router.post("/reset_password")
+async def change_forgot_password(email: str = Body(), code: int = Body(),  password: str = Body()):
+
+
+    user = await services.get_user_by_email(email)
+    if user is None:
+        raise HTTPException(400, "User was not found")
+    v_code = user.prefs.get("code")
+
+    if v_code != code:
+        raise HTTPException(status_code=400, detail="Verification code is invalid")
+
+    password = services.get_password_hash(password)
+    await asyncio.to_thread(user_db.update_password, user.id, password)
+    return {"message": "success"}
+
+    
+@auth_required
+@router.put("/change_password")
+async def change_user_password(request: Request, currentPassword: str = Body(), newPassword: str = Body()):
+    user = request.state.user
+
+    old_hash_password = services.get_password_hash(currentPassword)
+    is_valid = services.verify_password(currentPassword, old_hash_password)
+
+    if not is_valid:
+        raise HTTPException(400, "User password is Invalid")
+
+    new_hash_password = services.get_password_hash(newPassword)
+    await asyncio.to_thread(user_db.update_password, user.id, new_hash_password)
+
+    return {"message": "Password changes successfully"}
+
 
 
 @auth_required
@@ -96,18 +163,14 @@ async def login(payload: LoginSchema):
         }
 
 @auth_required
-@router.post("/onboarding", response_model=UserProfileOut)
+@router.post("/onboarding")
 async def create_user_profile(
     request: Request,
     profile: ProfileSchema = Depends(),
 ):
     user: UserIn = request.state.user
-    result = await services.create_user_profile(user, profile)
-    return {
-        "message": "success",
-        "data": result,
-        "error": None
-    }
+    await services.create_user_profile(user, profile)
+    return {"message": "success", "error": None}
 
 @auth_required
 @router.post("/notifications")

@@ -4,6 +4,7 @@ from api.track.model import TrackedItem, PriceHistory
 from api.chat.model import Chat, Message, File, SavedChat, MessageImage
 from api.product.model import Product, WishList
 from api.auth.model import UserProfile, UserPreferences
+from api.admin.model import Contact
 # from agents.legacy.llm import LLMCall
 from api.payments.model import Subscription, SubscriptionLog, DailyUsage
 
@@ -28,7 +29,7 @@ AppwriteModelBase.register_model(File)
 AppwriteModelBase.register_model(UserPreferences)
 AppwriteModelBase.register_model(UserProfile)
 AppwriteModelBase.register_model(SavedChat)
-# AppwriteModelBase.register_model(Specification)
+AppwriteModelBase.register_model(Contact)
 # AppwriteModelBase.register_model(Stores)
 
 
