@@ -7,6 +7,7 @@ from config import PAYSTACK_SECRET_KEY, PAYSTACK_SECRET_KEY_TEST
 from api.auth.schema import UserIn
 from db import user_db
 from utils.logging import logger
+from api.admin.model import system_log
 
 from httpx import AsyncClient
 from appwrite import query
@@ -109,9 +110,9 @@ async def verify_payment(
         new_credits = int(current_credits) + pplan["credits"]
         tasks = [
             asyncio.to_thread(user_db.update_prefs, user.id, {"credits": new_credits}),
-            asyncio.to_thread(user_db.update_labels, user.id, ["subscribed"]),
+            # asyncio.to_thread(user_db.update_labels, user.id, ["subscribed"]),
             Subscription.create(Subscription.get_unique_id(), data),
-            # record_credit_transaction(user.id, pplan["credits"])
+            await system_log("transaction", amount=naira_amount)
         ]
 
         await asyncio.gather(*tasks)

@@ -302,6 +302,40 @@ def auth_required(func=None):
     if func:
         return decorator(func)
     return decorator
+
+
+def admin_required(func=None):
+    """
+    Decorator to require authentication.
+    Can be used with or without parentheses.
+    """
+    def decorator(f):
+        @wraps(f)
+        async def wrapper(
+            request: Request,
+            *args,
+            **kwargs
+        ):
+            current_user = request.state.user
+  
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required."
+                )
+            if "admin" not in current_user.labels:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin access required."
+                )
+            result = await f(request, *args, **kwargs)
+            return result
+        return wrapper
+
+    # Support using decorator with or without parentheses
+    if func:
+        return decorator(func)
+    return decorator
 # async def refund_credits(db: AsyncSession, user_id: str, amount: int):
 #     """Atomic credit refund operation"""
 #     try:

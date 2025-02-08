@@ -87,6 +87,7 @@ class MonthlyUsage(AppwriteModelBase):
     user_id: str = AppwriteField()
     month: str = AppwriteField() # store as YYYY-MM (e.g. 2024-01)
     total_credits: int = AppwriteField(type="int", default=0)
+    
 
     @classmethod
     async def update_usage(cls, user_id: str, timestamp: datetime, delta: int, user_timezone: str) -> None:

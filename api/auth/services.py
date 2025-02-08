@@ -4,18 +4,19 @@ from typing import Any, Optional
 from datetime import datetime, timedelta, timezone
 import hashlib
 
-from appwrite.client import AppwriteException
 from db import user_db
 from .model import UserProfile, UserPreferences
 
 from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from .schema import UserIn, TokenData, UserOut
 from .schema_in import ProfileSchema, UserCreate
+from api.admin.model import system_log
 
 from utils.emails import send_new_user_email
 
-from appwrite.input_file import InputFile
 from jose import JWTError, jwt
+from appwrite.input_file import InputFile
+from appwrite.client import AppwriteException
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
@@ -160,6 +161,7 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
     )
     
     access_token = create_access_token(data={"sub": p["email"]})
+    await system_log("user")
     return  {
         "user": user,
         "token": {"access_token": access_token, "token_type": "bearer"}

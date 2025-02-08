@@ -5,6 +5,7 @@ from api.chat.model import Chat, Message, File, SavedChat, MessageImage
 from api.product.model import Product, WishList
 from api.auth.model import UserProfile, UserPreferences
 from api.admin.model import Contact
+from api.admin.model import DailyLog, MonthlyLog, AppLog
 # from agents.legacy.llm import LLMCall
 from api.payments.model import Subscription, SubscriptionLog, DailyUsage
 
@@ -30,6 +31,9 @@ AppwriteModelBase.register_model(UserPreferences)
 AppwriteModelBase.register_model(UserProfile)
 AppwriteModelBase.register_model(SavedChat)
 AppwriteModelBase.register_model(Contact)
+AppwriteModelBase.register_model(DailyLog)
+AppwriteModelBase.register_model(MonthlyLog)
+AppwriteModelBase.register_model(AppLog)
 # AppwriteModelBase.register_model(Stores)
 
 
