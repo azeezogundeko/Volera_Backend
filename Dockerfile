@@ -45,6 +45,8 @@ RUN apt-get update \
         libasound2 \
         libatspi2.0-0 \
         libwayland-client0 \
+        # For Tkinter (if needed)
+        python3-tk \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
