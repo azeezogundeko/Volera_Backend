@@ -3,8 +3,8 @@ version: '3.8'
 services:
   web:
     build: .
-    ports:
-      - "8000:8000"
+    expose:
+      - 8000
     env_file:
       - .env
     volumes:
@@ -14,13 +14,22 @@ services:
       - redis
       - celery_worker
       - searxng
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.volera-backend.rule=Host(`server.volera.app`)
+      - traefik.http.routers.volera-backend.entrypoints=web
+      - traefik.http.services.volera-backend.loadbalancer.server.port=8000
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    expose:
+      - 6379
     volumes:
       - redis_data:/data
+    networks:
+      - dokploy-network
 
   celery_worker:
     build: .
@@ -32,11 +41,13 @@ services:
       - ./logs:/app/logs
     depends_on:
       - redis
+    networks:
+      - dokploy-network
 
   searxng:
     image: searxng/searxng:latest
-    ports:
-      - "8080:8080"
+    expose:
+      - 8080
     volumes:
       - searxng_data:/etc/searxng
     environment:
@@ -47,7 +58,18 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.volera-searxng.rule=Host(`search.volera.app`)
+      - traefik.http.routers.volera-searxng.entrypoints=web
+      - traefik.http.services.volera-searxng.loadbalancer.server.port=8080
 
 volumes:
   redis_data:
   searxng_data:
+
+networks:
+  dokploy-network:
+    external: true

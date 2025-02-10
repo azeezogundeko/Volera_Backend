@@ -2,10 +2,7 @@ FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    POETRY_VERSION=1.7.1 \
-    POETRY_HOME="/opt/poetry" \
-    POETRY_VIRTUALENVS_CREATE=false
+    PYTHONUNBUFFERED=1
 
 # Install system dependencies
 RUN apt-get update \
@@ -50,22 +47,18 @@ RUN apt-get update \
         libwayland-client0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="${POETRY_HOME}/bin:$PATH"
-
 # Set working directory
 WORKDIR /app
 
-# Copy poetry files
-COPY pyproject.toml poetry.lock ./
+# Copy requirements file
+COPY requirements.txt .
 
-# Install dependencies
-RUN poetry install --no-dev --no-interaction --no-ansi
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers
-RUN poetry run playwright install --with-deps chromium
-RUN poetry run playwright install-deps
+RUN playwright install --with-deps chromium
+RUN playwright install-deps
 
 # Copy project files
 COPY . .
