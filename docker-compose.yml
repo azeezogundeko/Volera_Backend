@@ -11,8 +11,6 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     depends_on:
-      # - redis
-      # - celery_worker
       - searxng
     networks:
       - dokploy-network
@@ -21,28 +19,6 @@ services:
       - traefik.http.routers.volera-backend.rule=Host(`server.volera.app`)
       - traefik.http.routers.volera-backend.entrypoints=web
       - traefik.http.services.volera-backend.loadbalancer.server.port=8000
-
-  # redis:
-  #   image: redis:7-alpine
-  #   expose:
-  #     - 6379
-  #   volumes:
-  #     - redis_data:/data
-  #   networks:
-  #     - dokploy-network
-
-  # celery_worker:
-  #   build: .
-  #   command: celery -A _celery worker --loglevel=info
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - ./data:/app/data
-  #     - ./logs:/app/logs
-  #   depends_on:
-  #     - redis
-  #   networks:
-  #     - dokploy-network
 
   searxng:
     image: searxng/searxng:latest
@@ -54,9 +30,6 @@ services:
       - INSTANCE_NAME=volera-search
       - BASE_URL=http://localhost:8080/
       - AUTOCOMPLETE=google
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - redis
     restart: unless-stopped
     networks:
       - dokploy-network
@@ -67,7 +40,6 @@ services:
       - traefik.http.services.volera-searxng.loadbalancer.server.port=8080
 
 volumes:
-  redis_data:
   searxng_data:
 
 networks:
