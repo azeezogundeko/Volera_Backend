@@ -11,8 +11,8 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     depends_on:
-      - redis
-      - celery_worker
+      # - redis
+      # - celery_worker
       - searxng
     networks:
       - dokploy-network
@@ -22,27 +22,27 @@ services:
       - traefik.http.routers.volera-backend.entrypoints=web
       - traefik.http.services.volera-backend.loadbalancer.server.port=8000
 
-  redis:
-    image: redis:7-alpine
-    expose:
-      - 6379
-    volumes:
-      - redis_data:/data
-    networks:
-      - dokploy-network
+  # redis:
+  #   image: redis:7-alpine
+  #   expose:
+  #     - 6379
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - dokploy-network
 
-  celery_worker:
-    build: .
-    command: celery -A _celery worker --loglevel=info
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    depends_on:
-      - redis
-    networks:
-      - dokploy-network
+  # celery_worker:
+  #   build: .
+  #   command: celery -A _celery worker --loglevel=info
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - ./data:/app/data
+  #     - ./logs:/app/logs
+  #   depends_on:
+  #     - redis
+  #   networks:
+  #     - dokploy-network
 
   searxng:
     image: searxng/searxng:latest

@@ -1,6 +1,7 @@
 from typing import Dict
 from datetime import datetime, timedelta
 from calendar import monthrange
+from typing import Literal
 import calendar
 
 from asyncio import gather
@@ -88,7 +89,7 @@ def calculate_error_rate(stats):
         return (stats.no_of_errors / stats.no_of_transactions) * 100
     return 0.0
 
-async  def system_log(type: "user" | "error" | "active" | "inactive" | "transaction", amount=None) -> None:
+async  def system_log(type: Literal["user", "error", "active", "inactive", "transaction"], amount=None) -> None:
     """
     Update system log for at the provided timestamp.
     
