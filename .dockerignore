@@ -1,0 +1,29 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Local development
+data/
+logs/
+*.log
+
+# Tests
+test/
+*.test.py
+
+# Documentation
+*.md
+LICENSE

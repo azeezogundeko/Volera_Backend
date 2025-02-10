@@ -19,13 +19,15 @@ class Contact(AppwriteModelBase):
     acknowledged: bool = AppwriteField(type="bool", default=False)
 
 
+class AdminUsers(AppwriteModelBase):
+    collection_id = "admin_users"
 
+    is_super_admin: bool = AppwriteField(type="bool", default=False)
+    admin_email: str = AppwriteField(required=False)
+    email_key: str = AppwriteField(required=False)
+    admin_password: str = AppwriteField()
+    is_editor: str = AppwriteField(type="bool", default=False)
 
-class AdminUser(AppwriteModelBase):
-    collection_id = "admin_user"
-
-    email: str = AppwriteField()
-    password: str = AppwriteField()
 
 class AppLog(AppwriteModelBase):
     collection_id = "app_log"
@@ -177,15 +179,6 @@ class MonthlyLog(AppwriteModelBase):
             }
             await cls.create(document_id, data)
 
-
-async  def system_log(type: "user" | "error" | "active" | "inactive" | "transaction", amount=None) -> None:
-    """
-    Update system log for at the provided timestamp.
-    
-    """
-    from asyncio import gather
-    
-    await gather(DailyLog.update_log(type, amount), MonthlyLog.update_log(type, amount), AppLog.update_log(type, amount))
 
 
 class BaseModel:

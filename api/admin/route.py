@@ -12,15 +12,63 @@ from .services import (
     calculate_error_rate
     )
 
-from .model import Contact, EmailConfig, EmailTemplate, DailyLog, MonthlyLog, AppLog
+from .model import Contact, EmailConfig, EmailTemplate, AdminUsers, AppLog
 from .email_manager import EmailManager
+from .schema import AdminUserIn
+from ..auth.services import get_user_by_email, authenticate_user, create_access_token
 
-from utils.decorator import admin_required
+from utils.decorator import admin_required, super_admin_required
 from utils.logging import logger
 
 from appwrite import query
 
 router = APIRouter()
+
+
+@super_admin_required
+@router.post("/create_admin")
+async def create_admin_user(requests: Request, payload: AdminUserIn):
+    user = get_user_by_email(payload.email)
+
+    if user is None: 
+        raise HTTPException(400, "User has not yet created an account")
+    data = dict(
+        is_super_admin=payload.super_admin,
+        admin_email=payload.email,
+        email_key=payload.email_key,
+        is_editor=payload.editor,
+        admin_password = ...
+    )
+    await AdminUsers.create(
+        user.email, 
+        data=data    
+    )
+
+    return data
+
+
+@router.post("/login")
+async def admin_login(email: str = Body(), password: str = Body()):
+    user = await authenticate_user(email, password)
+
+    if user is None:
+        raise HTTPException(401, "Invalid Credentials")
+
+    try:
+        await AdminUsers.read(user.id)
+    except Exception as e:
+        raise HTTPException(
+            403,
+            "Admin access required"
+        )
+
+    access_token = create_access_token(data={"sub": email})
+    
+    return {
+        "user": user,
+        "token": {"access_token": access_token, "token_type": "bearer"}
+        }
+
 
 @router.post("/contact")
 async def save_contact(

@@ -4,6 +4,8 @@ import inspect
 from typing import TypeVar, Callable, Optional, Type, Union, Any, Dict, Tuple, Coroutine
 from functools import wraps
 
+from appwrite.client import AppwriteException
+
 from .logging import logger
 import time
 from difflib import SequenceMatcher
@@ -294,6 +296,53 @@ def auth_required(func=None):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required."
                 )
+            result = await f(request, *args, **kwargs)
+            return result
+        return wrapper
+
+    # Support using decorator with or without parentheses
+    if func:
+        return decorator(func)
+    return decorator
+
+
+
+
+def super_admin_required(func=None):
+    """
+    Decorator to require authentication.
+    Can be used with or without parentheses.
+    """
+    from api.admin.model import AdminUsers
+
+    def decorator(f):
+        @wraps(f)
+        async def wrapper(
+            request: Request,
+            *args,
+            **kwargs
+        ):
+            current_user = request.state.user
+  
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required."
+                )
+            try:
+                admin = await AdminUsers.read(current_user.id)
+                if admin.is_super_admin is False:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Super Admin access required."
+                    )
+
+            except AppwriteException:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Super Admin access required."
+                )
+
             result = await f(request, *args, **kwargs)
             return result
         return wrapper

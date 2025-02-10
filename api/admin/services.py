@@ -5,7 +5,7 @@ import calendar
 
 from asyncio import gather
 
-from .model import DailyLog, MonthlyLog
+from .model import DailyLog, MonthlyLog, AppLog
 
 
 async def get_user_growth_data(today: datetime) -> Dict:
@@ -87,3 +87,12 @@ def calculate_error_rate(stats):
     if stats.no_of_transactions > 0:
         return (stats.no_of_errors / stats.no_of_transactions) * 100
     return 0.0
+
+async  def system_log(type: "user" | "error" | "active" | "inactive" | "transaction", amount=None) -> None:
+    """
+    Update system log for at the provided timestamp.
+    
+    """
+    from asyncio import gather
+    
+    await gather(DailyLog.update_log(type, amount), MonthlyLog.update_log(type, amount), AppLog.update_log(type, amount))
