@@ -28,7 +28,7 @@ services:
       - searxng_data:/etc/searxng
     environment:
       - INSTANCE_NAME=volera-search
-      - BASE_URL=http://localhost:8080/
+      - BASE_URL=http://localhost:8080/ 
       - AUTOCOMPLETE=google
     restart: unless-stopped
     networks:

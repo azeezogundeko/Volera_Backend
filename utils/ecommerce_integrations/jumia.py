@@ -338,7 +338,7 @@ class JumiaIntegration(ScrapingIntegration):
         transformed = []
         for product in products:
             url = f"{self.base_url}{product.get('url', '')}"
-            product_id = self.generate_id(url)
+            product_id = self.generate_url_id(url)
             item = {
                 "product_id": product_id,
                 "name": product.get("name", ""),
