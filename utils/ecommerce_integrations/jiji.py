@@ -213,7 +213,7 @@ class JijiIntegration(ScrapingIntegration):
         # print("\n\n\n")
         transformed = []
         for product in products:
-            url = f"{self.base_url}{product.get("url", "")}"
+            url = f"{self.base_url}{product.get('url', '')}"
             product_id = self.generate_url_id(url)
             p = {
                 "name": product.get("name", ""),
