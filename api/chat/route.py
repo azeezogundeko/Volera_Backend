@@ -102,7 +102,7 @@ async def create_new_chat(
 
 
 # Route to get all chats
-@router.get("/")
+@router.get("")
 async def get_chats(
     limit: int = Query(25),
     page: int = Query(1),
