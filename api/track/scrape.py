@@ -315,8 +315,8 @@ class EcommerceWebScraper:
             return "jumia"
         elif "jiji.ng" in domain:
             return "jiji"
-        else:
-            return ""
+        elif "konga.com" in domain:
+            return "konga"
 
                 
 
@@ -328,13 +328,19 @@ class EcommerceWebScraper:
         # url = ID.decrypt(product_id)
         url = self.shortener.enlarge_url(product_id)
         source = self.extract_source(url)
+
+        print(url, source)
         
         if source == "jiji":
             return await self.get_jiji_product(url, product_id)
         elif source == "jumia":
             return await self.get_jumia_product(url, product_id)
-        
-        return await self.get_konga_product(url)
+
+        elif source == "konga":
+            return await self.get_konga_product(url)
+
+        else:
+            raise Exception("Product was not found")
 
     def _clean_specifications(self, specifications: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Clean and format specifications data."""
