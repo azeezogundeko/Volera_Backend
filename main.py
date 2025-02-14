@@ -23,7 +23,7 @@ from utils.middleware import AuthenticationMiddleware
 from utils._craw4ai import CrawlerManager
 from utils.background import background_task
 from utils.request_session import http_client
-from utils.emails import send_waitlist_email
+# from utils.emails import send_waitlist_email
 from utils.exceptions import PaymentRequiredError
 from utils.exceptions_handlers import validation_exception_handler, payment_exception_handler
 
@@ -128,14 +128,6 @@ async def add_db_manager(request: Request, call_next):
     request.state.db_cache = db_cache
     response = await call_next(request)
     return response
-
-@app.post("/api/waitlist")
-async def save_waitlist(b: BackgroundTasks, email: str = Body()): 
-    user_id = hash_email(email)
-    await WaitList.get_or_create(user_id, {"email": email})
-    b.add_task(send_waitlist_email, email)
-    return {"message": "success", "data": email}
-
 
 
 @app.exception_handler(Exception)
