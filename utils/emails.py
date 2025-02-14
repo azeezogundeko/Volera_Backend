@@ -1,98 +1,13 @@
-import os
-import random
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.utils import formatdate, make_msgid
-from email.mime.application import MIMEApplication
-# from dotenv import load_dotenv
-# from .logging import logger
-
-# load_dotenv()
-
-# from_email = os.getenv("FROM_EMAIL")
-smtp_password = os.getenv("SMTP_PASSWORD")
-smtp_password = "vzwwdtfbgycdogoq"
-from_email = os.environ.get("FROM_EMAIL")
-from_email = "azeezogundeko@volera.app"
-# smtp_password = os.environ.get("SMTP_PASSWORD")
-smtp_server = "smtp.gmail.com"
-smtp_port = 465
-
-
-def send_email(
-    to_email,
-    content,
-    subject=None,
-    attachments=None,
-    recipients=None,
-):
-    # Create a MIMEMultipart message
-    message = MIMEMultipart("alternative")
-    message["To"] = to_email
-    message["Subject"] = subject
-    message["From"] = "Azeez from Volera <azeezogundeko@volera.app>"
-    if recipients:
-        message["Bcc"] = ", ".join(recipients)
-
-    # Add additional headers that can improve deliverability
-    message["Date"] = formatdate(localtime=True)
-    message["Message-ID"] = make_msgid(domain=from_email.split("@")[1])
-    message["MIME-Version"] = "1.0"
-    message["X-Priority"] = "3"  # Normal priority
-    message["X-Mailer"] = "Python Email Client"
-
-    # Optional but recommended headers
-    message["Reply-To"] = from_email
-    message["Return-Path"] = from_email
-
-    # Attach plain text and HTML versions of the message
-    # message.attach(MIMEText(text_content, "plain"))
-    message.attach(MIMEText(content, "html"))
-
-    # Attach files if any
-    if attachments:
-        for attachment in attachments:
-            filename = attachment.filename
-            try:
-                attachment_data = attachment.file.read()
-            except Exception as e:
-                print(f"Error reading attachment: {e}")
-                continue  # Skip this attachment on error
-            else:
-                attachment_mime = MIMEApplication(attachment_data)
-                attachment_mime.add_header(
-                    "Content-Disposition", f"attachment; filename={filename}"
-                )
-                message.attach(attachment_mime)
-
-    # Modified SMTP connection and sending with more detailed error handling
-    try:
-        smtp = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        smtp.login("solvebyte@gmail.com", smtp_password)
-        smtp.send_message(message)
-        # logger.info(f"Email sent to {to_email}")
-
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        raise
-    finally:
-        smtp.quit()
-
-def send_waitlist_email(user_email):
-    subject = "Thanks for Joining! Your Volera Waitlist Spot is Reserved ✅"
-    html_content = waitlist_template(user_email, "")
-    send_email(user_email, html_content, subject)
-
+from .email_manager import manager
 
 
 def send_new_user_email(verification_code, email):
     from datetime import datetime
-
+    manager.choose_account("no-reply")
     year = datetime.now().year
     subject = "Verify Your Email - Volera"
     html_content = new_users_template(verification_code, year)
-    send_email(email, html_content, subject)
+    manager.send_email(email, subject, html_content)
 
 def new_users_template(verification_code, year):
     return f"""
@@ -287,5 +202,3 @@ def waitlist_template(user_email, privacy_link):
         </html>
     """
 
-if __name__ == "__main__":
-    send_waitlist_email("aislarzy@gmail.com")

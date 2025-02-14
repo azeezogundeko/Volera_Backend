@@ -4,7 +4,8 @@ from asyncio import to_thread
 
 from db import user_db
 from.model import DailyUsage
-from utils.emails import send_email
+# from utils.emails import send_email
+from utils.email_manager import manager
 from utils.email_templates.payment_acknowledgement import generate_credit_purchase_email
 
 from fastapi import BackgroundTasks
@@ -13,8 +14,9 @@ from appwrite.exception import AppwriteException
 
 
 def send_payment_acknowledgement(user_name, email, reference, amount, credits, payment_method, b: BackgroundTasks):
+    manager.choose_account("no-reply")
     html_content = generate_credit_purchase_email(user_name, reference, amount, credits, payment_method)
-    b.add_task(send_email, email, html_content, "Payment Acknowledgement - Volera")
+    b.add_task(manager.send_email, email, "Payment Acknowledgement - Volera", html_content)
 
 
 async def record_credit_transaction(user_id, delta: int, created_at: datetime = datetime.now()) -> None:

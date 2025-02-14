@@ -162,6 +162,7 @@ async def get_product_detail(
         bypass_cache=bypass_cache,
         ttl=ttl
     )
+    
     if product is None:
         # try:
         #     product = await Product.read(product_id)
@@ -170,6 +171,7 @@ async def get_product_detail(
         # except AppwriteException:
         try:
             product = await scraper.get_product_details(product_id)
+            print(product)
             await manager.db_manager.set(
                     key=product_id,
                     value=product,
@@ -178,6 +180,9 @@ async def get_product_detail(
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(404, "Failed to Search")
+
+    print(product)
+
     return product
 
 @router.get("/trending-products", response_model=List[ProductResponse])
