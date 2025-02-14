@@ -29,16 +29,19 @@ async def register_user(payload: UserCreate, background_tasks: BackgroundTasks):
     return await services.create_new_user(payload, background_tasks)
 
 
-@auth_required
+
 @router.post("/verify_account")
 async def verify_account(
-    request: Request,
-    verification_code: int):
+    email: str = Body(),
+    code: int =  Body()):
 
-    user: UserIn = request.state.user
+    user = await services.get_user_by_email(email)
+    if user is None:
+        raise HTTPException(400, "User not found")
+
     valid_code = user.prefs["validation_code"]
 
-    if verification_code == valid_code:
+    if code == valid_code:
         await asyncio.to_thread(user_db.update_status, user.id, True)
         await asyncio.to_thread(user_db.update_email_verification, user.id, True)
         return {"message": "success"}
@@ -110,15 +113,16 @@ async def change_user_password(request: Request, currentPassword: str = Body(), 
     return {"message": "Password changes successfully"}
 
 
-
-@auth_required
-@router.get("/resend-verification-code")
+@router.post("/resend-verification-code")
 async def resend_verification_code(
-    request: Request,
     background_tasks: BackgroundTasks,
+    email: str = Body(),
     ):
-    user = request.state.user
-    background_tasks.add_task(services.send_new_user_email, user.prefs["vaidation_code"], user.email)
+    # user = request.state.user
+    user = await services.get_user_by_email(email)
+    if user is None:
+        raise HTTPException(400, "Account was not found")
+    background_tasks.add_task(services.send_new_user_email, user.prefs["validation_code"], email)
     return {"message": "success"}
     
 

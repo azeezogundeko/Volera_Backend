@@ -20,12 +20,13 @@ class EmailAccount:
     """
     Represents an email account with its configuration.
     """
-    def __init__(self, name, from_email, smtp_password, smtp_server="smtp.gmail.com", smtp_port=465):
+    def __init__(self, name, from_email, smtp_password, login_email, smtp_server="smtp.gmail.com", smtp_port=465):
         self.name = name  # e.g., "Azeez"
         self.from_email = from_email  # e.g., "azeezogundeko@volera.app"
         self.smtp_password = smtp_password
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
+        self.login_email = login_email
 
     def display_name(self):
         """
@@ -44,12 +45,22 @@ class EmailAccountManager:
             "azeez_volera": EmailAccount(
                 name="Azeez from Volera",
                 from_email=os.environ.get("FROM_AZEEZ_EMAIL"),
+                login_email=os.environ.get("FROM_EMAIL"),
                 smtp_password=os.getenv("SMTP_PASSWORD")
             ),
             "solvebyte": EmailAccount(
                 name="Solvebyte",
                 from_email=os.environ.get("FROM_EMAIL"),
+                login_email=os.environ.get("FROM_EMAIL"),
                 smtp_password=os.getenv("SMTP_PASSWORD")
+            ),
+            "no-reply": EmailAccount(
+                name="no-reply - Volera",
+                from_email="no-reply@volera.app",
+                smtp_password=os.getenv("BREVO_SMTP_PASSWORD"),
+                login_email=os.environ.get("BREVO_SMTP_EMAIL"),
+                smtp_port=587,
+                smtp_server="smtp-relay.brevo.com"
             )
         }
         self.current_account = None
@@ -105,13 +116,24 @@ class EmailAccountManager:
 
         # Connect to the SMTP server and send the message
         try:
-            with smtplib.SMTP_SSL(self.current_account.smtp_server, self.current_account.smtp_port) as smtp:
-                smtp.login(self.current_account.from_email, self.current_account.smtp_password)
+            # Use SMTP_SSL for SSL connections (e.g., port 465) and SMTP with STARTTLS for others (e.g., port 587)
+            if self.current_account.smtp_port == 465:
+                smtp = smtplib.SMTP_SSL(self.current_account.smtp_server, self.current_account.smtp_port)
+            else:
+                smtp = smtplib.SMTP(self.current_account.smtp_server, self.current_account.smtp_port)
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.ehlo()
+                
+            with smtp:
+                print(self.current_account.login_email, self.current_account.smtp_password)
+                smtp.login(self.current_account.login_email, self.current_account.smtp_password)
                 smtp.send_message(message)
                 print(f"Email sent to {to_email} from {self.current_account.from_email}")
         except Exception as e:
             print(f"Failed to send email: {e}")
             raise
+
 
 manager = EmailAccountManager()
 # ===== Usage Example =====
