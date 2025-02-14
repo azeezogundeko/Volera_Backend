@@ -299,14 +299,25 @@ class EcommerceWebScraper:
         # return extracted_content
 
     def extract_source(self, url) -> str:
+        # If url is bytes, decode it to a string
+        if isinstance(url, bytes):
+            url = url.decode('utf-8')
+        
         parsed_url = urlparse(url)
         domain = parsed_url.netloc
-       
+
+        # If domain is still bytes, decode it as well
+        if isinstance(domain, bytes):
+            domain = domain.decode('utf-8')
+        
         # Identify the source based on the domain
         if "jumia.com.ng" in domain:
             return "jumia"
         elif "jiji.ng" in domain:
             return "jiji"
+        else:
+            return ""
+
                 
 
     async def get_product_details(
