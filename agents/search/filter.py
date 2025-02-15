@@ -4,7 +4,7 @@ from schema import GeminiDependencies
 from .prompts import filter_agent_prompt
 from api.track.scrape import scraper
 from ..legacy.llm import track_llm_call, check_credits
-from ..tools.google import google_search
+from ..tools.search import search_tool
 from utils.websocket import websocket_manager
 
 from pydantic_ai import Agent
@@ -20,7 +20,7 @@ async def get_product_details(product_id: str):
     return await scraper.get_product_details(product_id)
 
 async def search_product_informaton(query: str): 
-    return await google_search.search(query)
+    return await search_tool.search(query)
 
 agent = Agent(
     model="gemini-1.5-flash",

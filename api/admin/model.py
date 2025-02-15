@@ -34,41 +34,53 @@ class AppLog(AppwriteModelBase):
 
     id: str = AppwriteField()
     no_of_users: int = AppwriteField(type="int", default=0)
-    total_revenue_generated: int = AppwriteField(type="float", default=0.0)
+    total_revenue_generated: float = AppwriteField(type="float", default=0.0)
     no_of_transactions: int = AppwriteField(type="int", default=0)
     # total_active_users: int = AppwriteField(default=0, type="int")
     # total_inactive_users: int = AppwriteField(default=0, type="int")
 
     @classmethod
-    async def get_or_create(cls, document_id: str) -> MonthlyLog:
-        return await super().get_or_create(document_id, {"id": document_id})
+    async def get_or_create(cls, document_id: str) -> "AppLog":
+        """Get an existing log or create a new one with default values."""
+        try:
+            return await cls.read(document_id)
+        except AppwriteException:
+            return await cls.create(document_id, {
+                "id": document_id,
+                "no_of_users": 0,
+                "total_revenue_generated": 0.0,
+                "no_of_transactions": 0
+            })
 
 
     @classmethod
-    async def update_log(cls, type: "user" | "transaction", amount= None) -> None:
+    async def update_log(cls, type: "user" | "transaction", amount: float = None) -> None:
         """
         Update daily usage for a given user at the provided timestamp.
-        
         """
         document_id = "engr_ogundeko_volera"
+        dict_to_update = {}  # Initialize dict_to_update at the start
 
-        if type in ["user", "transacation"]:
-
+        if type in ["user", "transaction"]:
             try:
                 doc = await cls.read(document_id)
-                dict_to_update = {}
                 if type == "user":
                     dict_to_update["no_of_users"] = doc.no_of_users + 1
-                    # dict_to_update["total_inactive_users"] = doc.total_inactive_users + 1
                 elif type == "transaction": 
-                    dict_to_update["total_revenue_generated"] = doc.total_revenue_generated + amount
+                    dict_to_update["total_revenue_generated"] = doc.total_revenue_generated + (amount or 0)
                     dict_to_update["no_of_transactions"] = doc.no_of_transactions + 1
-                    # dict_to_update["total_active_users"] = doc.total_active_users + 1
 
                 await cls.update(document_id, dict_to_update)
 
             except AppwriteException:
-                doc = await cls.create(document_id, dict_to_update)
+                # Set default values for new document
+                dict_to_update = {
+                    "id": document_id,  # Required by Appwrite
+                    "no_of_users": 1 if type == "user" else 0,
+                    "total_revenue_generated": amount if type == "transaction" else 0.0,
+                    "no_of_transactions": 1 if type == "transaction" else 0
+                }
+                await cls.create(document_id, dict_to_update)
 
         
     
@@ -95,38 +107,35 @@ class DailyLog(AppwriteModelBase):
     async def update_log(cls, type: "user" | "error" | "transaction", amount: float = None) -> None:
         """
         Update daily usage for a given user at the provided timestamp.
-        
         """
-        # Convert the provided timestamp to the user's local timezone.
         document_id = datetime.now().strftime("%Y-%m-%d")
         dict_to_update = {}
+
         try:
             daily_doc: DailyLog = await cls.read(document_id)
 
             if type == "user":
                 dict_to_update["total_users"] = daily_doc.total_users + 1
-                # dict_to_update["total_active_users"] = daily_doc.total_active_users + 1
-                # dict_to_update["total_inactive_users"] = daily_doc.total_inactive_users + 1
-
             elif type == "error":
                 dict_to_update["no_of_errors"] = daily_doc.no_of_errors + 1
-            elif type == "active":
-                dict_to_update["total_active_users"] = daily_doc.total_active_users + 1
-            elif type == "inactive":
-                dict_to_update["total_inactive_users"] = daily_doc.total_inactive_users + 1
             elif type == "transaction":
                 dict_to_update["no_of_transactions"] = daily_doc.no_of_transactions + 1
-                dict_to_update["total_revenue_generated"] = daily_doc.total_revenue_generated + amount
+                dict_to_update["total_revenue_generated"] = daily_doc.total_revenue_generated + (amount or 0)
 
-            # Try to read the existing document.
             await cls.update(document_id, dict_to_update)
+
         except AppwriteException:
-            # Document does not exist; create a new one.
-            data = {
+            # Document does not exist; create a new one with proper defaults
+            dict_to_update = {
                 "day": document_id,
-                **dict_to_update
+                "total_users": 1 if type == "user" else 0,
+                "no_of_errors": 1 if type == "error" else 0,
+                "no_of_transactions": 1 if type == "transaction" else 0,
+                "total_revenue_generated": amount if type == "transaction" else 0,
+                "total_active_users": 0,
+                "total_inactive_users": 0
             }
-            await cls.create(document_id, data)
+            await cls.create(document_id, dict_to_update)
 
 
 class MonthlyLog(AppwriteModelBase):
@@ -147,37 +156,37 @@ class MonthlyLog(AppwriteModelBase):
         return await super().get_or_create(document_id, {"month": document_id})
 
     @classmethod
-    async def update_log(cls, type: "user" | "error" | "active" | "inactive" | "transaction", amount=None) -> None:
+    async def update_log(cls, type: "user" | "error" | "transaction", amount: float = None) -> None:
         """
         Update monthly usage for a given user at the provided timestamp.
-        
         """
         document_id = datetime.now().strftime("%Y-%m")
         dict_to_update = {}
+
         try:
             monthly_doc: MonthlyLog = await cls.read(document_id)
             if type == "user":
                 dict_to_update["total_users"] = monthly_doc.total_users + 1
             elif type == "error":
                 dict_to_update["no_of_errors"] = monthly_doc.no_of_errors + 1
-            elif type == "active":
-                dict_to_update["total_active_users"] = monthly_doc.total_active_users + 1
-            elif type == "inactive":
-                dict_to_update["total_inactive_users"] = monthly_doc.total_inactive_users + 1
             elif type == "transaction":
                 dict_to_update["no_of_transactions"] = monthly_doc.no_of_transactions + 1
-                dict_to_update["total_revenue_generated"] = monthly_doc.total_revenue_generated + amount
+                dict_to_update["total_revenue_generated"] = monthly_doc.total_revenue_generated + (amount or 0)
 
-
-            # Try to read the existing document.
             await cls.update(document_id, dict_to_update)
+
         except AppwriteException:
-            # Document does not exist; create a new one.
-            data = {
+            # Document does not exist; create a new one with proper defaults
+            dict_to_update = {
                 "month": document_id,
-                **dict_to_update
+                "total_users": 1 if type == "user" else 0,
+                "no_of_errors": 1 if type == "error" else 0,
+                "no_of_transactions": 1 if type == "transaction" else 0,
+                "total_revenue_generated": amount if type == "transaction" else 0,
+                "total_active_users": 0,
+                "total_inactive_users": 0
             }
-            await cls.create(document_id, data)
+            await cls.create(document_id, dict_to_update)
 
 
 

@@ -5,7 +5,7 @@ from schema import GeminiDependencies
 from .prompts import product_agent_prompt
 
 from ..legacy.llm import check_credits, track_llm_call
-from ..tools.google import google_search
+from ..tools.search import search_tool
 from ..tools.general import (
     track_product_price,
     get_product_specifications,
@@ -49,7 +49,7 @@ class ResponseSchema(BaseModel):
 
 
 async def normal_google_search(query: str): 
-    return await google_search.search(query)
+    return await search_tool.search(query)
 
 
     
@@ -63,10 +63,10 @@ agent = Agent(
     tools=[
         normal_google_search,
         get_user_preferences,
-        save_product_to_waishlist,
+        # save_product_to_waishlist,
         search_product_list,
-        get_product_specifications,
-        track_product_price
+        # get_product_specifications,
+        # track_product_price
         ]
 )
 

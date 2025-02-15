@@ -13,19 +13,26 @@ from .schema_in import ProfileSchema, UserCreate
 from api.admin.services import system_log
 
 from utils.emails import send_new_user_email
+from utils.logging import logger
+
 
 from jose import JWTError, jwt
 from appwrite.input_file import InputFile
 from appwrite.client import AppwriteException
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, BackgroundTasks
+from fastapi.requests import Request
 from fastapi.security import OAuth2PasswordBearer
 from appwrite.query import Query
+from utils.limiter import Limiter
 
 
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+# Initialize rate limiter for email-based attempts
+email_limiter = Limiter()
 
 def hash_email(email: str) -> str:
     # Generate a SHA-256 hash and truncate it to 36 characters
@@ -97,9 +104,22 @@ async def get_user_by_id(user_id) -> Optional[UserIn]:
         return None
     
 
-async def authenticate_user(email: str, password: str) -> Optional[UserIn]:
+async def get_email_client_id(request: Request, email: str, *args, **kwargs) -> str:
+    """Generate a rate limit key for email-based limiting."""
+    return f"email:{email}"
+
+@email_limiter.limit(times=3, minutes=30, key_func=get_email_client_id)  # 3 attempts per 30 minutes per email
+async def authenticate_user(request: Request, email: str, password: str) -> Optional[UserIn]:
+    """
+    Authenticate user with rate limiting per email address.
+    Rate limits:
+    - 3 attempts per 30 minutes per email address
+    This helps prevent brute force attacks on specific accounts.
+    """
     user = await get_user_by_email(email)
     if not user or not verify_password(password, user.password):
+        # Log failed attempt
+        logger.warning(f"Failed login attempt for email: {email}")
         return None
     return user
 

@@ -1,6 +1,6 @@
 from asyncio import gather
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.requests import Request
 from typing import Dict
 from datetime import datetime, timedelta
@@ -19,11 +19,14 @@ from ..auth.services import get_user_by_email, authenticate_user, create_access_
 
 from utils.decorator import admin_required, super_admin_required
 from utils.logging import logger
+from utils.limiter import Limiter
 
 from appwrite import query
 
 router = APIRouter()
 
+# Initialize rate limiter
+limiter = Limiter()
 
 @super_admin_required
 @router.post("/create_admin")
@@ -48,26 +51,54 @@ async def create_admin_user(requests: Request, payload: AdminUserIn):
 
 
 @router.post("/login")
-async def admin_login(email: str = Body(), password: str = Body()):
-    user = await authenticate_user(email, password)
-
-    if user is None:
-        raise HTTPException(401, "Invalid Credentials")
-
-    try:
-        await AdminUsers.read(user.id)
-    except Exception as e:
-        raise HTTPException(
-            403,
-            "Admin access required"
-        )
-
-    access_token = create_access_token(data={"sub": email})
+@limiter.limit(times=5, minutes=15)  # 5 attempts per 15 minutes per IP
+async def admin_login(
+    request: Request,
+    email: str = Body(),
+    password: str = Body()
+):
+    """
+    Admin login endpoint with rate limiting protection against brute force attacks.
+    Rate limits:
+    - 5 attempts per 15 minutes per IP address
+    - 3 attempts per 30 minutes per email address (handled in authenticate_user)
     
-    return {
-        "user": user,
-        "token": {"access_token": access_token, "token_type": "bearer"}
+    This implements a dual-layer rate limiting strategy:
+    1. IP-based limiting to prevent bulk attempts from a single source
+    2. Email-based limiting to protect individual accounts from distributed attacks
+    """
+    try:
+        user = await authenticate_user(request, email, password)
+
+        if user is None:
+            # Log failed attempt
+            logger.warning(f"Failed login attempt for email: {email} from IP: {request.client.host}")
+            raise HTTPException(401, "Invalid Credentials")
+
+        try:
+            await AdminUsers.read(user.id)
+        except Exception as e:
+            # Log unauthorized admin access attempt
+            logger.warning(f"Unauthorized admin access attempt by user: {email} from IP: {request.client.host}")
+            raise HTTPException(
+                403,
+                "Admin access required"
+            )
+
+        # Log successful login
+        logger.info(f"Successful admin login for user: {email} from IP: {request.client.host}")
+        
+        access_token = create_access_token(data={"sub": email})
+        
+        return {
+            "user": user,
+            "token": {"access_token": access_token, "token_type": "bearer"}
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during admin login: {str(e)}", exc_info=True)
+        raise HTTPException(500, "Internal server error")
 
 
 @router.post("/contact")

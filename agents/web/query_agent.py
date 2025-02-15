@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import WebSocket
 
 from ..legacy.base import BaseAgent
-from ..tools.google import GoogleSearchTool
+from ..tools.search import search_tool
 from ..config import agent_manager
 from ..state import State
 from .prompts.web_prompts import web_query_retrieval_prompt
@@ -29,7 +29,7 @@ class WebQueryAgent(BaseAgent):
             *args, **kwargs
             )
         
-        self.search_tool = GoogleSearchTool()
+        self.search_tool = search_tool
     
     async def search(self, result: WebQueryAgentSchema, query: str):
         params = {

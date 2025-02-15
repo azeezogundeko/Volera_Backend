@@ -24,7 +24,7 @@ class Limiter:
         self._rate_limiters: Dict[str, "RateLimit"] = {}
         self.queue_semaphore = Semaphore(100)  # Max concurrent queue processors
 
-    def limit(self, times: int = 100, minutes: int = 1, queue: bool = True):
+    def limit(self, times: int = 100, minutes: int = 1, queue: bool = True, key_func=None):
         """
         Decorator to apply rate limiting to an endpoint.
         
@@ -32,6 +32,8 @@ class Limiter:
             times: Number of allowed requests per time window.
             minutes: Duration of the time window in minutes.
             queue: Whether to use the queue system for rate-limited requests.
+            key_func: Optional function to generate the client identifier. 
+                     If None, uses IP address.
         """
         def decorator(func):
             self._rate_limiters[func.__name__] = RateLimit(
@@ -42,7 +44,12 @@ class Limiter:
             @wraps(func)
             async def wrapper(request: Request, *args, **kwargs):
                 limit = self._rate_limiters[func.__name__]
-                client_id = await self._get_client_id(request)
+                if key_func:
+                    # Use custom key function if provided
+                    client_id = await key_func(request, *args, **kwargs)
+                else:
+                    # Default to IP-based limiting
+                    client_id = await self._get_client_id(request)
                 
                 if queue:
                     return await self._handle_with_queue(request, client_id, limit, func, args, kwargs)
@@ -54,8 +61,8 @@ class Limiter:
         return decorator
 
     async def _get_client_id(self, request: Request) -> str:
-        """Get unique client identifier (customize as needed)."""
-        return request.client.host  # Or use API keys, session cookies, etc.
+        """Get unique client identifier based on IP address."""
+        return f"ip:{request.client.host}"  # Prefix to avoid collisions with other ID types
 
     async def _handle_with_queue(self, request: Request, client_id: str, 
                                limit: "RateLimit", func, args, kwargs):

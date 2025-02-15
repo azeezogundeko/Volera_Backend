@@ -126,7 +126,7 @@ class EmailAccountManager:
                 smtp.ehlo()
                 
             with smtp:
-                print(self.current_account.login_email, self.current_account.smtp_password)
+                # print(self.current_account.login_email, self.current_account.smtp_password)
                 smtp.login(self.current_account.login_email, self.current_account.smtp_password)
                 smtp.send_message(message)
                 print(f"Email sent to {to_email} from {self.current_account.from_email}")

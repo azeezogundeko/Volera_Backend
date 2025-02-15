@@ -2,7 +2,7 @@ import asyncio
 from typing import Literal
 
 from ..legacy.base import BaseAgent
-from ..tools.google import GoogleSearchTool
+from ..tools.search import search_tool
 from ..tools.search_tool import insights_search
 from ..config import agent_manager
 from ..state import State
@@ -27,7 +27,7 @@ class WebQueryAgent(BaseAgent):
             deps_type=GeminiDependencies,
             *args, **kwargs
             )
-        self.search_tool = GoogleSearchTool()
+        self.search_tool = search_tool
 
 
     async def search(self, result: WebQueryAgentSchema, mode = "fast"):

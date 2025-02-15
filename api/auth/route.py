@@ -127,12 +127,21 @@ async def resend_verification_code(
     
 
 
-@router.post("/login", response_model=UserPublic)
-async def login(payload: LoginSchema):
-    user = await services.authenticate_user(payload.email, payload.password)
+@router.post("/login")
+async def login(request: Request, payload: LoginSchema):
+    """
+    User login endpoint with rate limiting protection.
+    Rate limits:
+    - 3 attempts per 30 minutes per email address
+    """
+    user = await services.authenticate_user(request, payload.email, payload.password)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = services.create_access_token(data={"sub": payload.email})
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password"
+        )
+    
+    access_token = services.create_access_token(data={"sub": user.email})
     first_name, last_name = user.name.rsplit("_", 1)
     is_pro = True if "subscribed" in user.labels else False
     image_data = None

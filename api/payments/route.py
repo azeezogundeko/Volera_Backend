@@ -3,7 +3,7 @@ import asyncio
 from .model import Subscription, SubscriptionLog, DailyUsage
 from .schema import PaymentData
 from .services import send_payment_acknowledgement, record_credit_transaction
-from config import PAYSTACK_SECRET_KEY, PAYSTACK_SECRET_KEY_TEST
+from config import PAYSTACK_SECRET_KEY
 from api.auth.schema import UserIn
 from db import user_db
 from utils.logging import logger
@@ -30,7 +30,7 @@ class Plan:
 async def initialize_payment(payment: PaymentData):
     url = "https://api.paystack.co/transaction/initialize"
     headers = {
-        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY_TEST}",
+        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -68,7 +68,7 @@ async def verify_payment(
 
     url= f"https://api.paystack.co/transaction/{transaction_id}"
     headers = {
-        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY_TEST}",
+        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
         "Content-Type": "application/json"
     }
 

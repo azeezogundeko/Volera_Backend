@@ -2,7 +2,7 @@ import asyncio
 
 from schema import GeminiDependencies
 from .prompts import replier_agent_prompt
-from ..tools.google import google_search
+from ..tools.search import search_tool
 from ..legacy.llm import check_credits, track_llm_call
 
 from pydantic_ai import Agent
@@ -15,7 +15,7 @@ class ResponseSchema(BaseModel):
 
 
 async def search_product_informaton(query: str): 
-    return await google_search.search(query)
+    return await search_tool.search(query)
 
 agent = Agent(
     model="gemini-1.5-flash",

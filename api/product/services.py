@@ -11,10 +11,10 @@ from ..auth.schema import UserIn
 from utils.ecommerce_manager import EcommerceManager
 from utils.rerank import ReRanker
 from utils.logging import logger
-from agents.tools.google import GoogleSearchTool
+from agents.tools.search import search_tool
 
 # Initialize shared instances
-google_search = GoogleSearchTool()
+# google_search = GoogleSearchTool()
 reranker = ReRanker()
 
 def get_ecommerce_manager(request: Request) -> EcommerceManager:
@@ -161,7 +161,7 @@ async def list_products(
     if scraping_integrations:
         # Parallel search across all scraping sites
         search_tasks = [
-            google_search.search_shopping(query, site="|".join(integration.url_patterns))
+            search_tool.search_products(query, site="|".join(integration.url_patterns))
             for integration in scraping_integrations
         ]
         search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
