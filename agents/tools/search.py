@@ -116,7 +116,7 @@ class MultiSearchTool:
             
         return valid_results
     
-    @AsyncCache(ttl=3600)
+    # @AsyncCache(ttl=3600)
     @async_retry(retries=3, delay=1.0)
     async def _google_search(
         self,
@@ -337,21 +337,22 @@ class MultiSearchTool:
         Returns:
             List of product search results
         """
+        product_query = query
+        if site:
+            if not site.startswith('site:'):
+                site = f"site:{site}"
+            product_query = f"{site} {query}"
+            
         # Try SearxNG product search first
         results = await self._searxng_search(
-            query,
+            product_query,
             num_results=num_results,
             **kwargs
         )
         if results:
             return results
             
-        # If SearxNG fails, try Google search with product-specific terms
-        if site:
-            if not site.startswith('site:'):
-                site = f"site:{site}"
-            product_query = f"{site} {query}"
-
+        # If SearxNG fails, try Google search with product-specific terms     
         return await self._google_search(
             product_query,
             num_results=num_results,
