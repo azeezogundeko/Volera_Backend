@@ -38,7 +38,13 @@ services:
       - REDIS_URL=redis://redis:6379/1
       - UWSGI_WORKERS=2
       - UWSGI_THREADS=4
+      - SEARXNG_HTTP_PROXY=socks5h://tor:9050
+      - SEARXNG_HTTPS_PROXY=socks5h://tor:9050
+      - SEARXNG_NETWORK_TIMEOUT=10.0
+      - SEARXNG_KEEPALIVE_TIMEOUT=10.0
     restart: unless-stopped
+    depends_on:
+      - tor
     healthcheck:
       test: ["CMD", "wget", "--spider", "http://localhost:8080/healthz"]
       interval: 30s
@@ -58,6 +64,14 @@ services:
       - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Content-Type-Options=nosniff
       - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-XSS-Protection=1; mode=block
       - traefik.http.routers.volera-searxng.middlewares=searxng-security
+
+  tor:
+    image: dperson/torproxy:latest
+    expose:
+      - 9050
+    networks:
+      - dokploy-network
+    restart: unless-stopped
 
   redis:
     image: redis:alpine

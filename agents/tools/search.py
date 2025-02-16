@@ -1,16 +1,25 @@
 from typing import List, Dict, Optional, Any
 import asyncio
 import httpx
+import logging
+import os
 from utils.logging import logger
 from utils.decorator import async_retry, AsyncCache
 from config import SEARXNG_BASE_URL, ApiKeyConfig, GOOGLE_SEARCH_ID
+
+logger = logging.getLogger(__name__)
 
 class MultiSearchTool:
     """A tool that combines multiple search engines with fallback behavior."""
     
     def __init__(self):
-        self.searxng_base_url = SEARXNG_BASE_URL
-        self.google_api_key = ApiKeyConfig.GOOGLE_SEARCH_API_KEY
+        self.searxng_base_url = os.getenv('SEARXNG_BASE_URL', 'http://searxng:8080')
+        self.google_api_key = os.getenv('GOOGLE_SERP_KEY')
+        self.search_engine_id = os.getenv('SEARCH_ENGINE_ID')
+        
+        if not self.google_api_key or not self.search_engine_id:
+            logger.warning("Google Search API credentials not configured")
+        
         self.google_search_id = GOOGLE_SEARCH_ID
         self.duckduckgo_base_url = "https://api.duckduckgo.com"
         
@@ -25,11 +34,11 @@ class MultiSearchTool:
         time_range: Optional[str] = None,
         **kwargs: Any
     ) -> List[Dict[str, Any]]:
-        """Perform a search using SearxNG."""
+        """Perform a search using SearxNG with result validation."""
         try:
             params = {
                 'q': query,
-                'num': num_results,
+                'num': num_results * 2,  # Request more results for filtering
                 'categories': categories,
                 'engines': engines,
                 'language': language,
@@ -39,7 +48,7 @@ class MultiSearchTool:
             }
             params = {k: v for k, v in params.items() if v is not None}
             
-            async with httpx.AsyncClient(timeout=10.0) as client:  # 10 second timeout
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(self.searxng_base_url + "/search", params=params)
                 response.raise_for_status()
                 data = response.json()
@@ -57,11 +66,54 @@ class MultiSearchTool:
                         'source': item.get('engine', 'searxng')
                     }
                     results.append(result)
-                return results
+
+                # Validate results
+                valid_results = self._validate_search_results(query, results)
+                
+                if not valid_results:
+                    logger.warning("SearxNG results validation failed, falling back to Google")
+                    return []
+                    
+                return valid_results[:num_results]
                 
         except (httpx.HTTPError, asyncio.TimeoutError) as e:
             logger.error(f"Error in SearxNG search: {str(e)}")
             return []
+    
+    def _validate_search_results(self, query: str, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Validate search results for quality and relevance.
+        Returns filtered results or empty list if validation fails.
+        """
+        if not results:
+            return []
+
+        # Convert query to lowercase for comparison
+        query_terms = set(query.lower().split())
+        
+        valid_results = []
+        for result in results:
+            # Skip results with empty required fields
+            if not result.get('title') or not result.get('link') or not result.get('snippet'):
+                continue
+
+            # Check for query term presence in title or snippet
+            title_terms = set(result['title'].lower().split())
+            snippet_terms = set(result['snippet'].lower().split())
+            
+            # Calculate relevance scores
+            title_match = len(query_terms.intersection(title_terms)) / len(query_terms)
+            snippet_match = len(query_terms.intersection(snippet_terms)) / len(query_terms)
+            
+            # Result must have good title or snippet match
+            if title_match > 0.3 or snippet_match > 0.2:
+                valid_results.append(result)
+
+        # Ensure we have enough quality results
+        if len(valid_results) < min(3, len(results) // 2):
+            return []
+            
+        return valid_results
     
     @AsyncCache(ttl=3600)
     @async_retry(retries=3, delay=1.0)
@@ -82,7 +134,7 @@ class MultiSearchTool:
             
             params = {
                 'key': self.google_api_key,
-                'cx': self.google_search_id,
+                'cx': self.search_engine_id,
                 'q': query,
                 'num': min(num_results, 10)
             }
@@ -176,36 +228,59 @@ class MultiSearchTool:
         self,
         query: str,
         num_results: int = 5,
-        search_type: Optional[str] = None,
-        site: Optional[str] = None,
+        use_google_fallback: bool = True,
         **kwargs: Any
     ) -> List[Dict[str, Any]]:
         """
-        Perform a search using multiple search engines with fallback behavior.
-        First tries SearxNG, then Google if SearxNG fails, and finally DuckDuckGo.
+        Perform a search using SearxNG with Google fallback.
         
         Args:
-            query: The search query string
+            query: The search query
             num_results: Number of results to return
-            search_type: Type of search (e.g., 'image' for image search)
-            site: Optional domain to restrict search to
-            **kwargs: Additional parameters to pass to the search engines
+            use_google_fallback: Whether to fall back to Google if SearxNG results are insufficient
+            **kwargs: Additional search parameters
             
         Returns:
-            List of search results with title, link, and snippet
+            List of search results
         """
         # Try SearxNG first
         results = await self._searxng_search(query, num_results, **kwargs)
-        if results:
-            return results
-            
-        # If SearxNG fails, try Google
-        results = await self._google_search(query, num_results, search_type, site, **kwargs)
-        if results:
-            return results
-            
-        # If both fail, try DuckDuckGo
-        return await self._duckduckgo_search(query, num_results, **kwargs)
+        
+        # If SearxNG results are insufficient and fallback is enabled, try Google
+        if not results and use_google_fallback:
+            logger.info("Falling back to Google search")
+            try:
+                google_results = []
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    params = {
+                        'key': self.google_api_key,
+                        'cx': self.search_engine_id,
+                        'q': query,
+                        'num': num_results
+                    }
+                    response = await client.get(
+                        'https://www.googleapis.com/customsearch/v1',
+                        params=params
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    for item in data.get('items', []):
+                        result = {
+                            'title': item.get('title', ''),
+                            'link': item.get('link', ''),
+                            'snippet': item.get('snippet', ''),
+                            'source': 'google'
+                        }
+                        google_results.append(result)
+                    
+                    return google_results[:num_results]
+                    
+            except Exception as e:
+                logger.error(f"Error in Google fallback search: {str(e)}")
+                return []
+                
+        return results
     
     async def search_images(
         self,
