@@ -23,30 +23,34 @@ services:
       - traefik.http.services.volera-backend.loadbalancer.server.port=8000
 
   searxng:
-    image: docker.io/searxng/searxng:latest
-    expose:
-      - 8080
-    volumes:
-      - ./searxng:/etc/searxng:ro
+    image: searxng/searxng:latest
+    container_name: searxng
+    networks:
+      - web
     environment:
-      - INSTANCE_NAME=volera-search
-      - BASE_URL=https://search.volera.app/
-      - SEARXNG_SECRET=${SEARXNG_SECRET:-"changeme"}
+      - SEARXNG_BASE_URL=https://search.volera.app/
       - SEARXNG_HOSTNAME=0.0.0.0
-      - SEARXNG_BIND_ADDRESS=0.0.0.0:8080
-      - SEARXNG_TRUST_UPSTREAM_PROXIES=true
-      - REDIS_URL=redis://redis:6379/1
-      - UWSGI_WORKERS=2
-      - UWSGI_THREADS=4
       - SEARXNG_HTTP_PROXY=socks5h://tor:9050
       - SEARXNG_HTTPS_PROXY=socks5h://tor:9050
-      - SEARXNG_NETWORK_TIMEOUT=10.0
-      - SEARXNG_KEEPALIVE_TIMEOUT=10.0
-    restart: unless-stopped
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-ultrasecretkey}
+      - SEARXNG_REDIS_URL=redis://redis:6379/0
+      - SEARXNG_BIND_ADDRESS=0.0.0.0:8080
+      - SEARXNG_LIMITER=true
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./searxng:/etc/searxng:ro
     depends_on:
+      - redis
       - tor
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.searxng.rule=Host(`search.volera.app`)
+      - traefik.http.routers.searxng.entrypoints=websecure
+      - traefik.http.routers.searxng.tls=true
+      - traefik.http.services.searxng.loadbalancer.server.port=8080
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:8080/healthz"]
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -60,28 +64,37 @@ services:
       - traefik.http.routers.volera-searxng.tls.certresolver=letsencrypt
       - traefik.http.services.volera-searxng.loadbalancer.server.port=8080
       # Add security headers
-      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Frame-Options=DENY
-      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Content-Type-Options=nosniff
-      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-XSS-Protection=1; mode=block
-      - traefik.http.routers.volera-searxng.middlewares=searxng-security
+      # - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Frame-Options=DENY
+      # - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Content-Type-Options=nosniff
+      # - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-XSS-Protection=1; mode=block
+      # - traefik.http.routers.volera-searxng.middlewares=searxng-security
 
   tor:
-    image: dperson/torproxy:latest
-    expose:
-      - 9050
+    image: "dperson/torproxy:latest"
+    container_name: tor
     networks:
-      - dokploy-network
+      - web
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9050"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   redis:
-    image: redis:alpine
-    expose:
-      - 6379
+    image: "redis:alpine"
+    container_name: redis
+    command: redis-server --save 60 1 --loglevel warning
     networks:
-      - dokploy-network
-    command: redis-server --appendonly yes
+      - web
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   celery_worker:
     build: .
@@ -141,4 +154,6 @@ volumes:
 
 networks:
   dokploy-network:
+    external: true
+  web:
     external: true
