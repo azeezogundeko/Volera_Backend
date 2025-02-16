@@ -46,7 +46,7 @@ class Product(AppwriteModelBase):
     current_price: float = AppwriteField(type="float", required=False,default=0.0)
     original_price: float = AppwriteField(type="float", required=False, default=0.0)
     discount: float = AppwriteField(type="float", required=True, default=0.0)
-    brand: str = AppwriteField(size=255, required=True, type="string")
+    brand: str = AppwriteField(size=255, required=False, type="string")
     reviews_count: str = AppwriteField(size=255, type="float", default=0.0)
     source: str = AppwriteField(size=255, required=True, type="string")
     url: str = AppwriteField(size=255, required=True, type="string")
