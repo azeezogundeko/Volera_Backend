@@ -136,6 +136,7 @@ class ListTools:
             
             # Add items to list
             self._lists[list_name].extend(items)
+            print(f"Items added to list '{list_name}': {items}")
             
             # Calculate time remaining before expiry
             time_remaining = int(self.ttl_seconds - (time.time() - self._timestamps[list_name]))
@@ -192,6 +193,7 @@ class ListTools:
                     ).dict()
             
             # Return entire list if no index specified
+            print(f"Items in list '{list_name}': {self._lists[list_name]}")
             return ListOperationResponse(
                 success=True,
                 message=f"Successfully retrieved all items from list '{list_name}'. List expires in {time_remaining} seconds",
@@ -237,6 +239,7 @@ class ListTools:
             
             # Count all items if no specific item provided
             count = len(self._lists[list_name])
+            print(f"Total items in list '{list_name}': {count}")
             return ListOperationResponse(
                 success=True,
                 message=f"Total items in list '{list_name}'",
@@ -303,6 +306,7 @@ class ListTools:
                         data=item
                     ).dict()
             
+            print(f"Items in list '{list_name}': {self._lists[list_name]}")
             return ListOperationResponse(
                 success=False,
                 message="Either item or index must be provided"

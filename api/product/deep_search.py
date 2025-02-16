@@ -37,6 +37,7 @@ class Validator(BaseModel):
     corresponding_products_ids: List[str] = Field(default_factory=list)
 
 async def google_search_tool(query: str): 
+    logger.info(f"Searching for {query}")
     return await search_tool.search(query)
 
 # Initialize list_tools as None, it will be set during startup
@@ -97,7 +98,7 @@ async def product_detail_extractor_agent(content: str):
         result_type=ProductDetail,
         system_prompt=PRODUCT_DETAIL_EXTRACTOR_SYSTEM_PROMPT,
     )
-
+    logger.info(f"Extracting product details from {content}")
     response = await agent.run(content)
     return response.data
 
@@ -166,6 +167,7 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
 
     query_with_products = f"User Query {query}, \n Products {products}"
     results = await validator_agent.run(query_with_products)
+    logger.info(f"Validator results: {results}")
 
     response = results.data
     if response.is_enough:
@@ -213,6 +215,7 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
     )
     
     products = await deep_search_agent.run(user_prompt)
+    logger.info(f"Deep search results: {products}")
     
     # Get from list and check result
     get_result = list_tools.get_from_list(list_name)
