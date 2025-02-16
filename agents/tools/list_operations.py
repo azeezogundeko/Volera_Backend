@@ -30,7 +30,7 @@ class ListOperationResponse(BaseModel):
     """Response model for list operations"""
     success: bool = Field(default=False)
     message: str = Field(default='')
-    data: List[ProductDetail] = Field(default_factory=list)
+    data: List[ProductDetail] 
     count: int = Field(default=0)
 
 class ListTools:
@@ -98,6 +98,7 @@ class ListTools:
                 items = [items]  # Convert single item to list
                 
             if not all(isinstance(item, ProductDetail) for item in items):
+                print(items)
                 return ListOperationResponse(
                     success=False,
                     message="All items must be instances of ProductDetail",
