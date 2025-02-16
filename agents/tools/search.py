@@ -73,7 +73,8 @@ class MultiSearchTool:
                 if not valid_results:
                     logger.warning("SearxNG results validation failed, falling back to Google")
                     return []
-                    
+
+                print(valid_results)
                 return valid_results[:num_results]
                 
         except (httpx.HTTPError, asyncio.TimeoutError) as e:

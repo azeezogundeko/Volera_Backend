@@ -13,6 +13,50 @@ server:
   secret_key: 'a2fb23f1b02e6ee83875b09826990de0f6bd908b6638e8c10277d415f6ab852b' # Is overwritten by ${SEARXNG_SECRET}
 
 engines:
-  - name: wolframalpha
+  - name: google
+    engine: google
+    shortcut: go
     disabled: false
+    headers:
+      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+    headers:
+      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36
+
+  - name: bing
+    engine: bing
+    shortcut: bi
+    disabled: false
+    headers:
+      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36
+
+  - name: brave
+    engine: brave
+    shortcut: br
+    disabled: false
+
+outgoing:
+  # default timeout in seconds, can be override by engine
+  request_timeout: 10.0
+  # the maximum timeout in seconds
+  max_request_timeout: 15.0
+  # suffix of searx_useragent, could contain information like an email address
+  # to the administrator
+  useragent_suffix: ""
+  # The maximum number of concurrent connections that may be established.
+  pool_connections: 100
+  # Allow the connection pool to maintain keep-alive connections below this
+  # point.
+  pool_maxsize: 100
+  # See https://www.python-httpx.org/http2/
+  enable_http2: true
+  retries: 3
+  retry_on_http_error: true
+  max_redirects: 10
+  source_ips: []
+  # keep_only_successful_requests: false
     
