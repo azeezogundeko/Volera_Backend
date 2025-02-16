@@ -323,3 +323,49 @@ async def save_product(product: ProductDetail, user: UserIn):
         "data": results,
         "error": None
     }
+
+
+async def get_trending_products(
+    ecommerce_manager: EcommerceManager,
+    page: int = 1,
+    limit: int = 50,
+    max_results: int = 3
+) -> List[Dict[str, Any]]:
+    """
+    Get trending products without requiring a search query.
+    Uses predefined categories and sorting to determine trending items.
+    """
+    try:
+        # Get products from popular categories
+        categories = ["electronics", "fashion", "home", "beauty"]
+        all_products = []
+        
+        for category in categories:
+            products = await list_products(
+                ecommerce_manager=ecommerce_manager,
+                user_id="system",  # System-level request
+                query=category,    # Use category as query
+                max_results=max_results,
+                page=1,           # Get first page for each category
+                limit=limit,
+                sort={"key": "highest ratings"},  # Sort by ratings to get popular items
+                deep_search=False  # No need for deep search
+            )
+            all_products.extend(products)
+        
+        # Sort by rating and recent additions
+        trending = sorted(
+            all_products,
+            key=lambda x: (x.get('rating', 0), x.get('timestamp', '')),
+            reverse=True
+        )
+        
+        # Apply pagination to final results
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        
+        return trending[start_idx:end_idx]
+        
+    except Exception as e:
+        logger.error(f"Error getting trending products: {e}")
+        return []

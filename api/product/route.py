@@ -190,13 +190,22 @@ async def get_product_detail(
 @router.get("/trending-products", response_model=List[ProductResponse])
 async def get_trending_products(
     request: Request,
-    limit: int = Query(50),
-    page: int = Query(1),
-    user: UserIn = Depends(get_current_user)):
-        
+    limit: int = Query(50, description="Number of products per page"),
+    page: int = Query(1, description="Page number"),
+    max_results: int = Query(3, description="Maximum results per category"),
+    user: UserIn = Depends(get_current_user)
+):
+    """
+    Get trending products across different categories.
+    Products are sorted by rating and recency.
+    """
     manager = services.get_ecommerce_manager(request)
-        
-    return await services.list_products(manager, "trending products", limit=limit, page=page, max_results=3)
+    return await services.get_trending_products(
+        ecommerce_manager=manager,
+        page=page,
+        limit=limit,
+        max_results=max_results
+    )
     
 
 
