@@ -23,7 +23,7 @@ services:
       - traefik.http.services.volera-backend.loadbalancer.server.port=8000
 
   searxng:
-    image: searxng/searxng:latest
+    image: docker.io/searxng/searxng:latest
     expose:
       - 8080
     volumes:
