@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from .schema import ProductResponse
 from ..auth.model import UserPreferences
 
-from agents.tools.list_operations import ListTools
+from agents.tools.list_operations import ListTools, ProductDetail, Specification
 from agents.tools.search import search_tool
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.content_filter_strategy import PruningContentFilter, BM25ContentFilter
@@ -22,27 +22,27 @@ from utils.logging import logger
 shortener = URLShortener()
 reranker = ReRanker()
 
-class Specification(BaseModel):
-    label: str 
-    value: str 
+# class Specification(BaseModel):
+#     label: str 
+#     value: str 
 
-class ProductDetail(BaseModel):
-    product_id: str = ''
-    name: str = ''
-    brand: str = ''
-    category: str = ''
-    currency: str = '₦'
-    description: str = ''
-    current_price: float = 0.0
-    original_price: float  = 0.0
-    discount: float = 0.0
-    url: str = ''
-    image: str = ''
-    source: str = Field(None, description='The source of the product eg Amazon, Jumia, Konga, etc')
-    rating: float = 0.0
-    rating_count: int  = 0
-    specifications: List[Specification] = Field(default_factory=list)
-    features: List[str] = Field(default_factory=list)
+# class ProductDetail(BaseModel):
+#     product_id: str = ''
+#     name: str = ''
+#     brand: str = ''
+#     category: str = ''
+#     currency: str = '₦'
+#     description: str = ''
+#     current_price: float = 0.0
+#     original_price: float  = 0.0
+#     discount: float = 0.0
+#     url: str = ''
+#     image: str = ''
+#     source: str = Field(None, description='The source of the product eg Amazon, Jumia, Konga, etc')
+#     rating: float = 0.0
+#     rating_count: int  = 0
+#     specifications: List[Specification] = Field(default_factory=list)
+#     features: List[str] = Field(default_factory=list)
 
 class ResultSchema(BaseModel):
     comment: str = Field(default="", description="A comment on the result of the search")

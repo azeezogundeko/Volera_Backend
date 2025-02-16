@@ -30,7 +30,7 @@ class ListOperationResponse(BaseModel):
     """Response model for list operations"""
     success: bool = Field(default=False)
     message: str = Field(default='')
-    data: List[ProductDetail] 
+    data: List[ProductDetail] = Field(default_factory=list)
     count: int = Field(default=0)
 
 class ListTools:
@@ -97,13 +97,23 @@ class ListTools:
             if not isinstance(items, list):
                 items = [items]  # Convert single item to list
                 
-            # if not all(isinstance(item, ProductDetail) for item in items):
-            #     print(items)
-            #     return ListOperationResponse(
-            #         success=False,
-            #         message="All items must be instances of ProductDetail",
-            #         data=[]
-            #     ).dict()
+            # Validate that all items are ProductDetail instances
+            try:
+                validated_items = []
+                for item in items:
+                    if isinstance(item, dict):
+                        validated_items.append(ProductDetail(**item))
+                    elif isinstance(item, ProductDetail):
+                        validated_items.append(item)
+                    else:
+                        raise ValueError(f"Invalid item type: {type(item)}")
+                items = validated_items
+            except Exception as e:
+                return ListOperationResponse(
+                    success=False,
+                    message=f"Invalid item format: {str(e)}",
+                    data=[]
+                ).dict()
             
             # Create list if it doesn't exist or update timestamp if it does
             if list_name not in self._lists:
