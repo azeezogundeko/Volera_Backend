@@ -6,7 +6,6 @@ from email.mime.multipart import MIMEMultipart
 import time
 from pathlib import Path
 
-from api.admin.model import EmailConfig
 from utils.logging import logger
 from utils.email_manager import manager as email_manager
 
@@ -135,7 +134,7 @@ def send_bulk_email(emails: List[str],
             time.sleep(60 / RATE_LIMIT['emails_per_minute'] * chunk_size)
         
         chunk_tasks = [
-            send_message.delay(
+            send_email.delay(
                 email,
                 subject,
                 html_content,
