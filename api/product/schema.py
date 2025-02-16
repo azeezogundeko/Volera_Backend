@@ -119,5 +119,6 @@ class SearchRequest:
     bypass_cache: bool = Form(False)
     page: int = Form(1)
     limit: int = Form(50)
+    deep_search: bool = Form(False)
 
 

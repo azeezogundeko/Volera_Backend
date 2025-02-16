@@ -107,6 +107,7 @@ async def process_request(user: UserIn, request: Request, payload: SearchRequest
         ecommerce_manager = services.get_ecommerce_manager(request)
         products = await services.list_products(
             ecommerce_manager=ecommerce_manager,
+            user_id=user.id,
             query=processed_query,
             site=payload.site,
             max_results=payload.max_results,
@@ -114,7 +115,8 @@ async def process_request(user: UserIn, request: Request, payload: SearchRequest
             page=payload.page,
             limit=payload.limit,
             sort=sort_params,
-            filters=filter_params
+            filters=filter_params,
+            deep_search=payload.deep_search
         )
         
         return products
@@ -123,7 +125,7 @@ async def process_request(user: UserIn, request: Request, payload: SearchRequest
         logger.warning("Request processing cancelled")
         raise
     except Exception as e:
-        logger.error(f"Processing failure: {str(e)}")
+        logger.error(f"Processing failure: {str(e)}", exc_info=True)
         raise
 
 

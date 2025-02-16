@@ -6,6 +6,7 @@ from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
 from db._appwrite.db_register import prepare_database, WaitList
 from api.auth.services import hash_email
+from api.product.deep_search import initialize_list_tools
 
 from api import (
     chat_router, 
@@ -55,6 +56,10 @@ async def lifespan(app: FastAPI):
         logger.info("Database preparation completed.")
         logger.info("Initializing database manager...")
 
+        # Initialize list_tools for deep search
+        logger.info("Initializing list tools for deep search...")
+        await initialize_list_tools()
+        
         db_cache = DiskCacheDB(cache_dir=str(DB_PATH))
 
         await db_cache.initialize()

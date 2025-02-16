@@ -12,6 +12,7 @@ from utils.ecommerce_manager import EcommerceManager
 from utils.rerank import ReRanker
 from utils.logging import logger
 from agents.tools.search import search_tool
+from .deep_search import run_deep_search_agent
 
 # Initialize shared instances
 # google_search = GoogleSearchTool()
@@ -92,6 +93,7 @@ def filter_products(products: List[dict], filters: Dict[str, str]) -> List[dict]
 
 async def list_products(
     ecommerce_manager: EcommerceManager,
+    user_id: str,
     query: str,
     site: Optional[str] = "all",
     max_results: int = 5,
@@ -99,7 +101,8 @@ async def list_products(
     page: int = 1,
     limit: int = 40,
     sort: Optional[Dict[str, Any]] = None,
-    filters: dict = None
+    filters: dict = None,
+    deep_search: bool = False
 ) -> List[Dict[str, Any]]:
     """Get product listings from supported e-commerce sites."""
     
@@ -115,7 +118,7 @@ async def list_products(
                 results = await reranker.rerank(query, cache_results)
                 if site != "all":
                     results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
-                return post_process_results(page, limit, results, sort, filters)
+                return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
         except Exception as e:
             logger.error(e, exc_info=True)
 
@@ -219,15 +222,18 @@ async def list_products(
             await ecommerce_manager.store.add(product_id, query, results)
         except Exception as e:
             logger.error(e, exc_info=True)
-        return post_process_results(page, limit, results, sort, filters)
+        return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
 
     return []
 
 
-def post_process_results(
+async def post_process_results(
+    user_id: str,
+    query: str, 
     page,
     limit,
-    results: List[Dict[str, Any]], 
+    deep_search=False,
+    results: List[Dict[str, Any]] = [], 
     sort: Optional[str] = None,
     filters: dict = None) -> List[Dict[str, Any]]:
         
@@ -249,7 +255,15 @@ def post_process_results(
     if sort:
         results = sort_products(results, sort)
     
-    return results[:limit]
+    results = results[:limit]
+
+    if deep_search:
+        try:
+            results = await run_deep_search_agent(user_id, query, limit, results)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+
+    return results
 
 
 async def get_product_detail(
