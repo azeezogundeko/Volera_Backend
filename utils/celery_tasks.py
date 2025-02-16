@@ -1,5 +1,5 @@
 from celery import Celery
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Literal
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -9,24 +9,52 @@ from pathlib import Path
 from utils.logging import logger
 from utils.email_manager import manager as email_manager
 
-# Initialize Celery
+# Initialize Celery with multiple queues
 celery_app = Celery('volera',
                     broker='redis://redis:6379/0',
                     backend='redis://redis:6379/0')
 
-# Configure Celery
+# Configure Celery with priority queues
 celery_app.conf.update(
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    task_queues={
+        'high_priority': {'routing_key': 'high_priority'},
+        'default': {'routing_key': 'default'},
+        'low_priority': {'routing_key': 'low_priority'}
+    },
+    task_routes={
+        'send_email': {'queue': 'default'},
+        'send_bulk_email': {'queue': 'low_priority'}
+    }
 )
 
 # Rate limiting settings
 RATE_LIMIT = {
     'emails_per_minute': 3,  # Adjust based on your SMTP provider's limits
     'burst_size': 50
+}
+
+# Priority settings
+PRIORITY_SETTINGS = {
+    'high': {
+        'queue': 'high_priority',
+        'retry_delay': 30,  # 30 seconds
+        'max_retries': 5
+    },
+    'normal': {
+        'queue': 'default',
+        'retry_delay': 60,  # 1 minute
+        'max_retries': 3
+    },
+    'low': {
+        'queue': 'low_priority',
+        'retry_delay': 300,  # 5 minutes
+        'max_retries': 2
+    }
 }
 
 @celery_app.task(name="send_email", bind=True, max_retries=3, rate_limit='100/m')
@@ -37,11 +65,11 @@ def send_email(self,
                 from_name: Optional[str] = None,
                 account_key: str = "no-reply",
                 bcc: Optional[List[str]] = None,
-                attachments: Optional[List[Dict[str, Union[str, bytes]]]] = None) -> Dict:
+                attachments: Optional[List[Dict[str, Union[str, bytes]]]] = None,
+                priority: Literal['high', 'normal', 'low'] = 'normal') -> Dict:
     """
-    Celery task to send emails asynchronously.
-    Includes retry logic with exponential backoff.
-
+    Celery task to send emails asynchronously with priority handling.
+    
     Args:
         to_email: Recipient email address
         subject: Email subject
@@ -49,12 +77,15 @@ def send_email(self,
         from_name: Optional sender name override
         account_key: Email account to use (default: "no-reply")
         bcc: Optional list of BCC recipients
-        attachments: Optional list of attachment dictionaries with format:
-                    [{'filename': 'name.pdf', 'content': bytes_content}]
+        attachments: Optional list of attachment dictionaries
+        priority: Email priority level ('high', 'normal', 'low')
 
     Returns:
         Dict with status and message
     """
+    # Get priority settings
+    priority_config = PRIORITY_SETTINGS[priority]
+    
     try:
         # Choose the email account to use
         email_manager.choose_account(account_key)
@@ -68,17 +99,18 @@ def send_email(self,
             attachments=attachments
         )
 
-        logger.info(f"Email sent successfully to {to_email}" + 
+        logger.info(f"[{priority.upper()} PRIORITY] Email sent successfully to {to_email}" + 
                    (f" with {len(bcc)} BCC recipients" if bcc else ""))
         return {
             "status": "success", 
             "message": "Email sent successfully",
             "recipient": to_email,
-            "bcc_count": len(bcc) if bcc else 0
+            "bcc_count": len(bcc) if bcc else 0,
+            "priority": priority
         }
 
     except Exception as e:
-        error_msg = f"Error sending email to {to_email}: {str(e)}"
+        error_msg = f"Error sending {priority} priority email to {to_email}: {str(e)}"
         logger.error(error_msg, exc_info=True)
         
         # Determine if we should retry based on the error type
@@ -87,16 +119,16 @@ def send_email(self,
                                     smtplib.SMTPResponseException,
                                     ConnectionError))
         
-        if should_retry and self.request.retries < self.max_retries:
+        if should_retry and self.request.retries < priority_config['max_retries']:
             retry_count = self.request.retries
-            max_retry_delay = 300  # 5 minutes
-            retry_delay = min(60 * (2 ** retry_count), max_retry_delay)
+            retry_delay = priority_config['retry_delay'] * (2 ** retry_count)
             raise self.retry(exc=e, countdown=retry_delay)
         
         return {
             "status": "error",
             "message": error_msg,
-            "recipient": to_email
+            "recipient": to_email,
+            "priority": priority
         }
 
 @celery_app.task(name="send_bulk_email")
@@ -105,10 +137,10 @@ def send_bulk_email(emails: List[str],
                    html_content: str,
                    from_name: Optional[str] = None,
                    account_key: str = "no-reply",
-                   attachments: Optional[List[Dict[str, Union[str, bytes]]]] = None) -> Dict:
+                   attachments: Optional[List[Dict[str, Union[str, bytes]]]] = None,
+                   priority: Literal['high', 'normal', 'low'] = 'low') -> Dict:
     """
-    Celery task to send bulk emails with rate limiting.
-    Breaks the email list into chunks and sends them in parallel.
+    Celery task to send bulk emails with rate limiting and priority handling.
 
     Args:
         emails: List of recipient email addresses
@@ -117,6 +149,7 @@ def send_bulk_email(emails: List[str],
         from_name: Optional sender name override
         account_key: Email account to use (default: "no-reply")
         attachments: Optional list of attachments to include
+        priority: Priority level for the bulk emails
 
     Returns:
         Dict with status and task IDs
@@ -134,19 +167,25 @@ def send_bulk_email(emails: List[str],
             time.sleep(60 / RATE_LIMIT['emails_per_minute'] * chunk_size)
         
         chunk_tasks = [
-            send_email.delay(
-                email,
-                subject,
-                html_content,
-                from_name,
-                account_key,
-                attachments=attachments
+            send_email.apply_async(
+                args=[
+                    email,
+                    subject,
+                    html_content,
+                    from_name,
+                    account_key
+                ],
+                kwargs={
+                    'attachments': attachments,
+                    'priority': priority
+                },
+                queue=PRIORITY_SETTINGS[priority]['queue']
             )
             for email in chunk
         ]
         results.extend(chunk_tasks)
         
-        logger.info(f"Initiated sending chunk {i+1}/{len(email_chunks)} " +
+        logger.info(f"[{priority.upper()} PRIORITY] Initiated sending chunk {i+1}/{len(email_chunks)} " +
                    f"({len(chunk)} emails)")
 
     return {
@@ -154,5 +193,6 @@ def send_bulk_email(emails: List[str],
         "message": f"Bulk email task initiated for {len(emails)} recipients",
         "task_ids": [str(task.id) for task in results],
         "total_chunks": len(email_chunks),
-        "chunk_size": chunk_size
+        "chunk_size": chunk_size,
+        "priority": priority
     } 
