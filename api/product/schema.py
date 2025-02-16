@@ -68,7 +68,7 @@ class WishListProductSchema(BaseModel):
     image: str
     current_price: float
     original_price: float
-    brand: str
+    brand: Optional[str] = None
     reviews_count: float
     source: str
     discount: float
