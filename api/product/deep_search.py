@@ -246,7 +246,13 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
 
     list_name = f"deep_search_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     product_details = [ProductDetail(**{k: v for k, v in product.items() if v is not None}) for product in products]
-    list_tools.save_to_list(list_name, product_details)
+    
+    # Save to list and check result
+    save_result = list_tools.save_to_list(list_name, product_details)
+    if not save_result['success']:
+        logger.error(f"Failed to save to list: {save_result['message']}")
+        raise Exception(f"Failed to save to list: {save_result['message']}")
+        
     user_preferences = await get_user_preferences(user_id)
     user_prompt = (
         f"List Name: {list_name} \n"
@@ -257,11 +263,21 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
     )
     
     products = await deep_search_agent.run(user_prompt)
-    products = list_tools.get_from_list(list_name)
-
     print(products)
+    
+    # Get from list and check result
+    get_result = list_tools.get_from_list(list_name)
+    if not get_result['success']:
+        logger.error(f"Failed to get from list: {get_result['message']}")
+        raise Exception(f"Failed to get from list: {get_result['message']}")
+        
+    products = get_result['data']
+    if not products:
+        logger.warning("No products found in list")
+        raise Exception("No products found in list")
+
     ps = []
-    for product in products.products:
+    for product in products:
         # Create a new model instance with updated product_id
         updated_product = product.model_copy(update={
             'product_id': shortener.shorten_url(product.url)
