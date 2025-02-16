@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from .schema import ProductResponse
 from ..auth.model import UserPreferences
+from .prompt import PRODUCT_DETAIL_EXTRACTOR_SYSTEM_PROMPT, SYSTEM_PROMPT, VALIDATOR_SYSTEM_PROMPT
 
 from agents.tools.list_operations import ListTools, ProductDetail, Specification
 from agents.tools.search import search_tool
@@ -22,27 +23,6 @@ from utils.logging import logger
 shortener = URLShortener()
 reranker = ReRanker()
 
-# class Specification(BaseModel):
-#     label: str 
-#     value: str 
-
-# class ProductDetail(BaseModel):
-#     product_id: str = ''
-#     name: str = ''
-#     brand: str = ''
-#     category: str = ''
-#     currency: str = '₦'
-#     description: str = ''
-#     current_price: float = 0.0
-#     original_price: float  = 0.0
-#     discount: float = 0.0
-#     url: str = ''
-#     image: str = ''
-#     source: str = Field(None, description='The source of the product eg Amazon, Jumia, Konga, etc')
-#     rating: float = 0.0
-#     rating_count: int  = 0
-#     specifications: List[Specification] = Field(default_factory=list)
-#     features: List[str] = Field(default_factory=list)
 
 class ResultSchema(BaseModel):
     comment: str = Field(default="", description="A comment on the result of the search")
@@ -85,7 +65,8 @@ def get_deep_search_agent():
                 list_tools.save_to_list,
                 list_tools.get_from_list,
                 list_tools.remove_from_list,
-                list_tools.count_items
+                list_tools.count_items,
+                product_detail_extractor_agent
             ]
         )
     return _deep_search_agent
@@ -106,6 +87,19 @@ def get_validator_agent():
             tools=[]  # Validator doesn't need tools
         )
     return _validator_agent
+
+
+async def product_detail_extractor_agent(content: str):
+    agent = Agent(
+        model="gemini-1.5-flash",
+        deps_type=GeminiDependencies,
+        name="Product Detail Extractor Agent",
+        result_type=ProductDetail,
+        system_prompt=PRODUCT_DETAIL_EXTRACTOR_SYSTEM_PROMPT,
+    )
+
+    response = await agent.run(content)
+    return response.data
 
 async def get_web_page_contents(urls: List[str]):
     # Configure the markdown generator with optimized settings
@@ -150,70 +144,6 @@ async def get_user_preferences(user_id: str):
     except Exception:
         return {}
 
-
-SYSTEM_PROMPT = """
-Product Search Workflow Manager
-
-This system manages product searches by orchestrating lists and ensuring results match user specifications. The agent receives a prompt that includes:
-
-- List Name: A unique identifier for the current product list.
-- User Query: The search terms provided by the user.
-- Number of Results Wanted: The total quantity of matching products desired.
-- Already Matched Products: A record of products already found.
-- User Preferences: Additional details or constraints specified by the user.
-
-Core Process:
-
-1. List Creation:
-   - Generate a unique list name based on a timestamp and a hash of the query.
-   - Verify that the list is properly initialized.
-
-2. Search Execution:
-   - Perform targeted searches on Nigerian e-commerce sites (e.g., Jumia, Konga) using the user query.
-   - Extract and process URLs from the search results.
-   - Retrieve web page content and parse out product details according to a predefined schema.
-
-3. Product Validation and Saving:
-   - Validate that each product has required fields: name, current_price, URL, and source.
-   - Ensure the product price is within the user's budget and not zero.
-   - Confirm that the product URL is from a Nigerian domain.
-   - Save validated products to the list while avoiding duplicates.
-
-4. Completion Check:
-   - Continuously monitor the number of products in the list.
-   - Stop searching once the number of validated products reaches the target count.
-
-5. Final Output:
-   - Return only the result schema once the target number of products is achieved.
-   - Do not expose any internal product data.
-
-Error Handling:
-   - If the list expires (TTL reached), create a new list with a retry suffix and resume from the last successful point.
-   - Remove any products that fail validation from the list.
-
-Summary:
-The agent's task is to identify and add the remaining products needed to meet the user's specified quantity while ensuring compliance with internal validation rules and user requirements. Once the target is met, only the list name is returned.
-"""
-
-
-VALIDATOR_SYSTEM_PROMPT = """You are a precise product validator. Your role is to analyze product search results and determine if they truly match the user's search query.
-
-For each product, carefully evaluate if it genuinely corresponds to what the user is looking for, considering:
-- Product description
-- Product features
-- Product categories
-- Product specifications
-
-Your task is to:
-1. Analyze if ALL products in the results match the user's query
-2. If not all products match, identify only the product IDs that are truly relevant
-
-Output requirements:
-- Set is_enough to true only if ALL products match the query with the no equal to the one the user is looking for
-- If is_enough is false, provide corresponding_products_ids containing only the IDs of matching products
-- If no products match, return an empty list for corresponding_products_ids
-
-Be strict in your validation - only include products that genuinely match the user's search intent."""
 
 async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: List[ProductResponse]) -> List[ProductDetail]:
     """
@@ -283,7 +213,6 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
     )
     
     products = await deep_search_agent.run(user_prompt)
-    print(products)
     
     # Get from list and check result
     get_result = list_tools.get_from_list(list_name)
@@ -292,6 +221,7 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
         raise Exception(f"Failed to get from list: {get_result['message']}")
         
     products = get_result['data']
+    print(products)
     if not products:
         logger.warning("No products found in list")
         raise Exception("No products found in list")
