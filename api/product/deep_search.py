@@ -55,7 +55,7 @@ def get_deep_search_agent():
     global _deep_search_agent
     if _deep_search_agent is None and list_tools is not None:
         _deep_search_agent = Agent(
-            model="gemini-2.0-flash-exp",
+            model="gemini-2.0-flash-lite-preview-02-05",
             deps_type=GeminiDependencies,
             name="Deep Search Agent",
             result_type=ResultSchema,
