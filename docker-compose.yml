@@ -152,8 +152,3 @@ volumes:
   searxng_data:
   redis_data:
 
-networks:
-  dokploy-network:
-    external: true
-  web:
-    external: true
