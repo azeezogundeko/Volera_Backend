@@ -73,6 +73,8 @@ RUN mkdir -p data/db data/url_cache logs
 
 # Expose port
 EXPOSE 8000
+EXPOSE 5555
+EXPOSE 8080
 
 # Command to run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
