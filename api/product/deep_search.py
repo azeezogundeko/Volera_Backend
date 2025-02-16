@@ -245,7 +245,27 @@ async def run_deep_search_agent(user_id: str, query: str, n_k: int, products: Li
     logger.info(f"Products: {products}")
 
     list_name = f"deep_search_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    product_details = [ProductDetail(**{k: v for k, v in product.items() if v is not None}) for product in products]
+    
+    # Convert dictionaries to ProductDetail instances
+    try:
+        product_details = []
+        for product in products:
+            # Clean the dictionary to remove None values and ensure all required fields
+            cleaned_data = {k: v for k, v in product.items() if v is not None}
+            # Convert specifications if they exist
+            if 'specifications' in cleaned_data:
+                cleaned_data['specifications'] = [
+                    Specification(**spec) if isinstance(spec, dict) else spec 
+                    for spec in cleaned_data['specifications']
+                ]
+            # Create ProductDetail instance
+            product_detail = ProductDetail(**cleaned_data)
+            product_details.append(product_detail)
+            
+        logger.info(f"Created {len(product_details)} ProductDetail instances")
+    except Exception as e:
+        logger.error(f"Error creating ProductDetail instances: {str(e)}")
+        raise Exception(f"Failed to create ProductDetail instances: {str(e)}")
     
     # Save to list and check result
     save_result = list_tools.save_to_list(list_name, product_details)
