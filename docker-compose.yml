@@ -28,18 +28,35 @@ services:
       - 8080
     volumes:
       - searxng_data:/etc/searxng
+      - ./searxng:/etc/searxng:rw
     environment:
       - INSTANCE_NAME=volera-search
-      - BASE_URL=http://localhost:8080/ 
+      - BASE_URL=https://search.volera.app/
       - AUTOCOMPLETE=google
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-"changeme"}
+      - SEARXNG_HOSTNAME=0.0.0.0
+      - SEARXNG_BIND_ADDRESS=0.0.0.0:8080
+      # Allow internal requests
+      - SEARXNG_TRUST_UPSTREAM_PROXIES=true
+      # Redis cache for better performance
+      - REDIS_URL=redis://redis:6379/1
+      # Enable all safe features
+      - ENABLE_METRICS=true
     restart: unless-stopped
     networks:
       - dokploy-network
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-searxng.rule=Host(`search.volera.app`)
-      - traefik.http.routers.volera-searxng.entrypoints=web
+      - traefik.http.routers.volera-searxng.entrypoints=web,websecure
+      - traefik.http.routers.volera-searxng.tls=true
+      - traefik.http.routers.volera-searxng.tls.certresolver=letsencrypt
       - traefik.http.services.volera-searxng.loadbalancer.server.port=8080
+      # Add security headers
+      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Frame-Options=DENY
+      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Content-Type-Options=nosniff
+      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-XSS-Protection=1; mode=block
+      - traefik.http.routers.volera-searxng.middlewares=searxng-security
 
   redis:
     image: redis:alpine
@@ -47,6 +64,9 @@ services:
       - 6379
     networks:
       - dokploy-network
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
 
   celery_worker:
     build: .
@@ -81,7 +101,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-flower.rule=Host(`flower.volera.app`)
-      - traefik.http.routers.volera-flower.entrypoints=web
+      - traefik.http.routers.volera-flower.entrypoints=web,websecure
+      - traefik.http.routers.volera-flower.tls=true
+      - traefik.http.routers.volera-flower.tls.certresolver=letsencrypt
       - traefik.http.services.volera-flower.loadbalancer.server.port=5555
       # Add basic auth middleware
       - traefik.http.middlewares.flower-auth.basicauth.users=${FLOWER_USER}:${FLOWER_PASSWORD_HASH}
@@ -89,6 +111,7 @@ services:
 
 volumes:
   searxng_data:
+  redis_data:
 
 networks:
   dokploy-network:

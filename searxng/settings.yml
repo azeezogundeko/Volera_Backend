@@ -1,0 +1,88 @@
+server:
+    base_url: https://search.volera.app/  # Set to your domain
+    secret_key: !env SEARXNG_SECRET  # From environment variable
+    bind_address: !env SEARXNG_BIND_ADDRESS  # From environment variable
+    default_http_headers:
+        X-Frame-Options: 'DENY'
+        X-Content-Type-Options: 'nosniff'
+        X-XSS-Protection: '1; mode=block'
+        Referrer-Policy: 'no-referrer'
+
+# Allow requests from our backend
+http_headers:
+    X-Content-Type-Options: nosniff
+    X-Frame-Options: DENY
+    X-XSS-Protection: 1; mode=block
+    Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+# Trust internal network requests
+use_default_settings: true
+general:
+    debug: false
+    instance_name: !env INSTANCE_NAME
+    autocomplete: !env AUTOCOMPLETE
+
+# Enable Redis cache
+redis:
+    url: !env REDIS_URL
+    
+# Search engine settings
+search:
+    safe_search: 0  # 0=None, 1=Moderate, 2=Strict
+    autocomplete: 'google'
+    default_lang: 'en'
+    ban_time_on_fail: 5  # ban time in minutes
+    max_ban_time_on_fail: 120  # max ban time in minutes
+    formats:
+        - html
+        - json
+        - csv
+        - rss
+
+# Allow internal requests
+outgoing:
+    request_timeout: 5.0
+    max_request_timeout: 15.0
+    pool_connections: 100
+    pool_maxsize: 100
+    allow_http2: true
+    proxies:
+        http: ''
+        https: ''
+    using_tor_proxy: false
+    extra_proxy_timeout: 10.0
+
+ui:
+    static_use_hash: true
+    default_theme: simple
+    query_in_title: true
+    infinite_scroll: false
+    center_alignment: true
+    results_on_new_tab: true
+    advanced_search:
+        engine_groups: true
+        engines: true
+        language: true
+        safesearch: true
+        timerange: true
+
+engines:
+    - name: google
+      engine: google
+      shortcut: g
+      disabled: false
+
+    - name: duckduckgo
+      engine: duckduckgo
+      shortcut: d
+      disabled: false
+
+    - name: bing
+      engine: bing
+      shortcut: b
+      disabled: false
+
+    - name: wikipedia
+      engine: wikipedia
+      shortcut: w
+      disabled: false 
