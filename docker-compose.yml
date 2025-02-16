@@ -36,8 +36,8 @@ services:
       - traefik.enable=true
       - traefik.http.routers.volera-searxng.rule=Host(`search.volera.app`)
       - traefik.http.routers.volera-searxng.entrypoints=web
-      - traefik.http.routers.volera-searxng.tls=true
-      - traefik.http.routers.volera-searxng.tls.certresolver=letsencrypt
+      # - traefik.http.routers.volera-searxng.tls=true
+      # - traefik.http.routers.volera-searxng.tls.certresolver=letsencrypt
       - traefik.http.services.volera-searxng.loadbalancer.server.port=8080
 
   redis:
@@ -94,9 +94,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-flower.rule=Host(`flower.volera.app`)
-      - traefik.http.routers.volera-flower.entrypoints=websecure
-      - traefik.http.routers.volera-flower.tls=true
-      - traefik.http.routers.volera-flower.tls.certresolver=letsencrypt
+      - traefik.http.routers.volera-flower.entrypoints=web
+      # - traefik.http.routers.volera-flower.tls=true
+      # - traefik.http.routers.volera-flower.tls.certresolver=letsencrypt
       - traefik.http.services.volera-flower.loadbalancer.server.port=5555
       # Add basic auth middleware
       - traefik.http.middlewares.flower-auth.basicauth.users=${FLOWER_USER}:${FLOWER_PASSWORD_HASH}
