@@ -58,6 +58,9 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install Celery and Flower
+RUN pip install --no-cache-dir celery[redis] flower
+
 # Install Playwright browsers
 RUN playwright install --with-deps chromium
 RUN playwright install-deps

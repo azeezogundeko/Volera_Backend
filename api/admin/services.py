@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional, List
 from datetime import datetime, timedelta
 from calendar import monthrange
 from typing import Literal
@@ -7,6 +7,7 @@ import calendar
 from asyncio import gather
 
 from .model import DailyLog, MonthlyLog, AppLog
+from utils.celery_tasks import send_email, send_bulk_email
 
 
 async def get_user_growth_data(today: datetime) -> Dict:
@@ -97,3 +98,17 @@ async  def system_log(type: Literal["user", "error", "active", "inactive", "tran
     from asyncio import gather
     
     await gather(DailyLog.update_log(type, amount), MonthlyLog.update_log(type, amount), AppLog.update_log(type, amount))
+
+async def send_user_email(to_email: str, subject: str, html_content: str, from_name: Optional[str] = None):
+    """Send an email to a single user using Celery."""
+    task = send_email.delay(to_email, subject, html_content, from_name)
+    return {"task_id": str(task.id)}
+
+async def send_bulk_user_email(emails: List[str], subject: str, html_content: str, from_name: Optional[str] = None):
+    """Send emails to multiple users using Celery."""
+    result = await send_bulk_email.delay(emails, subject, html_content, from_name)
+    return {
+        "status": "success",
+        "message": f"Bulk email task initiated for {len(emails)} recipients",
+        "task_id": str(result.id)
+    }

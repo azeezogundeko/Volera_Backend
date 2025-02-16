@@ -7,14 +7,10 @@ from email.mime.application import MIMEApplication
 
 from dotenv import load_dotenv
 
+# from .celery_tasks import send_email
+
 load_dotenv()
 
-
-smtp_password = os.getenv("SMTP_PASSWORD")
-SOLVEBYTE_FROM_EMAIL = os.environ.get("FROM_EMAIL")
-from_email = "azeezogundeko@volera.app"
-smtp_server = "smtp.gmail.com"
-smtp_port = 465
 
 class EmailAccount:
     """
