@@ -26,6 +26,7 @@ services:
     image: searxng/searxng:latest
     container_name: searxng
     networks:
+      - dokploy-network
       - web
     environment:
       - SEARXNG_BASE_URL=https://search.volera.app/
@@ -45,29 +46,21 @@ services:
     restart: unless-stopped
     labels:
       - traefik.enable=true
-      - traefik.http.routers.searxng.rule=Host(`search.volera.app`)
-      - traefik.http.routers.searxng.entrypoints=websecure
-      - traefik.http.routers.searxng.tls=true
-      - traefik.http.services.searxng.loadbalancer.server.port=8080
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - dokploy-network
-    labels:
-      - traefik.enable=true
       - traefik.http.routers.volera-searxng.rule=Host(`search.volera.app`)
       - traefik.http.routers.volera-searxng.entrypoints=web,websecure
       - traefik.http.routers.volera-searxng.tls=true
       - traefik.http.routers.volera-searxng.tls.certresolver=letsencrypt
       - traefik.http.services.volera-searxng.loadbalancer.server.port=8080
       # Add security headers
-      # - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Frame-Options=DENY
-      # - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Content-Type-Options=nosniff
-      # - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-XSS-Protection=1; mode=block
-      # - traefik.http.routers.volera-searxng.middlewares=searxng-security
+      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Frame-Options=DENY
+      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-Content-Type-Options=nosniff
+      - traefik.http.middlewares.searxng-security.headers.customResponseHeaders.X-XSS-Protection=1; mode=block
+      - traefik.http.routers.volera-searxng.middlewares=searxng-security
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   tor:
     image: "dperson/torproxy:latest"
@@ -152,3 +145,8 @@ volumes:
   searxng_data:
   redis_data:
 
+networks:
+  dokploy-network:
+    external: true
+  web:
+    external: true
