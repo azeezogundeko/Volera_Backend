@@ -18,7 +18,7 @@ class TrackerWebScraper:
         self, 
         no_words: int = 500
         ) -> None:
-        from utils._craw4a import CrawlerManager
+        from utils._craw4ai import CrawlerManager
         from utils.request_session import http_client
 
         self.konga_client = SearchClient(KONGA_ID, KONGA_API_KEY)
