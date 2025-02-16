@@ -258,10 +258,11 @@ async def post_process_results(
     results = results[:limit]
 
     if deep_search:
-        try:
-            results = await run_deep_search_agent(user_id, query, limit, results)
-        except Exception as e:
-            logger.error(e, exc_info=True)
+        pass
+        # try:
+        #     results = await run_deep_search_agent(user_id, query, limit, results)
+        # except Exception as e:
+        #     logger.error(e, exc_info=True)
 
     return results
 
