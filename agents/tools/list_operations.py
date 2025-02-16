@@ -97,13 +97,13 @@ class ListTools:
             if not isinstance(items, list):
                 items = [items]  # Convert single item to list
                 
-            if not all(isinstance(item, ProductDetail) for item in items):
-                print(items)
-                return ListOperationResponse(
-                    success=False,
-                    message="All items must be instances of ProductDetail",
-                    data=[]
-                ).dict()
+            # if not all(isinstance(item, ProductDetail) for item in items):
+            #     print(items)
+            #     return ListOperationResponse(
+            #         success=False,
+            #         message="All items must be instances of ProductDetail",
+            #         data=[]
+            #     ).dict()
             
             # Create list if it doesn't exist or update timestamp if it does
             if list_name not in self._lists:
