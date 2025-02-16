@@ -1,7 +1,7 @@
 server:
-    base_url: https://search.volera.app/  # Set to your domain
-    secret_key: !env SEARXNG_SECRET  # From environment variable
-    bind_address: !env SEARXNG_BIND_ADDRESS  # From environment variable
+    base_url: 'https://search.volera.app/'
+    secret_key: "${SEARXNG_SECRET}"
+    bind_address: "${SEARXNG_BIND_ADDRESS}"
     default_http_headers:
         X-Frame-Options: 'DENY'
         X-Content-Type-Options: 'nosniff'
@@ -19,12 +19,12 @@ http_headers:
 use_default_settings: true
 general:
     debug: false
-    instance_name: !env INSTANCE_NAME
-    autocomplete: !env AUTOCOMPLETE
+    instance_name: "${INSTANCE_NAME}"
+    autocomplete: "${AUTOCOMPLETE}"
 
 # Enable Redis cache
 redis:
-    url: !env REDIS_URL
+    url: "${REDIS_URL}"
     
 # Search engine settings
 search:

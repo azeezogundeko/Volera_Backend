@@ -36,12 +36,11 @@ services:
       - SEARXNG_SECRET=${SEARXNG_SECRET:-"changeme"}
       - SEARXNG_HOSTNAME=0.0.0.0
       - SEARXNG_BIND_ADDRESS=0.0.0.0:8080
-      # Allow internal requests
       - SEARXNG_TRUST_UPSTREAM_PROXIES=true
-      # Redis cache for better performance
       - REDIS_URL=redis://redis:6379/1
-      # Enable all safe features
       - ENABLE_METRICS=true
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=4
     restart: unless-stopped
     networks:
       - dokploy-network
@@ -70,7 +69,7 @@ services:
 
   celery_worker:
     build: .
-    command: celery -A utils.celery_tasks.celery_app worker --loglevel=info
+    command: celery -A utils.celery_tasks.celery_app worker --loglevel=info --events
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
@@ -78,14 +77,20 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - C_FORCE_ROOT=true
     depends_on:
       - redis
     networks:
       - dokploy-network
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A utils.celery_tasks.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   flower:
     build: .
-    command: celery -A utils.celery_tasks.celery_app flower --port=5555
+    command: celery -A utils.celery_tasks.celery_app flower --port=5555 --persistent=True --state_save_interval=10000 --broker_api=redis://redis:6379/0
     expose:
       - 5555
     env_file:
@@ -93,11 +98,16 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - FLOWER_BASIC_AUTH=${FLOWER_USER}:${FLOWER_PASSWORD}
+      - FLOWER_PERSISTENT=True
+      - FLOWER_STATE_SAVE_INTERVAL=10000
+      - FLOWER_PURGE_OFFLINE_WORKERS=60
     depends_on:
       - redis
       - celery_worker
     networks:
       - dokploy-network
+    volumes:
+      - ./data:/app/data
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-flower.rule=Host(`flower.volera.app`)
