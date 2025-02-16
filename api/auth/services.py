@@ -166,7 +166,7 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
             "timezone": payload.timezone
             })
 
-    background_tasks.add_task(send_new_user_email, validation_code, p["email"])
+    send_new_user_email(validation_code, p["email"])
 
     first_name, last_name = response["name"].rsplit("_", 1)
 
@@ -205,11 +205,9 @@ async def create_user_profile(
         )
         await UserProfile.create_file(file_id, file)
 
-
     user_profile = await UserProfile.create(
         document_id=user.id,
         data={
-            # "user_id": user.id,
             "phone": payload.phone,
             "gender": payload.gender,
             "city": payload.city,
@@ -225,9 +223,20 @@ async def create_user_profile(
             "price_range": payload.price_range,
             "shopping_frequency": payload.shopping_frequency,
             "notification_preferences": payload.notification_preferences,
-            # "user_id": user.id
         }
     )
+
+    # Prepare user data for welcome email
+    user_data = {
+        "first_name": user.name.split('_')[0],
+        "phone": payload.phone,
+        "city": payload.city,
+        "country": payload.country
+    }
+    
+    # Send formal welcome email using Celery
+    from .email import send_formal_welcome_email
+    send_formal_welcome_email(user.email, user_data)
 
     return {
             "user": user,

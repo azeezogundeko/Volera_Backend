@@ -50,6 +50,14 @@ class EmailAccountManager:
                 login_email=os.environ.get("FROM_EMAIL"),
                 smtp_password=os.getenv("SMTP_PASSWORD")
             ),
+            "support": EmailAccount(
+                name="Support Team",
+                from_email="support@volera.app",
+                smtp_password=os.getenv("BREVO_SMTP_PASSWORD"),
+                login_email=os.environ.get("BREVO_SMTP_EMAIL"),
+                smtp_port=587,
+                smtp_server="smtp-relay.brevo.com"
+            ),
             "no-reply": EmailAccount(
                 name="no-reply - Volera",
                 from_email="no-reply@volera.app",
