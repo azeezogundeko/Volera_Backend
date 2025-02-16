@@ -41,7 +41,13 @@ services:
       - ENABLE_METRICS=true
       - UWSGI_WORKERS=2
       - UWSGI_THREADS=4
+      - INIT_SETTINGS=true
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - dokploy-network
     labels:
