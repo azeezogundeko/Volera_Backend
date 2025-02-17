@@ -89,6 +89,7 @@ from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 
 class VectorStore:
     _instance = None
+    _lock = asyncio.Lock()  # Add class-level lock for thread safety
 
     def __new__(cls, *args, **kwargs):
         """
@@ -106,97 +107,111 @@ class VectorStore:
         :param ttl: Optional TTL override.
         :param use_qdrant: Flag to try using Qdrant first.
         """
-        if not hasattr(self, "vectorstore"):
+        if not hasattr(self, "_initialized"):
             self.vectorstore = None
+            self.use_qdrant = use_qdrant
+            self._initialized = False
+            self._client_ready = asyncio.Event()  # Add event for client readiness
 
-        self.use_qdrant = use_qdrant
+            # Set TTL based on the vector store used, unless explicitly provided.
+            if ttl is not None:
+                self.ttl = ttl
+            else:
+                self.ttl = 604800 if self.use_qdrant else 3600
 
-        # Set TTL based on the vector store used, unless explicitly provided.
-        if ttl is not None:
-            self.ttl = ttl
-        else:
-            self.ttl = 604800 if self.use_qdrant else 3600
+            self.expiration_times = {}  # key -> expiration timestamp
+            self.embedding_model = FastEmbedEmbeddings()
 
-        self.expiration_times = {}  # key -> expiration timestamp
-        self.embedding_model = FastEmbedEmbeddings()
+            # Qdrant-specific attributes
+            self.qdrant_client = None
+            self.collection_name = "volera_collection"
 
-        # Qdrant-specific attributes
-        self.qdrant_client = None
-        self.collection_name = "volera_collection"
+    async def _init_qdrant(self):
+        """Initialize Qdrant client with retry logic"""
+        from qdrant_client import QdrantClient
+        from qdrant_client.http.models import VectorParams
+        from qdrant_client.http import models as rest
+
+        max_retries = 5
+        retry_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to connect to Qdrant (attempt {attempt + 1}/{max_retries})")
+                client = QdrantClient(
+                    host="qdrant",
+                    port=6333,
+                    timeout=10  # 10 second timeout
+                )
+                
+                # Test the connection
+                collections = client.get_collections()
+                logger.info(f"Successfully connected to Qdrant. Available collections: {collections}")
+                
+                # Get vector size from embedding model
+                vector_size = len(self.embedding_model.embed_query("hello world"))
+                logger.info(f"Creating collection with vector size: {vector_size}")
+                
+                # Create collection with optimized parameters
+                client.recreate_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(
+                        size=vector_size,
+                        distance=rest.Distance.COSINE
+                    ),
+                    optimizers_config=rest.OptimizersConfigDiff(
+                        indexing_threshold=0,  # Index immediately
+                        memmap_threshold=0     # Use memory mapping from start
+                    )
+                )
+                logger.info(f"Successfully created Qdrant collection: {self.collection_name}")
+                return client
+                
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to connect to Qdrant (attempt {attempt + 1}): {str(e)}")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    raise Exception(f"Failed to initialize Qdrant after {max_retries} attempts: {str(e)}")
 
     async def initialize(self):
         """
         Initialize the vector store.
         First try to initialize Qdrant. If that fails, fall back to FAISS.
         """
-        if self.use_qdrant:
-            try:
-                from qdrant_client import QdrantClient
-                from qdrant_client.http.models import VectorParams
-                from qdrant_client.http import models as rest
-                import time
+        if self._initialized:
+            await self._client_ready.wait()  # Wait for client to be ready if already initializing
+            return
 
-                # Initialize Qdrant client with retry logic
-                max_retries = 5
-                retry_delay = 5  # seconds
-                
-                for attempt in range(max_retries):
-                    try:
-                        logger.info(f"Attempting to connect to Qdrant (attempt {attempt + 1}/{max_retries})")
-                        self.qdrant_client = QdrantClient(
-                            host="qdrant",
-                            port=6333,
-                            timeout=10  # 10 second timeout
-                        )
-                        
-                        # Test the connection
-                        collections = self.qdrant_client.get_collections()
-                        logger.info(f"Successfully connected to Qdrant. Available collections: {collections}")
-                        
-                        # Get vector size from embedding model
-                        vector_size = len(self.embedding_model.embed_query("hello world"))
-                        logger.info(f"Creating collection with vector size: {vector_size}")
-                        
-                        # Create collection with optimized parameters
-                        self.qdrant_client.recreate_collection(
-                            collection_name=self.collection_name,
-                            vectors_config=VectorParams(
-                                size=vector_size,
-                                distance=rest.Distance.COSINE
-                            ),
-                            optimizers_config=rest.OptimizersConfigDiff(
-                                indexing_threshold=0,  # Index immediately
-                                memmap_threshold=0     # Use memory mapping from start
-                            )
-                        )
-                        logger.info(f"Successfully created Qdrant collection: {self.collection_name}")
-                        break
-                        
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            logger.warning(f"Failed to connect to Qdrant (attempt {attempt + 1}): {str(e)}")
-                            await asyncio.sleep(retry_delay)
-                            continue
-                        else:
-                            raise Exception(f"Failed to initialize Qdrant after {max_retries} attempts: {str(e)}")
-                
-            except Exception as e:
-                logger.error(f"Failed to initialize Qdrant: {e}. Falling back to FAISS.")
-                self.use_qdrant = False
-                self.ttl = 3600  # Update TTL to FAISS default
-                self.qdrant_client = None  # Ensure client is None if initialization fails
+        async with self._lock:  # Ensure thread-safe initialization
+            if self._initialized:  # Double-check pattern
+                return
+            
+            if self.use_qdrant:
+                try:
+                    self.qdrant_client = await self._init_qdrant()
+                    logger.info("Qdrant client initialized successfully")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Qdrant: {e}. Falling back to FAISS.")
+                    self.use_qdrant = False
+                    self.ttl = 3600
+                    self.qdrant_client = None
 
-        if not self.use_qdrant or not self.qdrant_client:
-            # Fallback: Initialize FAISS (in-memory index)
-            vector_size = len(self.embedding_model.embed_query("hello world"))
-            index = faiss.IndexFlatL2(vector_size)
-            self.vectorstore = FAISS(
-                embedding_function=self.embedding_model,
-                docstore=InMemoryDocstore(),
-                index=index,
-                index_to_docstore_id={},
-            )
-            logger.info("Initialized FAISS index with TTL set to 1 hour.")
+            if not self.use_qdrant or not self.qdrant_client:
+                # Fallback: Initialize FAISS
+                vector_size = len(self.embedding_model.embed_query("hello world"))
+                index = faiss.IndexFlatL2(vector_size)
+                self.vectorstore = FAISS(
+                    embedding_function=self.embedding_model,
+                    docstore=InMemoryDocstore(),
+                    index=index,
+                    index_to_docstore_id={},
+                )
+                logger.info("Initialized FAISS index with TTL set to 1 hour.")
+
+            self._initialized = True
+            self._client_ready.set()  # Signal that the client is ready
 
     async def query(self, query: str, k=4, score_threshold=0.8) -> Optional[List[dict]]:
         """
@@ -241,23 +256,32 @@ class VectorStore:
         """
         Add a query and its result to the vector store.
         """
+        await self._client_ready.wait()  # Ensure client is ready before proceeding
+        
         expiration_time = time.time() + self.ttl
         self.expiration_times[key] = expiration_time
 
-        if self.use_qdrant:
-            vector = self.embedding_model.embed_query(query)
-            payload = {"result": result, "query": query}
-            point = {
-                "id": key,
-                "vector": vector,
-                "payload": payload,
-            }
-            await asyncio.to_thread(
-                self.qdrant_client.upsert,
-                collection_name=self.collection_name,
-                points=[point]
-            )
-            logger.info(f"Added point {key} to Qdrant with TTL of 1 week.")
+        if self.use_qdrant and self.qdrant_client:
+            try:
+                vector = self.embedding_model.embed_query(query)
+                payload = {"result": result, "query": query}
+                point = {
+                    "id": key,
+                    "vector": vector,
+                    "payload": payload,
+                }
+                await asyncio.to_thread(
+                    self.qdrant_client.upsert,
+                    collection_name=self.collection_name,
+                    points=[point]
+                )
+                logger.info(f"Added point {key} to Qdrant with TTL of 1 week.")
+            except Exception as e:
+                logger.error(f"Failed to add point to Qdrant: {e}. Falling back to FAISS.")
+                self.use_qdrant = False
+                self.qdrant_client = None
+                await self.initialize()  # Reinitialize with FAISS
+                await self.add(key, query, result)  # Retry with FAISS
         else:
             await self.vectorstore.aadd_texts(
                 [query],
