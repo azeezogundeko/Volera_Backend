@@ -192,6 +192,23 @@ class VectorStore:
                 else:
                     raise Exception(f"Failed to initialize Qdrant after {max_retries} attempts: {str(e)}")
 
+    async def _init_faiss(self):
+        """Initialize FAISS vector store"""
+        try:
+            vector_size = len(self.embedding_model.embed_query("hello world"))
+            index = faiss.IndexFlatL2(vector_size)
+            self.vectorstore = FAISS(
+                embedding_function=self.embedding_model,
+                docstore=InMemoryDocstore(),
+                index=index,
+                index_to_docstore_id={},
+            )
+            logger.info("Initialized FAISS index with TTL set to 1 hour.")
+            return self.vectorstore
+        except Exception as e:
+            logger.error(f"Failed to initialize FAISS: {e}")
+            raise
+
     async def initialize(self):
         """
         Initialize the vector store.
@@ -220,15 +237,7 @@ class VectorStore:
 
             # Fallback to FAISS if Qdrant initialization failed
             try:
-                vector_size = len(self.embedding_model.embed_query("hello world"))
-                index = faiss.IndexFlatL2(vector_size)
-                self.vectorstore = FAISS(
-                    embedding_function=self.embedding_model,
-                    docstore=InMemoryDocstore(),
-                    index=index,
-                    index_to_docstore_id={},
-                )
-                logger.info("Initialized FAISS index with TTL set to 1 hour.")
+                self.vectorstore = await self._init_faiss()
                 self._initialized = True
                 self._client_ready.set()
             except Exception as e:
@@ -241,26 +250,36 @@ class VectorStore:
         """
         await self._remove_expired()  # Clean up expired entries
 
-        if self.use_qdrant:
-            query_vector = self.embedding_model.embed_query(query)
-            results = await asyncio.to_thread(
-                self.qdrant_client.search,
-                collection_name=self.collection_name,
-                query_vector=query_vector,
-                limit=k,
-                with_payload=True
-            )
-            filtered = [r for r in results if r.score and r.score >= score_threshold]
-            if not filtered:
-                return None
-
-            results_list = list(
-                chain.from_iterable(
-                    (item["result"] for item in (r.payload or {}) if "result" in item)
+        if self.use_qdrant and self.qdrant_client:
+            try:
+                query_vector = self.embedding_model.embed_query(query)
+                results = await asyncio.to_thread(
+                    self.qdrant_client.search,
+                    collection_name=self.collection_name,
+                    query_vector=query_vector,
+                    limit=k,
+                    with_payload=True
                 )
-            )
-            logger.info(f"Returning {len(results_list)} results from Qdrant.")
-            return results_list
+                filtered = [r for r in results if r.score and r.score >= score_threshold]
+                if not filtered:
+                    return None
+
+                results_list = []
+                for r in filtered:
+                    if r.payload and "result" in r.payload:
+                        if isinstance(r.payload["result"], list):
+                            results_list.extend(r.payload["result"])
+                        else:
+                            results_list.append(r.payload["result"])
+
+                logger.info(f"Returning {len(results_list)} results from Qdrant.")
+                return results_list
+            except Exception as e:
+                logger.error(f"Failed to query Qdrant: {e}. Falling back to FAISS.")
+                self.use_qdrant = False
+                self.qdrant_client = None
+                await self.initialize()  # Reinitialize with FAISS
+                return await self.query(query, k, score_threshold)  # Retry with FAISS
         else:
             docs_and_similarities = await self.vectorstore.asimilarity_search_with_relevance_scores(query, k=k)
             docs_and_similarities = [
@@ -285,26 +304,51 @@ class VectorStore:
 
         if self.use_qdrant and self.qdrant_client:
             try:
+                from uuid import UUID, uuid5, NAMESPACE_DNS
+                
+                # Convert key to a valid Qdrant point ID
+                try:
+                    if isinstance(key, int):
+                        point_id = key
+                    else:
+                        # Create a deterministic UUID from the key string
+                        point_id = str(uuid5(NAMESPACE_DNS, str(key)))
+                except Exception as e:
+                    # If conversion fails, generate a new UUID
+                    point_id = str(uuid5(NAMESPACE_DNS, str(time.time())))
+                    logger.warning(f"Failed to convert key to UUID, using generated ID: {point_id}")
+
                 vector = self.embedding_model.embed_query(query)
-                payload = {"result": result, "query": query}
-                point = {
-                    "id": key,
-                    "vector": vector,
-                    "payload": payload,
+                payload = {
+                    "result": result,
+                    "query": query,
+                    "original_key": str(key)  # Store original key in payload
                 }
+                
+                point = {
+                    "id": point_id,
+                    "vector": vector,
+                    "payload": payload
+                }
+                
+                logger.info(f"Adding point with ID {point_id} to Qdrant")
                 await asyncio.to_thread(
                     self.qdrant_client.upsert,
                     collection_name=self.collection_name,
                     points=[point]
                 )
-                logger.info(f"Added point {key} to Qdrant with TTL of 1 week.")
+                logger.info(f"Added point {point_id} to Qdrant with TTL of 1 week.")
             except Exception as e:
                 logger.error(f"Failed to add point to Qdrant: {e}. Falling back to FAISS.")
                 self.use_qdrant = False
                 self.qdrant_client = None
-                await self.initialize()  # Reinitialize with FAISS
+                # Ensure FAISS is initialized before retrying
+                if not self.vectorstore:
+                    await self._init_faiss()
                 await self.add(key, query, result)  # Retry with FAISS
         else:
+            if not self.vectorstore:
+                await self._init_faiss()
             await self.vectorstore.aadd_texts(
                 [query],
                 ids=[key],
