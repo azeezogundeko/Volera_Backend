@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -12,11 +10,9 @@ services:
       - 6333
       - 6334
       - 6335
-    configs:
-      - source: qdrant_config
-        target: /qdrant/config/production.yaml
     volumes:
       - ./qdrant_data:/qdrant/storage
+      - ./qdrant_config.yaml:/qdrant/config/production.yaml
     labels:
       - traefik.enable=true
       - traefik.http.routers.qdrant.rule=Host(`qdrant.volera.app`)
@@ -24,12 +20,9 @@ services:
       - traefik.http.routers.qdrant.tls=true
       - traefik.http.routers.qdrant.tls.certresolver=letsencrypt
       - traefik.http.services.qdrant.loadbalancer.server.port=6333
-      # (Optional) You can also add basic auth here if desired:
-      # - "traefik.http.middlewares.qdrant-auth.basicauth.users=user:$$apr1$$hashvalue"
-      # - "traefik.http.routers.qdrant.middlewares=qdrant-auth"
-
     env_file:
       - .env
+
   web:
     build: .
     expose:
@@ -60,7 +53,6 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
-
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-searxng.rule=Host(`search.volera.app`)
@@ -127,7 +119,6 @@ services:
       - traefik.http.routers.volera-flower.tls=true
       - traefik.http.routers.volera-flower.tls.certresolver=letsencrypt
       - traefik.http.services.volera-flower.loadbalancer.server.port=5555
-      # Add basic auth middleware
       - traefik.http.middlewares.flower-auth.basicauth.users=${FLOWER_USER}:${FLOWER_PASSWORD_HASH}
       - traefik.http.routers.volera-flower.middlewares=flower-auth
 
