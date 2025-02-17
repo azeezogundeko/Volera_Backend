@@ -11,8 +11,12 @@ services:
       - 6334
       - 6335
     volumes:
-      - ./qdrant_data:/qdrant/storage
+      - qdrant_storage:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
       - ./qdrant_config.yaml:/qdrant/config/production.yaml
+    environment:
+      - QDRANT_ALLOW_RECOVERY=true
+      - QDRANT_FORCE_DISABLE_TELEMETRY=true
     networks:
       - dokploy-network
     labels:
@@ -128,6 +132,10 @@ services:
 volumes:
   searxng_data:
   redis_data:
+  qdrant_storage:
+    driver: local
+  qdrant_snapshots:
+    driver: local
 
 networks:
   dokploy-network:

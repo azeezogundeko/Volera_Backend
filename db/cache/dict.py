@@ -129,8 +129,9 @@ class VectorStore:
     async def _init_qdrant(self):
         """Initialize Qdrant client with retry logic"""
         from qdrant_client import QdrantClient
-        from qdrant_client.http.models import VectorParams
+        from qdrant_client.http.models import VectorParams, Distance, OptimizersConfigDiff
         from qdrant_client.http import models as rest
+        import time
 
         max_retries = 5
         retry_delay = 5  # seconds
@@ -141,7 +142,8 @@ class VectorStore:
                 client = QdrantClient(
                     host="qdrant",
                     port=6333,
-                    timeout=10  # 10 second timeout
+                    timeout=30,  # Increased timeout for initialization
+                    prefer_grpc=False  # Force HTTP
                 )
                 
                 # Test the connection
@@ -152,25 +154,40 @@ class VectorStore:
                 vector_size = len(self.embedding_model.embed_query("hello world"))
                 logger.info(f"Creating collection with vector size: {vector_size}")
                 
-                # Create collection with optimized parameters
-                client.recreate_collection(
-                    collection_name=self.collection_name,
-                    vectors_config=VectorParams(
-                        size=vector_size,
-                        distance=rest.Distance.COSINE
-                    ),
-                    optimizers_config=rest.OptimizersConfigDiff(
-                        indexing_threshold=0,  # Index immediately
-                        memmap_threshold=0     # Use memory mapping from start
+                try:
+                    # Try to get existing collection
+                    collection_info = client.get_collection(self.collection_name)
+                    logger.info(f"Found existing collection: {collection_info}")
+                    
+                    # Check if we need to recreate (e.g., if vector size changed)
+                    if collection_info.config.params.vectors.size != vector_size:
+                        logger.info("Vector size mismatch, recreating collection...")
+                        client.delete_collection(self.collection_name)
+                        raise ValueError("Vector size mismatch")
+                        
+                except Exception:
+                    # Collection doesn't exist or needs recreation
+                    logger.info("Creating new collection...")
+                    client.create_collection(
+                        collection_name=self.collection_name,
+                        vectors_config=VectorParams(
+                            size=vector_size,
+                            distance=Distance.COSINE
+                        ),
+                        optimizers_config=OptimizersConfigDiff(
+                            indexing_threshold=20000,  # Increased for better performance
+                            memmap_threshold=20000
+                        ),
+                        on_disk_payload=True  # Store payloads on disk to save memory
                     )
-                )
-                logger.info(f"Successfully created Qdrant collection: {self.collection_name}")
+                    logger.info(f"Successfully created Qdrant collection: {self.collection_name}")
+                
                 return client
                 
             except Exception as e:
                 if attempt < max_retries - 1:
                     logger.warning(f"Failed to connect to Qdrant (attempt {attempt + 1}): {str(e)}")
-                    await asyncio.sleep(retry_delay)
+                    await asyncio.sleep(retry_delay * (attempt + 1))  # Exponential backoff
                     continue
                 else:
                     raise Exception(f"Failed to initialize Qdrant after {max_retries} attempts: {str(e)}")
@@ -192,14 +209,17 @@ class VectorStore:
                 try:
                     self.qdrant_client = await self._init_qdrant()
                     logger.info("Qdrant client initialized successfully")
+                    self._initialized = True
+                    self._client_ready.set()
+                    return
                 except Exception as e:
                     logger.error(f"Failed to initialize Qdrant: {e}. Falling back to FAISS.")
                     self.use_qdrant = False
                     self.ttl = 3600
                     self.qdrant_client = None
 
-            if not self.use_qdrant or not self.qdrant_client:
-                # Fallback: Initialize FAISS
+            # Fallback to FAISS if Qdrant initialization failed
+            try:
                 vector_size = len(self.embedding_model.embed_query("hello world"))
                 index = faiss.IndexFlatL2(vector_size)
                 self.vectorstore = FAISS(
@@ -209,9 +229,11 @@ class VectorStore:
                     index_to_docstore_id={},
                 )
                 logger.info("Initialized FAISS index with TTL set to 1 hour.")
-
-            self._initialized = True
-            self._client_ready.set()  # Signal that the client is ready
+                self._initialized = True
+                self._client_ready.set()
+            except Exception as e:
+                logger.error(f"Failed to initialize FAISS: {e}")
+                raise
 
     async def query(self, query: str, k=4, score_threshold=0.8) -> Optional[List[dict]]:
         """
