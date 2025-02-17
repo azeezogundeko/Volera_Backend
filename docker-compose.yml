@@ -13,6 +13,8 @@ services:
     volumes:
       - ./qdrant_data:/qdrant/storage
       - ./qdrant_config.yaml:/qdrant/config/production.yaml
+    networks:
+      - dokploy-network
     labels:
       - traefik.enable=true
       - traefik.http.routers.qdrant.rule=Host(`qdrant.volera.app`)
@@ -36,6 +38,7 @@ services:
       - searxng
       - redis
       - celery_worker
+      - qdrant
     networks:
       - dokploy-network
     labels:
