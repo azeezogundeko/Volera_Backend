@@ -1,0 +1,13 @@
+log_level: INFO  # Options: ERROR, WARN, INFO, DEBUG, TRACE
+
+storage:
+  storage_path: /qdrant/storage  # Path where Qdrant stores vectors and metadata
+  snapshots_path: /qdrant/snapshots  # Path for snapshot backups
+
+service:
+  http_port: 6333  # REST API port
+  grpc_port: 6334  # gRPC API port
+  enable_cors: true  # Allow cross-origin requests
+
+cluster:
+  enabled: false  # Set to true if using multiple Qdrant nodes
