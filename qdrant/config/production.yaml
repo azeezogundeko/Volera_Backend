@@ -1,0 +1,1 @@
+api_key: "${QDRANT_API_KEY}"

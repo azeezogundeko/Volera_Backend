@@ -90,94 +90,184 @@ from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 class VectorStore:
     _instance = None
 
-
     def __new__(cls, *args, **kwargs):
         """
-        Override the __new__ method to implement the singleton pattern.
+        Singleton pattern to ensure a single instance.
         """
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-
-    def __init__(self, ttl: int = 3600):  # Default TTL is 1 hour
+    def __init__(self, ttl: int = None, use_qdrant: bool = True):
         """
-        Initialize the VectorStore with a FAISS index and TTL for cached queries.
+        Initialize the VectorStore.
+        For Qdrant, default TTL is 1 week (604800 seconds).
+        For FAISS, default TTL is 1 hour (3600 seconds).
+        :param ttl: Optional TTL override.
+        :param use_qdrant: Flag to try using Qdrant first.
         """
         if not hasattr(self, "vectorstore"):
             self.vectorstore = None
-        
-        self.ttl = ttl  # Time-to-Live in seconds
-        self.expiration_times = {}  # Map key -> expiration timestamp
 
+        self.use_qdrant = use_qdrant
+
+        # Set TTL based on the vector store used, unless explicitly provided.
+        if ttl is not None:
+            self.ttl = ttl
+        else:
+            self.ttl = 604800 if self.use_qdrant else 3600
+
+        self.expiration_times = {}  # key -> expiration timestamp
+        self.embedding_model = FastEmbedEmbeddings()
+
+        # Qdrant-specific attributes
+        self.qdrant_client = None
+        self.collection_name = "volera_collection"
 
     async def initialize(self):
         """
-        Asynchronous initialization for the disk cache.
-        :param directory: Path to the directory where cache files will be stored.
-        :param size_limit: Maximum size of the cache in bytes (None for unlimited).
+        Initialize the vector store.
+        First try to initialize Qdrant. If that fails, fall back to FAISS.
         """
+        if self.use_qdrant:
+            try:
+                from qdrant_client import QdrantClient
+                from qdrant_client.http.models import VectorParams
 
-        index = faiss.IndexFlatL2(len(FastEmbedEmbeddings().embed_query("hello world")))
+                # Initialize Qdrant client (ensure Qdrant is running, e.g., via Docker)
+                self.qdrant_client = QdrantClient(host="qdrant", port=6333)
+                vector_size = len(self.embedding_model.embed_query("hello world"))
 
-        self.vectorstore = FAISS(
-            embedding_function=FastEmbedEmbeddings(),
-            docstore=InMemoryDocstore(),
-            index=index,
-            index_to_docstore_id={},
-        )
+                # Create (or recreate) the Qdrant collection.
+                await asyncio.to_thread(
+                    self.qdrant_client.recreate_collection,
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size=vector_size, distance="Cosine")
+                )
+                logger.info("Initialized Qdrant collection with TTL set to 1 week.")
+            except Exception as e:
+                logger.error(f"Failed to initialize Qdrant: {e}. Falling back to FAISS.")
+                self.use_qdrant = False
+                self.ttl = 3600  # Update TTL to FAISS default
 
+        if not self.use_qdrant:
+            # Fallback: Initialize FAISS (in-memory index)
+            vector_size = len(self.embedding_model.embed_query("hello world"))
+            index = faiss.IndexFlatL2(vector_size)
+            self.vectorstore = FAISS(
+                embedding_function=self.embedding_model,
+                docstore=InMemoryDocstore(),
+                index=index,
+                index_to_docstore_id={},
+            )
+            logger.info("Initialized FAISS index with TTL set to 1 hour.")
 
-    async def query(self, query: str, k=4, score_threshold=0.8) -> List[dict]:
+    async def query(self, query: str, k=4, score_threshold=0.8) -> Optional[List[dict]]:
         """
-        Perform a similarity search and return results above the score threshold.
+        Perform a similarity search using either Qdrant or FAISS.
         """
-        await self._remove_expired()  # Cleanup expired entries before querying
-        docs_and_similarities = await self.vectorstore.asimilarity_search_with_relevance_scores(query, k=k)
+        await self._remove_expired()  # Clean up expired entries
 
-        docs_and_similarities = [
-            (doc, similarity)
-            for doc, similarity in docs_and_similarities
-            if similarity >= score_threshold
-        ]
+        if self.use_qdrant:
+            query_vector = self.embedding_model.embed_query(query)
+            results = await asyncio.to_thread(
+                self.qdrant_client.search,
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=k,
+                with_payload=True
+            )
+            filtered = [r for r in results if r.score and r.score >= score_threshold]
+            if not filtered:
+                return None
 
-        if not docs_and_similarities:
-            return None
+            results_list = list(
+                chain.from_iterable(
+                    (item["result"] for item in (r.payload or {}) if "result" in item)
+                )
+            )
+            logger.info(f"Returning {len(results_list)} results from Qdrant.")
+            return results_list
+        else:
+            docs_and_similarities = await self.vectorstore.asimilarity_search_with_relevance_scores(query, k=k)
+            docs_and_similarities = [
+                (doc, similarity)
+                for doc, similarity in docs_and_similarities
+                if similarity >= score_threshold
+            ]
+            if not docs_and_similarities:
+                return None
 
-        logger.info(f"Returning results from cache {len(docs_and_similarities)}")
-        
-
-        return list(chain.from_iterable(doc.metadata["result"] for doc, _ in docs_and_similarities))
+            logger.info(f"Returning {len(docs_and_similarities)} results from FAISS.")
+            return list(chain.from_iterable(doc.metadata["result"] for doc, _ in docs_and_similarities))
 
     async def add(self, key: str | int, query: str, result: dict | List[dict]):
         """
-        Cache a query and its result with an expiration timestamp.
+        Add a query and its result to the vector store.
         """
         expiration_time = time.time() + self.ttl
         self.expiration_times[key] = expiration_time
-        return await self.vectorstore.aadd_texts([query], ids=[key], metadatas=[dict(result=result, query=query)])
 
+        if self.use_qdrant:
+            vector = self.embedding_model.embed_query(query)
+            payload = {"result": result, "query": query}
+            point = {
+                "id": key,
+                "vector": vector,
+                "payload": payload,
+            }
+            await asyncio.to_thread(
+                self.qdrant_client.upsert,
+                collection_name=self.collection_name,
+                points=[point]
+            )
+            logger.info(f"Added point {key} to Qdrant with TTL of 1 week.")
+        else:
+            await self.vectorstore.aadd_texts(
+                [query],
+                ids=[key],
+                metadatas=[dict(result=result, query=query)]
+            )
+            logger.info(f"Added point {key} to FAISS with TTL of 1 hour.")
 
     async def delete(self, keys: Optional[List[str]] = None, **kwargs: Any):
         """
-        Delete specified keys or perform cleanup based on additional criteria.
+        Delete points by key from the vector store.
         """
         if keys:
             for key in keys:
                 self.expiration_times.pop(key, None)
-        return await self.vectorstore.adelete(keys)
+
+        if self.use_qdrant:
+            await asyncio.to_thread(
+                self.qdrant_client.delete,
+                collection_name=self.collection_name,
+                points_selector={"ids": keys}
+            )
+            logger.info(f"Deleted points {keys} from Qdrant.")
+        else:
+            await self.vectorstore.adelete(keys)
+            logger.info(f"Deleted points {keys} from FAISS.")
 
     async def _remove_expired(self):
         """
-        Remove expired items from the vectorstore.
+        Remove expired items from the vector store.
         """
         current_time = time.time()
         expired_keys = [key for key, expiration in self.expiration_times.items() if expiration < current_time]
-
         if expired_keys:
             for key in expired_keys:
                 self.expiration_times.pop(key, None)
-            await self.vectorstore.adelete(expired_keys)
+            if self.use_qdrant:
+                await asyncio.to_thread(
+                    self.qdrant_client.delete,
+                    collection_name=self.collection_name,
+                    points_selector={"ids": expired_keys}
+                )
+                logger.info(f"Removed expired keys {expired_keys} from Qdrant.")
+            else:
+                await self.vectorstore.adelete(expired_keys)
+                logger.info(f"Removed expired keys {expired_keys} from FAISS.")
 
 
 
