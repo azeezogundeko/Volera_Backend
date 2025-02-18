@@ -9,9 +9,10 @@ BASE_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root {{
-            --primary-color: #10B981;
-            --primary-dark: #059669;
-            --primary-light: #D1FAE5;
+            --primary-color: #10B981;  /* Emerald 500 */
+            --primary-dark: #059669;   /* Emerald 600 */
+            --primary-light: #A7F3D0;  /* Emerald 200 */
+            --primary-lighter: #D1FAE5; /* Emerald 100 */
             --text-dark: #1F2937;
             --text-light: #6B7280;
             --background: #F9FAFB;
@@ -36,7 +37,7 @@ BASE_TEMPLATE = """
         .header {{
             text-align: center;
             padding: 30px 20px;
-            background-color: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
             color: var(--white);
             border-radius: 8px 8px 0 0;
         }}
@@ -54,22 +55,25 @@ BASE_TEMPLATE = """
             padding: 20px;
             color: var(--text-light);
             font-size: 12px;
-            background-color: var(--background);
+            background-color: var(--primary-lighter);
             border-radius: 0 0 8px 8px;
         }}
         .button {{
             display: inline-block;
             padding: 12px 28px;
-            background-color: var(--primary-color);
+            background: var(--primary-color);
             color: var(--white);
             text-decoration: none;
             border-radius: 6px;
             margin: 20px 0;
             font-weight: 600;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
         }}
         .button:hover {{
-            background-color: var(--primary-dark);
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
         }}
         .list {{
             margin: 15px 0;
@@ -79,22 +83,26 @@ BASE_TEMPLATE = """
             margin-bottom: 10px;
         }}
         .highlight {{
-            background-color: var(--primary-light);
+            background-color: var(--primary-lighter);
             padding: 20px;
             border-radius: 6px;
             margin: 20px 0;
             border-left: 4px solid var(--primary-color);
         }}
         .card {{
-            border: 1px solid #E5E7EB;
+            border: 1px solid var(--primary-light);
             border-radius: 6px;
             padding: 15px;
             margin: 15px 0;
             background-color: var(--white);
+            transition: all 0.3s ease;
+        }}
+        .card:hover {{
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1);
         }}
         .divider {{
             height: 1px;
-            background-color: #E5E7EB;
+            background-color: var(--primary-light);
             margin: 20px 0;
         }}
         a {{
@@ -102,6 +110,7 @@ BASE_TEMPLATE = """
             text-decoration: none;
         }}
         a:hover {{
+            color: var(--primary-dark);
             text-decoration: underline;
         }}
     </style>
@@ -567,6 +576,50 @@ Unsubscribe: {{unsubscribe_url}}""",
     """)
 }
 
+# Custom User Email Template
+CUSTOM_USER_EMAIL = {
+    "id": "8",
+    "name": "Custom User Email",
+    "subject": "{{subject}}",
+    "description": "Template for sending personalized emails to specific users",
+    "last_used": "2024-03-15",
+    "available_variables": ["name", "subject", "message", "cta_text", "cta_url", "footer_note"],
+    "content": """Dear {{name}},
+
+{{message}}
+
+{{cta_text}}: {{cta_url}}
+
+Best regards,
+The Volera Team
+
+{{footer_note}}""",
+    "html_content": BASE_TEMPLATE.format(content="""
+        <div class="header">
+            <h1>{{subject}}</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{name}},</p>
+            
+            <div class="highlight">
+                {{message}}
+            </div>
+            
+            <a href="{{cta_url}}" class="button">{{cta_text}}</a>
+            
+            <p>Best regards,<br>The Volera Team</p>
+            
+            <div class="card">
+                <p>{{footer_note}}</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>© 2024 Volera. All rights reserved.</p>
+            <p>This is a personalized message sent specifically to you.</p>
+        </div>
+    """)
+}
+
 # Collection of all templates
 EMAIL_TEMPLATES = {
     "welcome_email": WELCOME_EMAIL,
@@ -575,7 +628,8 @@ EMAIL_TEMPLATES = {
     "monthly_summary": MONTHLY_SUMMARY,
     "support_reply": SUPPORT_REPLY,
     "newsletter": NEWSLETTER,
-    "reengagement": REENGAGEMENT
+    "reengagement": REENGAGEMENT,
+    "custom_user_email": CUSTOM_USER_EMAIL
 }
 
 def get_email_template_by_id(template_id: str):
@@ -625,7 +679,12 @@ DEFAULT_VARIABLES = {
     "days_inactive": "N/A",
     "missed_deals": "No deals missed.",
     "special_offer": "No special offer available.",
-    "login_url": "https://volera.app/login"
+    "login_url": "https://volera.app/login",
+    "subject": "Message from Volera",
+    "message": "No message content provided.",
+    "cta_text": "Take Action",
+    "cta_url": "https://volera.app",
+    "footer_note": ""
 }
 
 
