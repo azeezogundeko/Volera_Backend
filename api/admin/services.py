@@ -1,5 +1,6 @@
 from typing import Dict, Optional, List
 from datetime import datetime, timedelta
+from asyncio import to_thread
 import re
 from typing import Literal
 import calendar
@@ -10,6 +11,9 @@ from .schema import SendEmailRequest
 from .model import DailyLog, MonthlyLog, AppLog
 from utils.celery_tasks import send_email, send_bulk_email
 from .email_templates import DEFAULT_VARIABLES
+from db import user_db
+
+
 
 def substitute_default_variables(content: str, variables: Dict[str, str]) -> str:
     """
@@ -156,3 +160,36 @@ async def send_bulk_user_email(emails: List[str], subject: str, html_content: st
         "message": f"Bulk email task initiated for {len(emails)} recipients",
         "task_id": str(result.id)
     }
+
+async def get_all_users(limit: int = 50, offset: int = 0, queries: Optional[List] = None) -> Dict:
+    """
+    Get all users with pagination support.
+    
+    Args:
+        limit (int): Number of users per page (default: 25)
+        offset (int): Number of users to skip (default: 0)
+        queries (List, optional): Additional query parameters for filtering
+    
+    Returns:
+        Dict: Contains list of users and total count
+            {
+                "users": List[Dict],
+                "total": int
+            }
+    """
+    try:
+        # Apply default queries if none provided
+        queries = queries or []
+        
+         
+        # Get paginated users
+        users_response = await to_thread(user_db.list, queries, limit, offset)
+        
+        return {
+            "users": users_response.get("users", []),
+            "total": len(users_response.get("users", []))
+        }
+        
+    except Exception as e:
+        # Log the error and re-raise
+        raise Exception(f"Failed to fetch users: {str(e)}")

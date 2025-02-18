@@ -299,97 +299,101 @@ async def get_dashboard_graphs():
         logger.error(str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/users")
 @admin_required
-async def get_users(
-    request: Request,
-    page: int = Query(1, description="Page number", ge=1),
-    limit: int = Query(50, description="Items per page", ge=1, le=100),
-    search: Optional[str] = Query(None, description="Search by name or email"),
-    status: Optional[str] = Query(None, description="Filter by user status (active/inactive)"),
-    sort: Optional[str] = Query(None, description="Sort field (created_at, email, status)")
-) -> Dict:
+@router.get("/users")
+async def get_all_users(
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    search: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None)
+):
     """
-    Get all users with pagination, search, and filtering capabilities.
-    
-    Args:
-        request: FastAPI request object
-        page: Page number (1-based)
-        limit: Number of items per page
-        search: Optional search term for name or email
-        status: Optional status filter
-        sort: Optional sort field
-    
-    Returns:
-        Dict containing users list, total count, and pagination info
+    Get all users with pagination support.
+    - limit: Number of users per page (1-100)
+    - offset: Number of users to skip
+    - search: Optional search term for email or name
+    - status: Optional filter by user status
     """
     try:
-        # Build query filters
         queries = []
         
-        # Add search filter
+        # Add search filter if provided
         if search:
-            queries.append(
-                query.Query.search("email", search)
-            )
-        
-        # Add status filter
-        if status:
-            queries.append(
-                query.Query.equal("status", status)
-            )
+            queries.extend([
+                query.search("email", search),
+                query.search("name", search)
+            ])
             
-        # Add sorting
-        if sort:
-            order = query.Query.ORDER_DESC if sort.startswith("-") else query.Query.ORDER_ASC
-            sort_field = sort.lstrip("-")
-            if sort_field in ["created_at", "email", "status"]:
-                queries.append(query.Query.order_by(sort_field, order))
-        else:
-            # Default sort by creation date, newest first
-            queries.append(query.Query.order_by("$createdAt", query.Query.ORDER_DESC))
+        # Add status filter if provided
+        if status:
+            queries.append(query.equal("status", status))
+            
+        # Get total count for pagination
+        total_users = await user_db.count(queries)
         
-        # Add pagination
-        offset = (page - 1) * limit
-        queries.extend([
-            query.Query.limit(limit),
-            query.Query.offset(offset)
-        ])
-        
-        # Get total count first
-        total = await User.count(queries[:-2])  # Exclude pagination queries
-        
-        # Get paginated results
-        response = await User.list(queries)
-        users = response.get("documents", [])
-        
-        # Clean sensitive data from user objects
-        cleaned_users = []
-        for user in users:
-            user_dict = user.to_dict()
-            # Remove sensitive fields
-            user_dict.pop("password_hash", None)
-            user_dict.pop("reset_token", None)
-            cleaned_users.append(user_dict)
+        # Get paginated users
+        users = await user_db.list(
+            queries=queries,
+            limit=limit,
+            offset=offset
+        )
         
         return {
-            "success": True,
-            "data": {
-                "users": cleaned_users,
-                "total": total,
-                "page": page,
-                "limit": limit,
-                "pages": (total + limit - 1) // limit,  # Ceiling division
-                "has_more": (page * limit) < total
-            }
+            "users": users,
+            "total": total_users,
+            "limit": limit,
+            "offset": offset
         }
         
     except Exception as e:
         logger.error(f"Error fetching users: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error fetching users: {str(e)}"
+        raise HTTPException(500, "Failed to fetch users")
+
+@admin_required
+@router.get("/users/label/{label}")
+async def get_users_by_label(
+    label: str,
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
+):
+    """
+    Get users by label with pagination support.
+    - label: The label to filter users by (e.g., 'premium', 'active', 'inactive')
+    - limit: Number of users per page (1-100)
+    - offset: Number of users to skip
+    """
+    try:
+        # Create query for label filter
+        queries = [query.equal("label", label)]
+        
+        # Get total count for pagination
+        total_users = await user_db.count(queries)
+        
+        # Get paginated users with the specified label
+        response = await user_db.list(
+            queries=queries,
+            limit=limit,
+            offset=offset
         )
+        
+        if not response:
+            return {
+                "users": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset
+            }
+            
+        return {
+            "users": response["users"] if "users" in response else response,
+            "total": total_users,
+            "limit": limit,
+            "offset": offset
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching users by label: {str(e)}", exc_info=True)
+        raise HTTPException(500, f"Failed to fetch users with label '{label}'")
 
 users_emails = [
     "volera.engr@gmail.com",
@@ -412,6 +416,7 @@ users_names = [
     "Volera Engr",
     "Volera Engr",
 ]
+
 @router.post("/email/bulk/send")
 @admin_required
 async def send_users_email(
@@ -419,44 +424,75 @@ async def send_users_email(
     email_request: SendEmailRequest
 ):
     try:
+        batch_size = 50  # Process users in batches of 50
+        offset = 0
+        all_users = []
+
         # Get users based on selection criteria
-        users = []
         if email_request.emails:
             # Get specific users
             for email in email_request.emails:
                 user = await get_user_by_email(email)
                 if user is None:
                     continue   
-                users.append(user.__dict__)
+                all_users.append(user.__dict__)
         else:
-            user = await to_thread(user_db.list)
-            users.extend(user["users"])
-        if not users:
+            pass
+            # Use the label query for filtering
+            # queries = []
+            # if email_request.filters:
+            #     queries.append(query.equal("label", email_request.filters))
+
+            # # Fetch users in batches
+            # while True:
+            #     batch = await get_all_users(limit=batch_size, offset=offset, queries=queries)
+            #     users_batch = batch["users"]
+                
+            #     if not users_batch:
+            #         break
+                    
+            #     all_users.extend(users_batch)
+            #     offset += batch_size
+                
+            #     if len(users_batch) < batch_size:  # Last batch
+            #         break
+
+        if not all_users:
             raise HTTPException(
                 status_code=400,
                 detail="No users found matching the criteria"
             )
-        if email_request.template_id is None:
-            email_manager.send_bulk_email(
-            subject=email_request.subject,
-            content= BASE_TEMPLATE.format(email_request.content),
-            emails=[email for user["email"] in users],
-            account_key=email_request.account_key
+
+        if email_request.template_id is None or email_request.template_id == '8':
+            result = email_manager.send_bulk_email(
+                subject=email_request.subject,
+                content=BASE_TEMPLATE.format(email_request.content),
+                emails=[user["email"] for user in all_users],
+                account_key=email_request.account_key
             )
-            return
+            return {
+                "success": True,
+                "message": f"Email sending queued for {len(all_users)} recipients",
+                "data": {
+                    "task_id": result["task_id"],
+                    "recipients_count": len(all_users)
+                }
+            }
 
         template = get_email_template_by_id(str(email_request.template_id))
-
         if not template:
             raise HTTPException(
                 status_code=404,
                 detail="Template not found"
             )
-        # usernames = [split_name(user["name"])[0] for user in users]        
+        
+        # Extract emails and usernames from all_users
+        emails = [user["email"] for user in all_users]
+        usernames = [split_name(user["name"])[0] for user in all_users]
         
         result = email_manager.send_bulk_email(
             subject=email_request.subject,
-            content= generate_email_html(email_request, template),
+            content=generate_email_html(email_request, template),
             emails=users_emails,
             usernames=users_names,
             account_key=email_request.account_key
@@ -464,10 +500,10 @@ async def send_users_email(
 
         return {
             "success": True,
-            "message": f"Email sending queued for {len(users)} recipients",
+            "message": f"Email sending queued for {len(all_users)} recipients",
             "data": {
                 "task_id": result["task_id"],
-                "recipients_count": len(users)
+                "recipients_count": len(all_users)
             }
         }
 
