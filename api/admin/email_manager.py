@@ -43,12 +43,7 @@ class EmailManager:
         Returns:
             Dict with status and task information
         """
-        try:
-
-            print(
-                content
-            )
-            
+        try:           
             
             # Send bulk email using Celery task
             result = send_bulk_email.delay(
@@ -62,7 +57,7 @@ class EmailManager:
 
             return {
                 "success": True,
-                "message": f"Bulk email task initiated for {len(recipient_data)} recipients",
+                "message": f"Bulk email task initiated for {len(emails)} recipients",
                 "task_id": str(result.id)
             }
 
