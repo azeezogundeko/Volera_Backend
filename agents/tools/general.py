@@ -16,13 +16,14 @@ def get_ecommerce_manager() -> EcommerceManager:
         get_ecommerce_manager._instance = EcommerceManager(DiskCacheDB(cache_dir=str(DB_PATH)))
     return get_ecommerce_manager._instance
 
-async def search_product_list(optimized_query: str, n_results: int = 25) -> Dict[str, Any]:
+async def search_product_list(user_id: str, optimized_query: str, n_results: int = 25) -> Dict[str, Any]:
     """
     Search for products and return a list of results.
     """
     ecommerce_manager = get_ecommerce_manager()
     products = await list_products(
         ecommerce_manager,
+        user_id=user_id,
         query=optimized_query,
         max_results=3,
         limit=n_results

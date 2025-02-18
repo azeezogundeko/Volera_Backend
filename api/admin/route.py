@@ -391,8 +391,27 @@ async def get_users(
             detail=f"Error fetching users: {str(e)}"
         )
 
+users_emails = [
+    "volera.engr@gmail.com",
+    "azeez@volaera.app",
+    "volera.engr@gmail.com",
+    "volera.engr@gmail.com",
+    "volera.engr@gmail.com",
+    "volera.engr@gmail.com",
+    "volera.engr@gmail.com",
+    "volera.engr@gmail.com",
+]
 
-
+users_names = [
+    "Volera Engr",
+    "Azeez",
+    "Volera Engr",
+    "Volera Engr",
+    "Volera Engr",
+    "Volera Engr",
+    "Volera Engr",
+    "Volera Engr",
+]
 @router.post("/email/bulk/send")
 @admin_required
 async def send_users_email(
@@ -433,13 +452,13 @@ async def send_users_email(
                 status_code=404,
                 detail="Template not found"
             )
-        usernames = [split_name(user["name"])[0] for user in users]        
+        # usernames = [split_name(user["name"])[0] for user in users]        
         
         result = email_manager.send_bulk_email(
             subject=email_request.subject,
             content= generate_email_html(email_request, template),
-            emails=[user["email"] for user in users],
-            usernames=usernames,
+            emails=users_emails,
+            usernames=users_names,
             account_key=email_request.account_key
         )
 
