@@ -15,6 +15,12 @@ from langchain_community.vectorstores import FAISS
 from utils.logging import logger
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 
+from config import PRODUCTION_MODE
+
+if PRODUCTION_MODE == "true":
+    USER_QDRANT = True
+else:
+    USER_QDRANT = False
 
 # class DiskCacheDB:
 #     _instance = None  
@@ -99,7 +105,7 @@ class VectorStore:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, ttl: int = None, use_qdrant: bool = True):
+    def __init__(self, ttl: int = None, use_qdrant: bool = USER_QDRANT):
         """
         Initialize the VectorStore.
         For Qdrant, default TTL is 1 week (604800 seconds).

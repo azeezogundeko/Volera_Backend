@@ -25,7 +25,7 @@ class AdminUsers(AppwriteModelBase):
     is_super_admin: bool = AppwriteField(type="bool", default=False)
     admin_email: str = AppwriteField(required=False)
     email_key: str = AppwriteField(required=False)
-    admin_password: str = AppwriteField()
+    # admin_password: str = AppwriteField()
     is_editor: str = AppwriteField(type="bool", default=False)
 
 

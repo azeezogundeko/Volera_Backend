@@ -1,14 +1,58 @@
 from typing import Dict, Optional, List
 from datetime import datetime, timedelta
-from calendar import monthrange
+import re
 from typing import Literal
 import calendar
 
 from asyncio import gather
+from .schema import SendEmailRequest
 
 from .model import DailyLog, MonthlyLog, AppLog
 from utils.celery_tasks import send_email, send_bulk_email
+from .email_templates import DEFAULT_VARIABLES
 
+def substitute_default_variables(content: str, variables: Dict[str, str]) -> str:
+    """
+    Substitute any remaining placeholders in the content with default values.
+    The provided variables (if any) override the defaults.
+    """
+    # Merge default variables with provided ones (provided ones take precedence)
+    merged_vars = {**DEFAULT_VARIABLES, **variables}
+    
+    def replacer(match):
+        var_name = match.group(1)
+        return str(merged_vars.get(var_name, match.group(0)))
+    
+    # This regex matches placeholders like {{ variable_name }} (with optional spaces)
+    return re.sub(r"{{\s*(\w+)\s*}}", replacer, content)
+
+def substitute_variables(template: str, variables: Dict[str, str]) -> str:
+    """
+    Substitute placeholders in the template using only the provided variables.
+    If a variable is missing, the placeholder remains intact.
+    """
+    def replacer(match):
+        key = match.group(1)
+        return variables.get(key, f"{{{{{key}}}}}")
+    
+    return re.sub(r"{{(\w+)}}", replacer, template)
+
+def generate_email_html(request: 'SendEmailRequest', template: Dict[str, str]) -> str:
+    """
+    Generates the final HTML content by first substituting provided variables.
+    If any placeholders remain, default values are substituted in a second pass.
+    """
+    variables = request.variables or {}
+    
+    # First, substitute only provided variables.
+    content = substitute_variables(template["html_content"], variables)
+    
+    # If placeholders still exist in the content, substitute defaults.
+    if re.search(r"{{\s*(\w+)\s*}}", content):
+        # We pass an empty dict here because provided variables were already applied.
+        content = substitute_default_variables(content, {})
+    
+    return content
 
 async def get_user_growth_data(today: datetime) -> Dict:
     """Get monthly user growth data for the last 6 months"""

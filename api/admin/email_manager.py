@@ -1,7 +1,9 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 from utils.celery_tasks import send_bulk_email
 from utils.logging import logger
 from .model import EmailConfig, EmailTemplate
+
+
 
 class EmailManager:
     """Manages email operations for admin functionality"""
@@ -21,41 +23,46 @@ class EmailManager:
             logger.error(f"Error getting email config: {str(e)}")
             raise
 
-    async def send_bulk_email(self, subject: str, content: str, recipient_filter: str) -> Dict:
+    def send_bulk_email(
+        self, 
+        subject: str, 
+        content: str, 
+        emails: List[str], 
+        usernames,
+        account_key: str
+    ) -> Dict:
         """
         Send bulk email to filtered recipients
         
         Args:
             subject: Email subject
             content: Email content (HTML)
-            recipient_filter: Filter criteria for recipients
+            recipient_filter: Either a filter string or list of recipient data with variables
+            account_key: The email account key to use for sending
             
         Returns:
             Dict with status and task information
         """
         try:
-            # Get email configuration
-            config = await self.get_config()
-            
-            # Get recipient list based on filter
-            recipients = await self._get_recipients(recipient_filter)
-            
-            if not recipients:
-                raise ValueError("No recipients found matching the filter criteria")
 
+            print(
+                content
+            )
+            
+            
             # Send bulk email using Celery task
             result = send_bulk_email.delay(
-                emails=recipients,
+                emails=emails,
+                user_names=usernames,
                 subject=subject,
                 html_content=content,
-                from_name=config.get('from_name'),
-                account_key=config.get('account_key', 'support'),
+                 account_key=account_key,
                 priority='normal'
             )
 
             return {
                 "success": True,
-                "message": f"Bulk email task initiated for {len(recipients)} recipients",
+                "message": f"Bulk email task initiated for {len(recipient_data)} recipients",
                 "task_id": str(result.id)
             }
 

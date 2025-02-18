@@ -1,6 +1,8 @@
 from celery import Celery
 from typing import List, Dict, Optional, Union, Literal
 import smtplib
+from typing import Dict, List
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import time
@@ -89,7 +91,7 @@ def send_email(self,
     try:
         # Choose the email account to use
         email_manager.choose_account(account_key)
-        
+      
         # Send the email using the manager
         email_manager.send_email(
             to_email=to_email,
@@ -131,19 +133,37 @@ def send_email(self,
             "priority": priority
         }
 
+
+
+
+def substitute_variables(template: str, variables: Dict[str, str], user_name: str = None) -> str:
+    """
+    Replaces placeholders in the template with actual values from the variables dictionary.
+    If user_name is provided, it substitutes {name} with the given user name.
+    """
+    def replacer(match):
+        key = match.group(1)
+        if key == "name" and user_name:
+            return user_name
+        return variables.get(key, f"{{{{{key}}}}}")  # Keep placeholder if not found
+    
+    return re.sub(r"{{(\w+)}}", replacer, template)
+
 @celery_app.task(name="send_bulk_email")
 def send_bulk_email(emails: List[str],
-                   subject: str,
-                   html_content: str,
-                   from_name: Optional[str] = None,
-                   account_key: str = "no-reply",
-                   attachments: Optional[List[Dict[str, Union[str, bytes]]]] = None,
-                   priority: Literal['high', 'normal', 'low'] = 'low') -> Dict:
+                    user_names: List[str],
+                    subject: str,
+                    html_content: str,
+                    from_name: Optional[str] = None,
+                    account_key: str = "no-reply",
+                    attachments: Optional[List[Dict[str, Union[str, bytes]]]] = None,
+                    priority: Literal['high', 'normal', 'low'] = 'low') -> Dict:
     """
     Celery task to send bulk emails with rate limiting and priority handling.
 
     Args:
         emails: List of recipient email addresses
+        user_names: List of recipient names
         subject: Email subject
         html_content: HTML content of the email
         from_name: Optional sender name override
@@ -157,11 +177,12 @@ def send_bulk_email(emails: List[str],
     results = []
     chunk_size = min(RATE_LIMIT['burst_size'], RATE_LIMIT['emails_per_minute'])
     
-    # Split email list into chunks
+    # Split email list and names into chunks
     email_chunks = [emails[i:i + chunk_size] for i in range(0, len(emails), chunk_size)]
+    name_chunks = [user_names[i:i + chunk_size] for i in range(0, len(user_names), chunk_size)]
     
     # Send emails in chunks with rate limiting
-    for i, chunk in enumerate(email_chunks):
+    for i, (chunk, name_chunk) in enumerate(zip(email_chunks, name_chunks)):
         # Add delay between chunks to respect rate limits
         if i > 0:
             time.sleep(60 / RATE_LIMIT['emails_per_minute'] * chunk_size)
@@ -171,7 +192,7 @@ def send_bulk_email(emails: List[str],
                 args=[
                     email,
                     subject,
-                    html_content,
+                    substitute_variables(html_content, {}, user_name),
                     from_name,
                     account_key
                 ],
@@ -181,7 +202,7 @@ def send_bulk_email(emails: List[str],
                 },
                 queue=PRIORITY_SETTINGS[priority]['queue']
             )
-            for email in chunk
+            for email, user_name in zip(chunk, name_chunk)
         ]
         results.extend(chunk_tasks)
         
@@ -195,4 +216,4 @@ def send_bulk_email(emails: List[str],
         "total_chunks": len(email_chunks),
         "chunk_size": chunk_size,
         "priority": priority
-    } 
+    }

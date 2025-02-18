@@ -322,6 +322,7 @@ def super_admin_required(func=None):
             *args,
             **kwargs
         ):
+
             current_user = request.state.user
   
             if current_user is None:
@@ -358,6 +359,8 @@ def admin_required(func=None):
     Decorator to require authentication.
     Can be used with or without parentheses.
     """
+    from api.admin.model import AdminUsers
+    
     def decorator(f):
         @wraps(f)
         async def wrapper(
@@ -372,7 +375,10 @@ def admin_required(func=None):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required."
                 )
-            if "admin" not in current_user.labels:
+            try:
+                admin = await AdminUsers.read(current_user.id)
+            except Exception as e:
+                print(e)
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Admin access required."
