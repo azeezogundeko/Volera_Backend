@@ -7,22 +7,28 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import time
 from pathlib import Path
+import os
+from celery.schedules import crontab
 
 from utils.logging import logger
 from utils.email_manager import manager as email_manager
 
+# Get Redis URL from environment variable
+REDIS_URL = "redis://redis:6379/0"
+
 # Initialize Celery with multiple queues
 celery_app = Celery('volera',
-                    broker='redis://redis:6379/0',
-                    backend='redis://redis:6379/0')
+                    broker=REDIS_URL,
+                    backend=REDIS_URL)
 
-# Configure Celery with priority queues
+# Configure Celery with priority queues and beat schedule
 celery_app.conf.update(
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    broker_connection_retry_on_startup=True,  # Important for container startup order
     task_queues={
         'high_priority': {'routing_key': 'high_priority'},
         'default': {'routing_key': 'default'},
@@ -34,7 +40,13 @@ celery_app.conf.update(
         'price_tracking.schedule_price_tracking': {'queue': 'default'},
         'price_tracking.scrape_single_product': {'queue': 'default'}
     },
-    imports=['utils.price_tracking']
+    imports=['utils.price_tracking'],
+    beat_schedule={
+        'track-prices-midnight': {
+            'task': 'price_tracking.schedule_price_tracking',
+            'schedule': crontab(hour=0, minute=0),  # Run at midnight
+        },
+    }
 )
 
 # Rate limiting settings
