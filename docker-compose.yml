@@ -39,7 +39,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
+      - data:/app/data
       - ./logs:/app/logs
     depends_on:
       - searxng
@@ -85,7 +85,7 @@ services:
     build: .
     command: celery -A utils.celery_tasks.celery_app worker --loglevel=info --events
     volumes:
-      - ./data:/app/data
+      - data:/app/data
       - ./logs:/app/logs
     env_file:
       - .env
@@ -121,7 +121,7 @@ services:
     networks:
       - dokploy-network
     volumes:
-      - ./data:/app/data
+      - data:/app/data
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-flower.rule=Host(`flower.volera.app`)
@@ -138,6 +138,8 @@ volumes:
   qdrant_storage:
     driver: local
   qdrant_snapshots:
+    driver: local
+  data:
     driver: local
 
 networks:

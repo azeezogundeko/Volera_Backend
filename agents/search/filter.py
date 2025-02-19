@@ -58,13 +58,13 @@ async def filter_agent(websocket_id, user_query: str, user_id, products: List[Di
     await track_llm_call(user_id, "text")
 
     product_ids = response.data.product_ids
-    results = []
-    for id in product_ids:
-        for product in products:
-            if product["product_id"] == id: 
-                results.append(product)
+    print(product_ids)
 
-    # return results, response.data.ai_response
+    # Convert products list to dictionary for O(1) lookup
+    products_dict = {product["product_id"]: product for product in products}
+    
+    # Filter products in O(n) time
+    results = [products_dict[id] for id in product_ids if id in products_dict]
 
     await websocket_manager.send_json(
             websocket_id,
