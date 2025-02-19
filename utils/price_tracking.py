@@ -14,7 +14,7 @@ from utils.email_manager import send_email
 tracker = TrackerWebScraper()
 semaphore = asyncio.Semaphore(10)
 
-@celery_app.task
+@celery_app.task(name='price_tracking.schedule_price_tracking')
 def schedule_price_tracking():
     """
     Celery task to trigger price tracking at midnight.
@@ -27,7 +27,12 @@ def schedule_price_tracking():
     finally:
         loop.close()
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # 5 minutes delay between retries
+@celery_app.task(
+    name='price_tracking.scrape_single_product',
+    bind=True, 
+    max_retries=3, 
+    default_retry_delay=300
+)  # 5 minutes delay between retries
 async def scrape_single_product(self, url, product_id, source, user_id, track_id, product_name):
     """
     Celery task to scrape a single product with retry mechanism.

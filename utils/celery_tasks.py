@@ -30,8 +30,11 @@ celery_app.conf.update(
     },
     task_routes={
         'send_email': {'queue': 'default'},
-        'send_bulk_email': {'queue': 'low_priority'}
-    }
+        'send_bulk_email': {'queue': 'low_priority'},
+        'price_tracking.schedule_price_tracking': {'queue': 'default'},
+        'price_tracking.scrape_single_product': {'queue': 'default'}
+    },
+    imports=['utils.price_tracking']
 )
 
 # Rate limiting settings

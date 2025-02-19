@@ -9,7 +9,7 @@ REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 # Configure Celery Beat schedule
 celery_app.conf.beat_schedule = {
     'track-prices-midnight': {
-        'task': 'utils.price_tracking.schedule_price_tracking',
+        'task': 'price_tracking.schedule_price_tracking',
         'schedule': crontab(hour=0, minute=0),  # Run at midnight
     },
 }
