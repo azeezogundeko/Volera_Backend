@@ -427,6 +427,13 @@ async def send_users_email(
         batch_size = 50  # Process users in batches of 50
         offset = 0
         all_users = []
+        template = get_email_template_by_id(str(email_request.template_id))
+        if not template:
+            raise HTTPException(
+                status_code=404,
+                detail="Template not found"
+            )
+        html_content = generate_email_html(email_request, template),
 
         # Get users based on selection criteria
         if email_request.emails:
@@ -462,57 +469,58 @@ async def send_users_email(
         usernames_set = set()
 
         # Use the label query for filtering
-        # queries = []
+        queries = []
 
-        # if email_request.filters == 'waitlist':
-        #     while True:
-        #         waitlist = await WaitList.list(limit=100, offset=offset)
+        if email_request.filters == 'waitlist':
+            
+            while True:
+                waitlist = await WaitList.list(limit=100, offset=offset)
 
-        #         if waitlist["total"] == 0:
-        #             break
+                if waitlist["total"] == 0:
+                    break
 
-        #         documents = waitlist["documents"]
-        #         for doc in documents:
-        #             emails_set.add(doc.email)
-        #             usernames_set.add(doc.email.split("@")[0])
+                documents = waitlist["documents"]
+                for doc in documents:
+                    emails_set.add(doc.email)
+                    usernames_set.add(doc.email.split("@")[0])
 
-        # elif email_request.filters == 'all':
-        #     # Fetch users in batches
-        #     while True:
-        #         batch = await get_all_users(limit=batch_size, offset=offset)
-        #         users_batch = batch["users"]
+        elif email_request.filters == 'all':
+            # Fetch users in batches
+            while True:
+                batch = await get_all_users(limit=batch_size, offset=offset)
+                users_batch = batch["users"]
                 
-        #         if not users_batch:
-        #             break
+                if not users_batch:
+                    break
                     
-        #         all_users.extend(users_batch)
-        #         offset += batch_size
+                all_users.extend(users_batch)
+                offset += batch_size
 
-        #     for user in all_users:
-        #         emails_set.add(user["email"])
-        #         usernames_set.add(split_name(user["name"])[0])
+            for user in all_users:
+                emails_set.add(user["email"])
+                usernames_set.add(split_name(user["name"])[0])
 
-        # else:
-            # queries.append(query.equal("label", email_request.filters))
+        else:
+            queries.append(query.equal("label", email_request.filters))
 
-            # # Fetch users in batches
-            # while True:
-            #     batch = await get_all_users(limit=batch_size, offset=offset, queries=queries)
-            #     users_batch = batch["users"]
+            # Fetch users in batches
+            while True:
+                batch = await get_all_users(limit=batch_size, offset=offset, queries=queries)
+                users_batch = batch["users"]
                 
-            #     if not users_batch:
-            #         break
+                if not users_batch:
+                    break
                     
-            #     all_users.extend(users_batch)
-            #     offset += batch_size
+                all_users.extend(users_batch)
+                offset += batch_size
                 
-            #     if len(users_batch) < batch_size:  # Last batch
-            #         break
+                if len(users_batch) < batch_size:  # Last batch
+                    break
 
             # Use the label query for filtering
-            # for user in all_users:
-            #     emails_set.add(user["email"])
-            #     usernames_set.add(split_name(user["name"])[0])
+            for user in all_users:
+                emails_set.add(user["email"])
+                usernames_set.add(split_name(user["name"])[0])
         
         usernames = list(usernames_set)
         emails = list(emails_set)
@@ -522,20 +530,12 @@ async def send_users_email(
                 status_code=400,
                 detail="No users found matching the criteria"
             )
-
-        
-        template = get_email_template_by_id(str(email_request.template_id))
-        if not template:
-            raise HTTPException(
-                status_code=404,
-                detail="Template not found"
-            )
-        
+       
         # Extract emails and usernames from all_users
         
         result = email_manager.send_bulk_email(
             subject=email_request.subject,
-            content=generate_email_html(email_request, template),
+            content=html_content,
             emails=users_emails,
             usernames=users_names,
             account_key=email_request.account_key
