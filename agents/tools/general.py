@@ -23,7 +23,7 @@ async def search_product_list(user_id: str, optimized_query: str, n_results: int
     ecommerce_manager = get_ecommerce_manager()
     products = await list_products(
         ecommerce_manager,
-        user_id=user_id,
+        user_id="666666666666666666666666",
         query=optimized_query,
         max_results=3,
         limit=n_results

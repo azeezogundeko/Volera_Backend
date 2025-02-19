@@ -62,7 +62,6 @@ agent = Agent(
     system_prompt=product_agent_prompt,
     tools=[
         normal_google_search,
-        get_user_preferences,
         # save_product_to_waishlist,
         search_product_list,
         # get_product_specifications,
@@ -72,7 +71,8 @@ agent = Agent(
 
 async def product_agent(websocker_id,user_id, query, products, message_history): 
     # message_history = []
-    query = f"USER_ID: {user_id} \n USER QUESTION: {query} \n PRODUCTS IN QUESTION: {products}"
+    user_preferences = await get_user_preferences(user_id)
+    query = f"USER_PREFERENCES: {user_preferences} \n USER QUESTION: {query} \n PRODUCTS IN QUESTION: {products}"
     # while True:
     
 
