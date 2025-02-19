@@ -7,7 +7,7 @@ from celery.exceptions import MaxRetriesExceededError
 from utils.scrape import TrackerWebScraper
 from utils.logging import logger
 from utils.celery_tasks import celery_app
-from utils.email_manager import send_email
+from utils.email_manager import manager as email_manager
 
 tracker = TrackerWebScraper()
 semaphore = asyncio.Semaphore(10)
@@ -89,7 +89,8 @@ async def notify_user_price_change(user_id: str, product_name: str, current_pric
                 
                 Check it out here: {url}
                 """
-                await send_email(user_id, subject, content)
+                email_manager.choose_account("no-reply")
+                email_manager.send_email(user_id, subject, content)
                 logger.info(f"Price alert sent to user {user_id} for product {product_name}")
     except Exception as e:
         logger.error(f"Error sending price notification: {e}")
