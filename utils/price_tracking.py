@@ -3,9 +3,7 @@ from datetime import datetime, timezone
 from celery import states
 from celery.exceptions import MaxRetriesExceededError
 
-from api.tracker.models import PriceHistory, TrackedItem
-from api.product.models import Product
-from api.auth.model import UserPreferences
+
 from utils.scrape import TrackerWebScraper
 from utils.logging import logger
 from utils.celery_tasks import celery_app
@@ -38,6 +36,9 @@ async def scrape_single_product(self, url, product_id, source, user_id, track_id
     Celery task to scrape a single product with retry mechanism.
     Will retry up to 3 times with 5 minutes delay between attempts.
     """
+    from api.tracker.models import PriceHistory
+    from api.product.models import Product
+
     try:
         price = await tracker.get_price(url, source)
         # Store price history
@@ -66,6 +67,7 @@ async def scrape_single_product(self, url, product_id, source, user_id, track_id
 
 async def get_user_price_range(user_id: str):
     """Get user's price range preferences"""
+    from api.auth.model import UserPreferences
     try:
         preferences = await UserPreferences.read(user_id)
         return preferences.min_price, preferences.max_price
@@ -96,6 +98,7 @@ async def scrape_products():
     """
     Main function to scrape all tracked products.
     """
+    from api.product.models import Product
     response = await Product.list()
     product_ids = [product.id for product in response["documents"]]
     if len(product_ids) > 0:
@@ -107,6 +110,7 @@ async def scrape_multiple_products(product_ids):
     Handles the scraping of multiple products concurrently.
     Delegates each product to individual Celery tasks with retry mechanism.
     """
+    from api.tracker.models import TrackedItem
     failed_products = []
     
     for product_id in product_ids:
@@ -138,4 +142,4 @@ async def scrape_multiple_products(product_ids):
             failed_products.append(product_id)
     
     if failed_products:
-        logger.warning(f"Failed to process {len(failed_products)} products: {failed_products}")
+        logger.warning(f"Failed to process {len(failed_products)} products: {failed_products}") 
