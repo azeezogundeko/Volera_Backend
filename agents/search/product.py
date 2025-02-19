@@ -128,7 +128,7 @@ def preprocess_results(product: ResponseSchema, products: List[Dict[str, Any]]):
 
     if product.searched_products:
         r["action"] = "SEARCH"
-        r["searchResults"] = product.searched_products.__dict__
+        r["searchResults"] = product.searched_products
 
     elif product.product_ids:
         r["action"] = "FILTER"
