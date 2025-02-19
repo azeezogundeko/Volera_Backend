@@ -13,7 +13,7 @@ from .services import (
     )
 
 from .email_templates import EMAIL_TEMPLATES, BASE_TEMPLATE, get_email_template_by_id
-from .model import Contact, EmailConfig, AdminUsers, AppLog
+from .model import Contact, EmailConfig, AdminUsers, AppLog, WaitList
 from .email_manager import EmailManager
 from .schema import AdminUserIn, EmailTemplatePreview, EmailTemplateResponse, SendEmailRequest
 from ..auth.services import get_user_by_email, authenticate_user, create_access_token, split_name
@@ -436,12 +436,64 @@ async def send_users_email(
                 if user is None:
                     continue   
                 all_users.append(user.__dict__)
-        else:
-            pass
-            # Use the label query for filtering
-            # queries = []
-            # if email_request.filters:
-            #     queries.append(query.equal("label", email_request.filters))
+
+            if not all_users:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No users found matching the criteria"
+                )
+
+            result = email_manager.send_bulk_email(
+                subject=email_request.subject,
+                content=BASE_TEMPLATE.format(email_request.content),
+                emails=[user["email"] for user in all_users],
+                account_key=email_request.account_key
+            )
+        
+            return {
+                "success": True,
+                "message": f"Email sending queued for {len(all_users)} recipients",
+                "data": {
+                    "task_id": result["task_id"],
+                    "recipients_count": len(all_users)
+                }
+            }
+        emails_set = set()
+        usernames_set = set()
+
+        # Use the label query for filtering
+        # queries = []
+
+        # if email_request.filters == 'waitlist':
+        #     while True:
+        #         waitlist = await WaitList.list(limit=100, offset=offset)
+
+        #         if waitlist["total"] == 0:
+        #             break
+
+        #         documents = waitlist["documents"]
+        #         for doc in documents:
+        #             emails_set.add(doc.email)
+        #             usernames_set.add(doc.email.split("@")[0])
+
+        # elif email_request.filters == 'all':
+        #     # Fetch users in batches
+        #     while True:
+        #         batch = await get_all_users(limit=batch_size, offset=offset)
+        #         users_batch = batch["users"]
+                
+        #         if not users_batch:
+        #             break
+                    
+        #         all_users.extend(users_batch)
+        #         offset += batch_size
+
+        #     for user in all_users:
+        #         emails_set.add(user["email"])
+        #         usernames_set.add(split_name(user["name"])[0])
+
+        # else:
+            # queries.append(query.equal("label", email_request.filters))
 
             # # Fetch users in batches
             # while True:
@@ -457,28 +509,21 @@ async def send_users_email(
             #     if len(users_batch) < batch_size:  # Last batch
             #         break
 
+            # Use the label query for filtering
+            # for user in all_users:
+            #     emails_set.add(user["email"])
+            #     usernames_set.add(split_name(user["name"])[0])
+        
+        usernames = list(usernames_set)
+        emails = list(emails_set)
+
         if not all_users:
             raise HTTPException(
                 status_code=400,
                 detail="No users found matching the criteria"
             )
 
-        if email_request.template_id is None or email_request.template_id == '8':
-            result = email_manager.send_bulk_email(
-                subject=email_request.subject,
-                content=BASE_TEMPLATE.format(email_request.content),
-                emails=[user["email"] for user in all_users],
-                account_key=email_request.account_key
-            )
-            return {
-                "success": True,
-                "message": f"Email sending queued for {len(all_users)} recipients",
-                "data": {
-                    "task_id": result["task_id"],
-                    "recipients_count": len(all_users)
-                }
-            }
-
+        
         template = get_email_template_by_id(str(email_request.template_id))
         if not template:
             raise HTTPException(
@@ -487,8 +532,6 @@ async def send_users_email(
             )
         
         # Extract emails and usernames from all_users
-        emails = [user["email"] for user in all_users]
-        usernames = [split_name(user["name"])[0] for user in all_users]
         
         result = email_manager.send_bulk_email(
             subject=email_request.subject,

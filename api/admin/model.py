@@ -18,7 +18,10 @@ class Contact(AppwriteModelBase):
     message: str = AppwriteField(type="string", size=43_000)
     acknowledged: bool = AppwriteField(type="bool", default=False)
 
-
+class WaitList(AppwriteModelBase):
+    collection_id= "waitlist"
+    email: str = AppwriteField()
+    
 class AdminUsers(AppwriteModelBase):
     collection_id = "admin_users"
 
