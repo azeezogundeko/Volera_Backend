@@ -26,7 +26,6 @@ services:
       - traefik.http.routers.qdrant.tls=true
       - traefik.http.routers.qdrant.tls.certresolver=letsencrypt
       - traefik.http.services.qdrant.loadbalancer.server.port=6333
-
       - traefik.http.middlewares.qdrant-auth.basicauth.users=${QDRANT_USER}:${QDRANT_PASSWORD_HASH}
       - traefik.http.routers.qdrant.middlewares=qdrant-auth
     env_file:

@@ -20,7 +20,12 @@ def schedule_price_tracking():
     Celery task to trigger price tracking at midnight.
     This is scheduled to run every day at midnight.
     """
-    asyncio.run(scrape_products())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(scrape_products())
+    finally:
+        loop.close()
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # 5 minutes delay between retries
 async def scrape_single_product(self, url, product_id, source, user_id, track_id, product_name):
@@ -129,11 +134,3 @@ async def scrape_multiple_products(product_ids):
     
     if failed_products:
         logger.warning(f"Failed to process {len(failed_products)} products: {failed_products}")
-
-# Schedule the task to run at midnight every day
-celery_app.conf.beat_schedule = {
-    'track-prices-midnight': {
-        'task': 'utils.price_tracking.schedule_price_tracking',
-        'schedule': 'crontab(hour=0, minute=0)',  # Run at midnight
-    },
-}
