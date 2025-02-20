@@ -4,9 +4,6 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Create non-root user
-RUN groupadd -r celery && useradd -r -g celery celery
-
 # Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -71,13 +68,10 @@ RUN playwright install-deps
 # Copy project files
 COPY . .
 
-# Create necessary directories and set permissions
-RUN mkdir -p data/db data/url_cache logs && \
-    chown -R celery:celery /app && \
-    chmod -R 755 /app && \
-    chmod -R 777 /app/logs  # Ensure logs directory is writable
+# Create necessary directories
+RUN mkdir -p data/db data/url_cache logs
 
-# Expose ports
+# Expose port
 EXPOSE 8000
 EXPOSE 5555
 EXPOSE 8080

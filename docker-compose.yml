@@ -85,12 +85,12 @@ services:
     command: celery -A utils.celery_tasks.celery_app worker --loglevel=info --events
     volumes:
       - data:/app/data
-      - ${PWD}/logs:/app/logs
+      - ./logs:/app/logs
     env_file:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
-    user: celery
+      - C_FORCE_ROOT=true
     depends_on:
       - redis
     networks:
@@ -106,15 +106,14 @@ services:
     command: celery -A utils.celery_tasks.celery_app beat --loglevel=info
     volumes:
       - data:/app/data
-      - ${PWD}/logs:/app/logs
+      - ./logs:/app/logs
     env_file:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
-    user: celery
+      - C_FORCE_ROOT=true
     depends_on:
       - redis
-      - celery_worker
     networks:
       - dokploy-network
 
