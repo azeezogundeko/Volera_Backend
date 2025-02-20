@@ -2,10 +2,17 @@ import logging
 import colorlog
 import os
 from logging.handlers import RotatingFileHandler
+import stat
 
-# Ensure logs directory exists
+# Ensure logs directory exists with proper permissions
 LOG_DIR = os.path.join(os.path.dirname(__file__), '..', 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
+
+# Set proper permissions for the logs directory
+try:
+    os.chmod(LOG_DIR, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
+except Exception as e:
+    print(f"Warning: Could not set log directory permissions: {e}")
 
 # Set up the logger
 logger = logging.getLogger("custom_logger")
@@ -35,25 +42,31 @@ console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 console_handler.setFormatter(console_formatter)
 
-# Create rotating file handler for all logs
-log_file_path = os.path.join(LOG_DIR, 'application.log')
-file_handler = RotatingFileHandler(
-    log_file_path, 
-    maxBytes=10*1024*1024,  # 10 MB
-    backupCount=5  # Keep 5 backup files
-)
-file_handler.setLevel(logging.INFO)  # Log INFO and above to file
-file_handler.setFormatter(file_formatter)
+def create_file_handler(filename, level=logging.INFO, max_bytes=10*1024*1024, backup_count=5):
+    """Create a file handler with proper permissions"""
+    log_file_path = os.path.join(LOG_DIR, filename)
+    
+    # Create the file if it doesn't exist and set permissions
+    if not os.path.exists(log_file_path):
+        with open(log_file_path, 'a'):
+            pass
+        try:
+            os.chmod(log_file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # 0666
+        except Exception as e:
+            print(f"Warning: Could not set log file permissions for {filename}: {e}")
+    
+    handler = RotatingFileHandler(
+        log_file_path,
+        maxBytes=max_bytes,
+        backupCount=backup_count
+    )
+    handler.setLevel(level)
+    handler.setFormatter(file_formatter)
+    return handler
 
-# Create error file handler
-error_log_file_path = os.path.join(LOG_DIR, 'error.log')
-error_file_handler = RotatingFileHandler(
-    error_log_file_path, 
-    maxBytes=10*1024*1024,  # 10 MB
-    backupCount=3  # Keep 3 backup files
-)
-error_file_handler.setLevel(logging.ERROR)  # Only log ERROR and CRITICAL
-error_file_handler.setFormatter(file_formatter)
+# Create handlers using the new function
+file_handler = create_file_handler('application.log', logging.INFO)
+error_file_handler = create_file_handler('error.log', logging.ERROR, backup_count=3)
 
 # Add handlers to the logger
 logger.addHandler(console_handler)
