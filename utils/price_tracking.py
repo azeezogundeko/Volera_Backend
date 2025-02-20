@@ -167,12 +167,12 @@ async def scrape_multiple_products(tracked_items):
 
             # Schedule individual Celery task for each tracked item
             task = scrape_single_product.delay(
-                item.url, 
-                item.product_id,  # Using product_id from tracked item
-                item.source, 
-                item.user_id, 
+                product.url, 
+                product.id,  # Using product_id from tracked item
+                product.source, 
+                product.user_id, 
                 item.id,  # Using tracked item id as track_id
-                item.name if hasattr(item, 'name') else 'Unknown Product'
+                product.name if hasattr(product, 'name') else 'Unknown Product'
             )
             
             # Track failed tasks
