@@ -46,6 +46,11 @@ celery_app.conf.update(
             'task': 'price_tracking.schedule_price_tracking',
             'schedule': crontab(hour=0, minute=0),  # Run at midnight
         },
+        'track-prices-startup': {
+            'task': 'price_tracking.schedule_price_tracking',
+            'schedule': 10.0,  # Run 10 seconds after startup
+            'options': {'expires': 20}  # Task expires after 20 seconds (runs only once)
+        }
     }
 )
 
