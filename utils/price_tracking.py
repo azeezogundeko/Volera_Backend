@@ -42,7 +42,7 @@ def schedule_price_tracking():
     max_retries=3, 
     default_retry_delay=300
 )  # 5 minutes delay between retries
-async def scrape_single_product(self, url, product_id, source, user_id, track_id, product_name):
+def scrape_single_product(self, url, product_id, source, user_id, track_id, product_name):
     """
     Celery task to scrape a single product with retry mechanism.
     Will retry up to 3 times with 5 minutes delay between attempts.
@@ -51,21 +51,38 @@ async def scrape_single_product(self, url, product_id, source, user_id, track_id
     from api.product.model import Product
 
     try:
-        price = await tracker.get_price(url, source)
-        # Store price history
-        await PriceHistory.create(
-            document_id=Product.get_unique_id(),
-            data={
-                "price": price,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "tracked_id": track_id,
-                "user_id": user_id,
-            },
-        )
-        # Notify user if price is within range
-        await notify_user_price_change(user_id, product_name, price, url)
-        logger.info(f"Scraped {url} for product {product_id}: {price}")
-        return {"status": "success", "price": price}
+        # Create new event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            # Run async operations in the loop
+            price = loop.run_until_complete(tracker.get_price(url, source))
+            
+            # Store price history
+            loop.run_until_complete(
+                PriceHistory.create(
+                    document_id=Product.get_unique_id(),
+                    data={
+                        "price": price,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "tracked_id": track_id,
+                        "user_id": user_id,
+                    },
+                )
+            )
+            
+            # Notify user if price is within range
+            loop.run_until_complete(
+                notify_user_price_change(user_id, product_name, price, url)
+            )
+            
+            logger.info(f"Scraped {url} for product {product_id}: {price}")
+            return {"status": "success", "price": price}
+            
+        finally:
+            loop.close()
+            
     except Exception as e:
         logger.error(f"Error scraping {url} for product {product_id}: {e}")
         try:
@@ -166,13 +183,15 @@ async def scrape_multiple_products(tracked_items):
                 continue
 
             # Schedule individual Celery task for each tracked item
-            task = scrape_single_product.delay(
-                product.url, 
-                product.id,  # Using product_id from tracked item
-                product.source, 
-                item.user_id, 
-                item.id,  # Using tracked item id as track_id
-                product.name if hasattr(product, 'name') else 'Unknown Product'
+            task = scrape_single_product.apply_async(
+                args=(
+                    product.url, 
+                    product.id,
+                    product.source, 
+                    item.user_id, 
+                    item.id,
+                    product.name if hasattr(product, 'name') else 'Unknown Product'
+                )
             )
             
             # Track failed tasks
