@@ -45,8 +45,8 @@ async def scrape_single_product(self, url, product_id, source, user_id, track_id
     Celery task to scrape a single product with retry mechanism.
     Will retry up to 3 times with 5 minutes delay between attempts.
     """
-    from api.tracker.models import PriceHistory
-    from api.product.models import Product
+    from api.track.model import PriceHistory
+    from api.product.model import Product
 
     try:
         price = await tracker.get_price(url, source)
@@ -108,7 +108,7 @@ async def scrape_products():
     """
     Main function to scrape all tracked products.
     """
-    from api.product.models import Product
+    from api.product.model import Product
     response = await Product.list()
     product_ids = [product.id for product in response["documents"]]
     if len(product_ids) > 0:
@@ -120,7 +120,7 @@ async def scrape_multiple_products(product_ids):
     Handles the scraping of multiple products concurrently.
     Delegates each product to individual Celery tasks with retry mechanism.
     """
-    from api.tracker.models import TrackedItem
+    from api.track.model import TrackedItem
     failed_products = []
     
     for product_id in product_ids:
