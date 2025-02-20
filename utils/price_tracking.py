@@ -9,6 +9,8 @@ from utils.logging import logger
 from utils.celery_tasks import celery_app
 from utils.email_manager import manager as email_manager
 
+from appwrite.query import Query
+
 tracker = TrackerWebScraper()
 semaphore = asyncio.Semaphore(10)
 
@@ -106,50 +108,73 @@ async def notify_user_price_change(user_id: str, product_name: str, current_pric
 
 async def scrape_products():
     """
-    Main function to scrape all tracked products.
-    """
-    from api.product.model import Product
-    response = await Product.list()
-    product_ids = [product.id for product in response["documents"]]
-    if len(product_ids) > 0:
-        logger.info(f"Scraping {len(product_ids)} products.")
-        await scrape_multiple_products(product_ids)
-
-async def scrape_multiple_products(product_ids):
-    """
-    Handles the scraping of multiple products concurrently.
-    Delegates each product to individual Celery tasks with retry mechanism.
+    Main function to scrape all tracked products using batching.
     """
     from api.track.model import TrackedItem
-    failed_products = []
     
-    for product_id in product_ids:
-        try:
-            # Fetch product details
-            item = await TrackedItem.read(product_id)
+    batch_size = 100
+    offset = 0
+    total_processed = 0
+    
+    while True:
+        # Get batch of tracked items
+        response = await TrackedItem.list(
+            queries=[
+                Query.equal("notification_enabled", True),  # Only get items with notifications enabled
+                Query.limit(batch_size),
+                Query.offset(offset)
+            ]
+        )
+        
+        tracked_items = response["documents"]
+        if not tracked_items:
+            break
+            
+        logger.info(f"Processing batch of {len(tracked_items)} tracked items (offset: {offset})")
+        await scrape_multiple_products(tracked_items)
+        
+        total_processed += len(tracked_items)
+        offset += batch_size
+        
+        if len(tracked_items) < batch_size:  # Last batch
+            break
+    
+    if total_processed > 0:
+        logger.info(f"Completed processing {total_processed} tracked items")
+    else:
+        logger.info("No tracked items found to process")
 
+async def scrape_multiple_products(tracked_items):
+    """
+    Handles the scraping of multiple products concurrently.
+    Delegates each tracked item to individual Celery tasks with retry mechanism.
+    """
+    failed_items = []
+    
+    for item in tracked_items:
+        try:
             if not item.url:
-                logger.warning(f"Product {product_id} has no URL. Skipping.")
+                logger.warning(f"Tracked item {item.id} has no URL. Skipping.")
                 continue
 
-            # Schedule individual Celery task for each product
+            # Schedule individual Celery task for each tracked item
             task = scrape_single_product.delay(
                 item.url, 
-                item.id, 
+                item.product_id,  # Using product_id from tracked item
                 item.source, 
                 item.user_id, 
-                item.track_id,
-                item.name
+                item.id,  # Using tracked item id as track_id
+                item.name if hasattr(item, 'name') else 'Unknown Product'
             )
             
             # Track failed tasks
             if task.status == states.FAILURE:
-                failed_products.append(product_id)
-                logger.error(f"Initial scheduling failed for product {product_id}")
+                failed_items.append(item.id)
+                logger.error(f"Initial scheduling failed for tracked item {item.id}")
 
         except Exception as e:
-            logger.error(f"Error processing product {product_id}: {e}")
-            failed_products.append(product_id)
+            logger.error(f"Error processing tracked item {item.id}: {e}")
+            failed_items.append(item.id)
     
-    if failed_products:
-        logger.warning(f"Failed to process {len(failed_products)} products: {failed_products}") 
+    if failed_items:
+        logger.warning(f"Failed to process {len(failed_items)} tracked items: {failed_items}") 
