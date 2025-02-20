@@ -149,11 +149,19 @@ async def scrape_multiple_products(tracked_items):
     Handles the scraping of multiple products concurrently.
     Delegates each tracked item to individual Celery tasks with retry mechanism.
     """
+    from api.product.model import Product
+
     failed_items = []
     
     for item in tracked_items:
         try:
-            if not item.url:
+            try:
+                product = await Product.read(item.product_id)
+            except Exception as e:
+                logger.error(f"Product {item.product_id} not found: {e}")
+                continue
+
+            if not product.url:
                 logger.warning(f"Tracked item {item.id} has no URL. Skipping.")
                 continue
 
