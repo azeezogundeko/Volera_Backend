@@ -19,7 +19,8 @@ REDIS_URL = "redis://redis:6379/0"
 # Initialize Celery with multiple queues
 celery_app = Celery('volera',
                     broker=REDIS_URL,
-                    backend=REDIS_URL)
+                    backend=REDIS_URL,
+                    include=['utils.price_tracking'])  # Explicitly include the price tracking module
 
 # Configure Celery with priority queues and beat schedule
 celery_app.conf.update(
@@ -40,16 +41,11 @@ celery_app.conf.update(
         'price_tracking.schedule_price_tracking': {'queue': 'default'},
         'price_tracking.scrape_single_product': {'queue': 'default'}
     },
-    imports=['utils.price_tracking'],
     beat_schedule={
         'track-prices-midnight': {
             'task': 'price_tracking.schedule_price_tracking',
-            'schedule': crontab(hour=0, minute=0),  # Run at midnight
-        },
-        'track-prices-startup': {
-            'task': 'price_tracking.schedule_price_tracking',
-            'schedule': 10.0,  # Run 10 seconds after startup
-            'options': {'expires': 20}  # Task expires after 20 seconds (runs only once)
+            'schedule': crontab(minute='*/1'),  # For testing: run every minute
+            'options': {'queue': 'default'}
         }
     }
 )

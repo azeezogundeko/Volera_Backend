@@ -101,6 +101,24 @@ services:
       timeout: 10s
       retries: 3
 
+  celery_beat:
+    build: .
+    command: celery -A utils.celery_tasks.celery_app beat --loglevel=info
+    volumes:
+      - data:/app/data
+      - ./logs:/app/logs
+    env_file:
+      - .env
+      - C_FORCE_ROOT=true
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    user: celery
+    depends_on:
+      - redis
+      - celery_worker
+    networks:
+      - dokploy-network
+
   flower:
     build: .
     command: celery -A utils.celery_tasks.celery_app flower --port=5555 --persistent=True --state_save_interval=10000 --broker_api=redis://redis:6379/0

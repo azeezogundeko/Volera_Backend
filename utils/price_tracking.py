@@ -18,12 +18,21 @@ def schedule_price_tracking():
     Celery task to trigger price tracking at midnight.
     This is scheduled to run every day at midnight.
     """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    logger.info("Starting price tracking schedule task")
     try:
-        loop.run_until_complete(scrape_products())
-    finally:
-        loop.close()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            logger.info("Setting up event loop for price tracking")
+            loop.run_until_complete(scrape_products())
+            logger.info("Price tracking completed successfully")
+        except Exception as e:
+            logger.error(f"Error in price tracking task: {str(e)}", exc_info=True)
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.error(f"Critical error in price tracking task: {str(e)}", exc_info=True)
+        raise
 
 @celery_app.task(
     name='price_tracking.scrape_single_product',
