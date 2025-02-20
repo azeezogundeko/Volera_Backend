@@ -49,6 +49,9 @@ RUN apt-get update \
         python3-tk \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN groupadd -r celery && useradd -r -g celery celery
+
 # Set working directory
 WORKDIR /app
 
@@ -68,8 +71,9 @@ RUN playwright install-deps
 # Copy project files
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p data/db data/url_cache logs
+# Create necessary directories and set permissions
+RUN mkdir -p data/db data/url_cache logs && \
+    chown -R celery:celery /app
 
 # Expose port
 EXPOSE 8000
