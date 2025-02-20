@@ -170,7 +170,7 @@ async def scrape_multiple_products(tracked_items):
                 product.url, 
                 product.id,  # Using product_id from tracked item
                 product.source, 
-                product.user_id, 
+                item.user_id, 
                 item.id,  # Using tracked item id as track_id
                 product.name if hasattr(product, 'name') else 'Unknown Product'
             )
