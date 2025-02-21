@@ -1,6 +1,7 @@
 from json import loads
 from crawl4ai import AsyncWebCrawler
 
+from httpx import AsyncClient
 from utils.logging import logger
 from config import USER_AGENT, KONGA_API_KEY, KONGA_ID
 
@@ -47,37 +48,38 @@ class TrackerWebScraper:
 
     async def get_crawler(self)-> AsyncWebCrawler: 
         if self.crawler_manager is None:
-            from utils._craw4a import CrawlerManager
+            from utils._craw4ai import CrawlerManager
             self.crawler_manager = await CrawlerManager.get_crawler()
 
         return self.crawler_manager
 
 
     async def get_jumia_price(self, url: str)-> float:
-        response = await self.client.get(url)
+        async with AsyncClient() as client:
+            response = await client.get(url)
 
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Find the script tag containing the product data
-        script_tag = soup.find('script', text=lambda t: t and 'window.__STORE__' in t)
-        
-        if script_tag:
-            # Extract the JSON data from the script tag
-            script_content = script_tag.string
-            json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Parse the JSON data
-            data = loads(json_data)
+            # Find the script tag containing the product data
+            script_tag = soup.find('script', text=lambda t: t and 'window.__STORE__' in t)
+            
+            if script_tag:
+                # Extract the JSON data from the script tag
+                script_content = script_tag.string
+                json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
+                
+                # Parse the JSON data
+                data = loads(json_data)
 
-            # with open("jiji.json", )
+                # with open("jiji.json", )
 
-            if 'products' in data and len(data['products']) > 0:
-                product = data['products'][0]
-                price = product.get('prices', {}).get('rawPrice', 0.0)
-                return float(price)
+                if 'products' in data and len(data['products']) > 0:
+                    product = data['products'][0]
+                    price = product.get('prices', {}).get('rawPrice', 0.0)
+                    return float(price)
 
-        else:
-            return 0.0
+            else:
+                return 0.0
             
 
     async def get_konga_price(self, product_id: str)-> float:

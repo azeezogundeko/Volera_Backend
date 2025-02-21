@@ -178,7 +178,7 @@ async def scrape_multiple_products(tracked_items):
                 logger.error(f"Product {item.product_id} not found: {e}")
                 continue
 
-            if not product.url:
+            if not product.url: 
                 logger.warning(f"Tracked item {item.id} has no URL. Skipping.")
                 continue
 
