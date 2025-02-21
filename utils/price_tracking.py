@@ -80,8 +80,7 @@ def scrape_single_product(self, url, product_id, source, user_id, track_id, prod
             # Update tracked item with current price
             loop.run_until_complete(
                 TrackedItem.update(track_id, data={
-                    "current_price": price,
-                    "last_checked": datetime.now(timezone.utc).isoformat()
+                    "current_price": price
                 })
             )
             

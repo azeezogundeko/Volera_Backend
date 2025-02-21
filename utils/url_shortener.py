@@ -1,20 +1,18 @@
-import diskcache as dc
+import redis
 import secrets
 import string
 from typing import Optional
 
-from config import URL_CACHE_DIR
-
-
 class URLShortener:
-    def __init__(self, cache_dir=URL_CACHE_DIR):
-        self.cache = dc.Cache(cache_dir)
+    def __init__(self, redis_url="redis://redis:6379/0"):
+        self.redis = redis.from_url(redis_url)
         self.code_length = 6
-        self.expiration = 30 * 24 * 60 * 60  # 30 days in seconds
+        self.expiration = 7 * 24 * 60 * 60  # 7 days in seconds
+        self.key_prefix = "url_short:"  # Namespace for URL shortener keys
 
-    def shorten_url(self, url):
+    def shorten_url(self, url: str) -> str:
         """
-        Shortens a URL by generating a unique short code and storing it in the cache.
+        Shortens a URL by generating a unique short code and storing it in Redis.
         
         Args:
             url (str): The original URL to shorten
@@ -24,11 +22,14 @@ class URLShortener:
         """
         while True:
             short_code = self._generate_short_code()
-            # Use add() instead of set() to prevent race conditions
-            if self.cache.add(short_code, url, expire=self.expiration):
+            key = f"{self.key_prefix}{short_code}"
+            # Use setnx to prevent race conditions (set if not exists)
+            if self.redis.setnx(key, url):
+                # Set expiration after successful set
+                self.redis.expire(key, self.expiration)
                 return short_code
 
-    def enlarge_url(self, short_code) -> Optional[str]:
+    def enlarge_url(self, short_code: str) -> Optional[str]:
         """
         Retrieves the original URL for a given short code.
         
@@ -38,9 +39,11 @@ class URLShortener:
         Returns:
             str: Original URL if found and valid, None otherwise
         """
-        return self.cache.get(short_code, default=None)
+        key = f"{self.key_prefix}{short_code}"
+        url = self.redis.get(key)
+        return url.decode('utf-8') if url else None
 
-    def _generate_short_code(self):
+    def _generate_short_code(self) -> str:
         """
         Generates a cryptographically secure random short code using base62 characters.
         
@@ -52,20 +55,21 @@ class URLShortener:
 
     def close(self):
         """
-        Closes the cache connection. Should be called when done with the shortener.
+        Closes the Redis connection. Should be called when done with the shortener.
         """
-        self.cache.close()
+        self.redis.close()
 
 # Example usage
 if __name__ == "__main__":
     shortener = URLShortener()
     
-    # Shorten a URL
-    short_code = shortener.shorten_url("https://www.example.com/very/long/url")
-    print(f"Short code: {short_code}")
-    
-    # Enlarge a URL
-    original_url = shortener.enlarge_url(short_code)
-    print(f"Original URL: {original_url}")
-    
-    shortener.close()
+    try:
+        # Shorten a URL
+        short_code = shortener.shorten_url("https://www.example.com/very/long/url")
+        print(f"Short code: {short_code}")
+        
+        # Enlarge a URL
+        original_url = shortener.enlarge_url(short_code)
+        print(f"Original URL: {original_url}")
+    finally:
+        shortener.close()
