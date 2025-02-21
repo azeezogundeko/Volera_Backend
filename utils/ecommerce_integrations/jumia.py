@@ -408,8 +408,7 @@ class JumiaIntegration(ScrapingIntegration):
         product_details = self._validate_nested_structure(product.get("product_details"))
         product_reviews = self._validate_nested_structure(product.get("product_reviews"))
 
-
-        return {
+        product_detail = {
             "name": basic_info.get("name", ""),
             "brand": basic_info.get("brand", ""),
             "product_id": product_id,
@@ -450,6 +449,14 @@ class JumiaIntegration(ScrapingIntegration):
                 for review in product_reviews.get("reviews", [])
             ]
         }
+        if self.db_manager:
+            product = await self.db_manager.get(product_id, tag="list")
+            if product:
+                product_detail.update({
+                    "url": product["url"]
+                })
+
+        return product_detail
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""

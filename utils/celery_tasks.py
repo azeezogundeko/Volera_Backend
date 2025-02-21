@@ -44,8 +44,18 @@ celery_app.conf.update(
     beat_schedule={
         'track-prices-midnight': {
             'task': 'price_tracking.schedule_price_tracking',
-            'schedule': crontab(minute='*/1'),  # For testing: run every minute
-            'options': {'queue': 'default'}
+            'schedule': crontab(minute=0, hour=0),  # Run at midnight (00:00)
+            'options': {
+                'queue': 'default',
+                'expires': 3600,  # Tasks expire after 1 hour
+                'retry': True,
+                'retry_policy': {
+                    'max_retries': 3,
+                    'interval_start': 0,
+                    'interval_step': 0.2,
+                    'interval_max': 0.2,
+                }
+            }
         }
     }
 )
