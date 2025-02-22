@@ -86,7 +86,7 @@ class WebWriterAgent(WriterAgent):
                 ImageMetadata(
                     url=r["link"],
                     img_url=r["link"],
-                    title=r["thumbnail"],
+                    title=r["title"],
                     # favicon=r["metadata"].get("image_url", ""),
                 )
             )
