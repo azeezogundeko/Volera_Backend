@@ -85,7 +85,7 @@ class WebWriterAgent(WriterAgent):
             images.append(
                 ImageMetadata(
                     url=r["link"],
-                    img_url=r["image_url"],
+                    img_url=r["link"],
                     title=r["thumbnail"],
                     # favicon=r["metadata"].get("image_url", ""),
                 )
