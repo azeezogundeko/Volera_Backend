@@ -45,3 +45,4 @@ class State(TypedDict):
     products: List[dict] = []
     message_history: List[ModelMessage] = []
     message_data: MessageLog = None
+    user_id: str = ""

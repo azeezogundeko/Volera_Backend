@@ -72,6 +72,7 @@ class BaseAgent:
     async def list_product(
         self, 
         query: str, 
+        user_id: str,
         limit: int= 5, 
         page: int = 1, 
         max_results: int = 5,
@@ -89,6 +90,7 @@ class BaseAgent:
         
         return await list_products(
             self._ecommerce_manager, 
+            user_id,
             query, 
             site,
             max_results,

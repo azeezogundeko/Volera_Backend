@@ -31,8 +31,9 @@ class WebQueryAgent(BaseAgent):
         
         self.search_tool = search_tool
     
-    async def search(self, result: WebQueryAgentSchema, query: str):
+    async def search(self, result: WebQueryAgentSchema, query: str, user_id: str):
         params = {
+            "user_id": user_id,
             "query": query,
             "site": "all",
             "max_results": 3,
@@ -75,6 +76,7 @@ class WebQueryAgent(BaseAgent):
         try:
             user_input = state["human_response"] if "human_response" in state else None
             response = await self.run(state, user_input)
+            user_id = state["user_id"]
             data: WebQueryAgentSchema = response.data
             state["previous_node"] = agent_manager.web_query_agent
             # print(data)
@@ -86,7 +88,7 @@ class WebQueryAgent(BaseAgent):
             
             ws_id = state["ws_id"]
             await self.websocket_manager.send_progress(ws_id, "searching", 0)
-            response, task_id = await asyncio.wait_for(self.search(response.data, data.search_query), timeout=self.timeout)
+            response, task_id = await asyncio.wait_for(self.search(response.data, data.search_query, user_id), timeout=self.timeout)
 
             state["task_id"] = task_id
             await self.websocket_manager.send_progress(ws_id, "searching", len(response["search"]))

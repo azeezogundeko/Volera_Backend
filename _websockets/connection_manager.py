@@ -157,6 +157,7 @@ class ConnectionManager:
             "chat_limit": 5,
             "ai_files": [],
             "message_logs": [],
+            "user_id": user_id,
             }
 
         processing_config = {
