@@ -89,6 +89,7 @@ async def create_new_chat(
         "title": "New Chat",
         "user_id": user.id,
         "start_time": datetime.now().isoformat(),
+        "created_at": datetime.now().isoformat(),
     }
 
 
