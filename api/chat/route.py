@@ -83,21 +83,12 @@ async def filter_chats(
 async def create_new_chat(
     user: UserIn = Depends(get_current_user)
 ):
-    try:
-        return await Chat.create(
-            document_id=Chat.get_unique_id(),
-            data={
-                "title": "New Chat",
-                "user_id": user.id,
-                "start_time": datetime.now().isoformat(),
-            }
-        )
-
-        
-   
-    except Exception as e:
-        logger.error(f"Error creating new chat: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Could not create chat: {str(e)}")
+    # try:
+    return {
+        "title": "New Chat",
+        "user_id": user.id,
+        "start_time": datetime.now().isoformat(),
+    }
 
 
 

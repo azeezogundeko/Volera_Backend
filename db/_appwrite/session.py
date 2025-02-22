@@ -1,5 +1,6 @@
 # from asyncio import gather
-from asyncio import gather
+# from asyncio import gather
+from datetime import datetime
 from typing import Dict, Any, Literal, Optional, List
 # from datetime import datetime, timezone
 
@@ -69,7 +70,7 @@ class AppwriteSessionManager:
             focus_mode = metadata.get("focus_mode")
             file_ids = metadata.get("file_ids")
             title = metadata.get("title")
-
+            
 
             # fs = []
             # if files:
@@ -80,8 +81,10 @@ class AppwriteSessionManager:
                 "title": title,
                 "focus_mode": focus_mode,
                 "file_ids": file_ids,
+                "user_id": user_id,
+                "start_time": datetime.now().isoformat(),
             }
-            await Chat.update(session_id, payload)
+            await Chat.create(session_id, payload)
             # await create_message(chat_payload)
             logger.info(f"Created session for user {user_id}: {session_id}")
             return session_id
