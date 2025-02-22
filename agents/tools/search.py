@@ -38,7 +38,7 @@ class MultiSearchTool:
         try:
             params = {
                 'q': query,
-                'num': num_results * 2,  # Request more results for filtering
+                'num': num_results,  # Request more results for filtering
                 'categories': categories,
                 'engines': engines,
                 'language': language,
@@ -52,22 +52,33 @@ class MultiSearchTool:
                 response = await client.get(self.searxng_base_url + "/search", params=params)
                 response.raise_for_status()
                 data = response.json()
-
-                print(data)
                 
                 if 'error' in data:
                     logger.error(f"SearxNG API error: {data['error']}")
                     return []
                 
                 results = []
-                for item in data.get('results', []):
-                    result = {
-                        'title': item.get('title', ''),
-                        'link': item.get('url', ''),
-                        'snippet': item.get('content', ''),
-                        'source': item.get('engine', 'searxng')
-                    }
+                for result in data.get('results', []):
+                    if isinstance(result, dict):
+                        result = {
+                            'title': result.get('title', ''),
+                            'link': result.get('url', ''),
+                            'snippet': result.get('content', ''),
+                            'source': result.get('engine', 'searxng')
+                        }
+
+                    if categories == "images":
+                        result = {
+                            'title': result.get('title', ''),
+                            'link': result.get('url', ''),  # Use img_src for the actual image URL
+                            'image_url': result.get('img_src', ''),  # Use img_src for the actual image URL
+                            'snippet': result.get('content', ''),
+                            'source': result.get('engine', 'searxng'),
+                            'thumbnail': result.get('thumbnail_src', '')  # Include thumbnail URL
+                        }
+
                     results.append(result)
+                    
 
                 # Validate results
                 valid_results = self._validate_search_results(query, results)
@@ -171,8 +182,15 @@ class MultiSearchTool:
                         'source': 'google'
                     }
                     # Add image URL if available
-                    if 'pagemap' in item and 'cse_image' in item['pagemap']:
-                        result['image'] = item['pagemap']['cse_image'][0].get('src', '')
+                    if search_type == 'image':
+                        image = item.get('image', {})
+                        result.update({
+                            'link': image.get('contextLink', ''),
+                            'thumbnail': image.get('thumbnailLink', ''),
+                            'image_url': item.get('link', ''),
+                            'image_height': image.get('height', 0),
+                            'image_width': image.get('width', 0)
+                        })
                     results.append(result)
                 return results
                 
