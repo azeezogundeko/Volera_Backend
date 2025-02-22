@@ -37,14 +37,17 @@ class EcommerceManager:
         from .ecommerce_integrations.jumia import JumiaIntegration
         from .ecommerce_integrations.jiji import JijiIntegration
         from .ecommerce_integrations.konga import KongaIntegration
-        
+        # from .ecommerce_integrations.amazon import AmazonIntegration
+
+
         # add Amazon or ali express
         
         # Register each integration with db_manager
         integrations = [
             JumiaIntegration(db_manager=self.db_manager),
             JijiIntegration(db_manager=self.db_manager),
-            KongaIntegration(db_manager=self.db_manager)
+            KongaIntegration(db_manager=self.db_manager),
+            # AmazonIntegration(db_manager=self.db_manager)
         ]
         
         for integration in integrations:

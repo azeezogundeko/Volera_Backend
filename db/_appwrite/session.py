@@ -72,19 +72,15 @@ class AppwriteSessionManager:
             title = metadata.get("title")
             
 
-            # fs = []
-            # if files:
-            #     await self._process_files(files, session_id)
-                
-
             payload = {
                 "title": title,
                 "focus_mode": focus_mode,
                 "file_ids": file_ids,
-                "user_id": user_id,
+                # "user_id": user_id,
                 "start_time": datetime.now().isoformat(),
             }
-            await Chat.create(session_id, payload)
+
+            await Chat.update(session_id, payload)
             # await create_message(chat_payload)
             logger.info(f"Created session for user {user_id}: {session_id}")
             return session_id
