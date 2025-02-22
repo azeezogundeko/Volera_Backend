@@ -52,6 +52,8 @@ class MultiSearchTool:
                 response = await client.get(self.searxng_base_url + "/search", params=params)
                 response.raise_for_status()
                 data = response.json()
+
+                print(data)
                 
                 if 'error' in data:
                     logger.error(f"SearxNG API error: {data['error']}")
@@ -154,7 +156,8 @@ class MultiSearchTool:
                 )
                 response.raise_for_status()
                 data = response.json()
-                
+
+                print(data)
                 if 'error' in data:
                     logger.error(f"Google Search API error: {data['error']}")
                     return []
