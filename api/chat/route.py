@@ -9,8 +9,9 @@ from ..auth.schema import UserIn
 from .model import Chat, Message, SavedChat, File
 from .schema import ChatOut, MessageOut, FileOut
 
-
+from fastapi import Body
 from fastapi import Depends, Query, File as FastAPIFile
+
 from fastapi import HTTPException, APIRouter
 from fastapi import UploadFile
 from appwrite import query
@@ -81,11 +82,12 @@ async def filter_chats(
 
 @router.post("/new", response_model=ChatOut)
 async def create_new_chat(
+    chatId: str = Body(),
     user: UserIn = Depends(get_current_user)
 ):
     try:
         return await Chat.create(
-            document_id=Chat.get_unique_id(),
+            document_id=chatId,
             data={
                 "title": "New Chat",
                 "user_id": user.id,
