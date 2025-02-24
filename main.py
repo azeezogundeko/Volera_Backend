@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from asyncio import create_task
 
-from config import PORT, DB_PATH, SENTRY_API_KEY
+from config import PORT, DB_PATH, SENTRY_API_KEY, PRODUCTION_MODE
 from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
 from db._appwrite.db_register import prepare_database, WaitList
@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
         logger.info("HTTP client initialized successfully")
         
         logger.info("Initializing web crawler...")
-        await CrawlerManager.initialize(use_tor=True)
+        await CrawlerManager.initialize(use_tor=True if PRODUCTION_MODE == 'true' else False)
         logger.info("Web crawler initialization completed.")
         store = VectorStore()
         logger.info("Initializing vector store...")

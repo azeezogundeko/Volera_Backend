@@ -42,13 +42,22 @@ class CrawlerManager:
             # Initialize crawler with proxy settings if Tor is enabled
             proxy_settings = None
             if cls._tor_config.enabled:
-
                 proxy_settings = f"socks5h://{cls._tor_config.host}:{cls._tor_config.port}"
                 print("Tor proxy settings: ", proxy_settings)
-            config = CrawlerRunConfig(proxy=proxy_settings)
+            
+            # Create crawler with default config
+            # config = CrawlerRunConfig(
+            #     magic=True,
+            #     parser_type='html.parser',
+            #     only_text=False,
+            #     excluded_tags=[],
+            #     keep_data_attributes=True
+            # )
+            
             cls._crawler = AsyncWebCrawler(
                 verbose=True,
-                config=config
+                # config=config,
+                proxy=proxy_settings  # Set proxy at crawler level
             )
             await cls._crawler.__aenter__()
     
