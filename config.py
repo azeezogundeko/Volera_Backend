@@ -5,6 +5,7 @@ from pathlib import Path
 load_dotenv()
 
 PRODUCTION_MODE = os.getenv("PRODUCTION_MODE")
+
 if PRODUCTION_MODE == "true":
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
@@ -12,6 +13,11 @@ if PRODUCTION_MODE == "true":
     APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID")
     PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY"))
 else:
+    APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
+    APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
+    APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
+    APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID")
+    PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY"))
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID_TEST")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID_TEST")
     APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT_TEST", "https://cloud.appwrite.io/v1")

@@ -22,6 +22,7 @@ if PRODUCTION_MODE == "true":
 else:
     USER_QDRANT = False
 
+PRODUCTION_MODE == "false"
 # class DiskCacheDB:
 #     _instance = None  
 #     _lock = asyncio.Lock() 

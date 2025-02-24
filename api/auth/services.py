@@ -81,7 +81,7 @@ async def get_user_by_email(email: str):
             queries = [Query.equal('email', email)]
         )
 
-        users: str | Any | bytes | Nones = await asyncio.to_thread(user_db.list, **kwgs)
+        users: str | Any | bytes | None = await asyncio.to_thread(user_db.list, **kwgs)
         user = users["users"][0]
         return UserIn(**user)
     except Exception:
@@ -117,6 +117,7 @@ async def authenticate_user(request: Request, email: str, password: str) -> Opti
     This helps prevent brute force attacks on specific accounts.
     """
     user = await get_user_by_email(email)
+    print(user)
     if not user or not verify_password(password, user.password):
         # Log failed attempt
         logger.warning(f"Failed login attempt for email: {email}")
