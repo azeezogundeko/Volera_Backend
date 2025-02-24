@@ -333,7 +333,7 @@ class JijiIntegration(ScrapingIntegration):
             # html_content = response.text
             config = CrawlerRunConfig(magic=True)
 
-            crawler: AsyncWebCrawler = CrawlerManager().get_crawler()
+            crawler: AsyncWebCrawler = await CrawlerManager().get_crawler()
             response = await crawler.arun(url, config=config)
             print(response)
             html_content = response.html
