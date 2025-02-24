@@ -327,9 +327,17 @@ class JijiIntegration(ScrapingIntegration):
 
 
     async def extract_product_list(self, url, **kwargs):
+        from utils._craw4ai import CrawlerManager, AsyncWebCrawler, CrawlerRunConfig
         try:
-            response = await self.client.get(url)
-            html_content = response.text
+            # response = await self.client.get(url)
+            # html_content = response.text
+            config = CrawlerRunConfig(magic=True)
+
+            crawler: AsyncWebCrawler = CrawlerManager().get_crawler()
+            response = await crawler.arun(url, config=config)
+            print(response)
+            html_content = response.html
+            print(html_content)
 
         except Exception as e:
             print(f"URL failed {url} throug {str(e)}")
