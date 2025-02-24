@@ -11,6 +11,13 @@ import requests
 import socks
 import socket
 import asyncio
+import os
+from fastembed import FastEmbed
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class TorProxyConfig(BaseModel):
     """Configuration for Tor proxy settings"""
