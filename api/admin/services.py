@@ -13,6 +13,8 @@ from utils.celery_tasks import send_email, send_bulk_email
 from .email_templates import DEFAULT_VARIABLES
 from db import user_db
 
+from appwrite.query import Query
+
 
 
 def substitute_default_variables(content: str, variables: Dict[str, str]) -> str:
@@ -161,7 +163,7 @@ async def send_bulk_user_email(emails: List[str], subject: str, html_content: st
         "task_id": str(result.id)
     }
 
-async def get_all_users(limit: int = 50, offset: int = 0, queries: Optional[List] = None) -> Dict:
+async def get_all_users(queries: Optional[List] = None) -> Dict:
     """
     Get all users with pagination support.
     
@@ -178,12 +180,11 @@ async def get_all_users(limit: int = 50, offset: int = 0, queries: Optional[List
             }
     """
     try:
-        # Apply default queries if none provided
-        queries = queries or []
+
         
          
         # Get paginated users
-        users_response = await to_thread(user_db.list, queries, limit, offset)
+        users_response = await to_thread(user_db.list, queries)
         
         return {
             "users": users_response.get("users", []),

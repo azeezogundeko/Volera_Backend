@@ -93,9 +93,7 @@ async def create_new_chat(
                 "user_id": user.id,
                 "start_time": datetime.now().isoformat(),
             }
-        )
-
-       
+        )  
    
     except Exception as e:
         logger.error(f"Error creating new chat: {e}", exc_info=True)

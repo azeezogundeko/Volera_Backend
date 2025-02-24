@@ -331,7 +331,14 @@ class JijiIntegration(ScrapingIntegration):
         try:
             # response = await self.client.get(url)
             # html_content = response.text
-            config = CrawlerRunConfig(magic=True)
+            config = CrawlerRunConfig(
+                magic=True, 
+                parser_type='html.parser', 
+                only_text=False,
+                excluded_tags=[], 
+                keep_data_attributes= True, 
+                extraction_strategy=None
+                )
 
             crawler: AsyncWebCrawler = await CrawlerManager().get_crawler()
             response = await crawler.arun(url, config=config)
@@ -348,8 +355,6 @@ class JijiIntegration(ScrapingIntegration):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         # Find the script tag containing the product data
-        with open("product_page.html", "w", encoding='utf-8') as f:
-            f.write(soup.prettify())
             
         script_tag = soup.find('script', {'id': '__NUXT_DATA__'})
         if script_tag:

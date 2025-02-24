@@ -31,4 +31,4 @@ class SendEmailRequest(BaseModel):
     account_key: str
     emails: Optional[List[str]] = None  
     variables: Optional[Dict[str, str]] = None 
-    filters: Literal["active", "inactive"] = None
+    filters: Literal["active", "inactive", "waitlist", "all"] = None

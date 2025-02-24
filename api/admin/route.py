@@ -474,9 +474,14 @@ async def send_users_email(
         if email_request.filters == 'waitlist':
             
             while True:
-                waitlist = await WaitList.list(limit=100, offset=offset)
+                queries.append(query.limit(batch_size))
+                queries.append(query.offset(offset))
+                waitlist = await WaitList.list(queries)
 
                 if waitlist["total"] == 0:
+                    break
+
+                if len(waitlist["documents"]) < batch_size:  # Last batch
                     break
 
                 documents = waitlist["documents"]
@@ -487,7 +492,9 @@ async def send_users_email(
         elif email_request.filters == 'all':
             # Fetch users in batches
             while True:
-                batch = await get_all_users(limit=batch_size, offset=offset)
+                queries.append(query.limit(batch_size))
+                queries.append(query.offset(offset))
+                batch = await get_all_users(queries)
                 users_batch = batch["users"]
                 
                 if not users_batch:
@@ -495,6 +502,9 @@ async def send_users_email(
                     
                 all_users.extend(users_batch)
                 offset += batch_size
+
+                if len(users_batch) < batch_size:  # Last batch
+                    break
 
             for user in all_users:
                 emails_set.add(user["email"])
@@ -505,7 +515,9 @@ async def send_users_email(
 
             # Fetch users in batches
             while True:
-                batch = await get_all_users(limit=batch_size, offset=offset, queries=queries)
+                queries.append(query.limit(batch_size))
+                queries.append(query.offset(offset))
+                batch = await get_all_users(queries)
                 users_batch = batch["users"]
                 
                 if not users_batch:
