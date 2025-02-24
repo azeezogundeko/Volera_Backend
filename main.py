@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
         store = VectorStore()
         logger.info("Initializing vector store...")
         await store.initialize()
+        
         logger.info("Initializing web crawler...")
         await CrawlerManager.initialize(use_tor=True if PRODUCTION_MODE == 'true' else False)
         logger.info("Web crawler initialization completed.")

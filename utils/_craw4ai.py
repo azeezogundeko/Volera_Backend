@@ -12,7 +12,7 @@ import socks
 import socket
 import asyncio
 import os
-from fastembed import FastEmbed
+# from fastembed import FastEmbed
 import logging
 
 # Configure logging
