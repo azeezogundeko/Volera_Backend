@@ -318,8 +318,7 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
-        products = await super().get_product_list(url, **kwargs)
-        return await self._transform_product_list(products)
+        return await self.extract_product_list(url, **kwargs)
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
@@ -328,12 +327,11 @@ class JijiIntegration(ScrapingIntegration):
 
 
     async def extract_product_list(self, url, **kwargs):
-        from utils._craw4ai import extract_data_with_css
         try:
             response = await self.client.get(url)
             html_content = response.text
 
-        except Exception:
+        except Exception as e:
             print(f"URL failed {url} throug {str(e)}")
             products = await super().get_product_list(url, **kwargs)
             return await self._transform_product_list(products)
