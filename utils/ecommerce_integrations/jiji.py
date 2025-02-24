@@ -232,7 +232,7 @@ class JijiIntegration(ScrapingIntegration):
                     "verified": product.get("seller", {}).get("verified", False)
                 }
             }
-            print(url)
+            # print(url)
             transformed.append(p)
 
             await self.db_manager.set(
@@ -355,7 +355,7 @@ class JijiIntegration(ScrapingIntegration):
 
 
             products = data.get('data', {}).get('state', {}).get('adverts_list', [])
-
+            print(products)
             # Iterate over the products and extract relevant information
             ps = []
             for product in products:
@@ -381,7 +381,7 @@ class JijiIntegration(ScrapingIntegration):
                     dt,
                     tag="list"
                 )
-
+            print(len(ps))
             return ps
 
         else:
