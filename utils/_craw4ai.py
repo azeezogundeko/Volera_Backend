@@ -7,16 +7,49 @@ from crawl4ai.extraction_strategy import (
     JsonCssExtractionStrategy,
     CosineStrategy
 )
+import requests
+import socks
+import socket
+import asyncio
+
+class TorProxyConfig(BaseModel):
+    """Configuration for Tor proxy settings"""
+    host: str = "127.0.0.1"
+    port: int = 9050
+    enabled: bool = False
 
 class CrawlerManager:
     _instance = None
     _crawler = None
+    _tor_config: TorProxyConfig = TorProxyConfig()
     
     @classmethod
-    async def initialize(cls):
+    async def initialize(cls, use_tor: bool = False, tor_host: str = "127.0.0.1", tor_port: int = 9050):
         """Initialize the crawler instance if it doesn't exist"""
         if cls._crawler is None:
-            cls._crawler = AsyncWebCrawler(verbose=True)
+            # Configure Tor proxy if enabled
+            if use_tor:
+                cls._tor_config = TorProxyConfig(
+                    host=tor_host,
+                    port=tor_port,
+                    enabled=True
+                )
+                # Configure global socket to use SOCKS5 proxy
+                socks.set_default_proxy(socks.SOCKS5, tor_host, tor_port)
+                socket.socket = socks.socksocket
+                print("Tor proxy enabled")
+            
+            # Initialize crawler with proxy settings if Tor is enabled
+            proxy_settings = None
+            if cls._tor_config.enabled:
+
+                proxy_settings = f"socks5h://{cls._tor_config.host}:{cls._tor_config.port}"
+                print("Tor proxy settings: ", proxy_settings)
+            config = CrawlerRunConfig(proxy=proxy_settings)
+            cls._crawler = AsyncWebCrawler(
+                verbose=True,
+                config=config
+            )
             await cls._crawler.__aenter__()
     
     @classmethod
@@ -32,6 +65,54 @@ class CrawlerManager:
         if cls._crawler is not None:
             await cls._crawler.__aexit__(None, None, None)
             cls._crawler = None
+    
+    @classmethod
+    async def rotate_tor_ip(cls):
+        """Request a new Tor circuit to get a new IP address"""
+        if not cls._tor_config.enabled:
+            return False
+            
+        try:
+            # Create a new circuit
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((cls._tor_config.host, cls._tor_config.port))
+                s.send(b'AUTHENTICATE ""\r\n')
+                s.send(b'SIGNAL NEWNYM\r\n')
+                
+            # Wait a bit for the new circuit
+            await asyncio.sleep(5)
+            
+            # Verify IP change
+            proxy = f"socks5h://{cls._tor_config.host}:{cls._tor_config.port}"
+            response = requests.get(
+                "https://check.torproject.org/api/ip",
+                proxies={"http": proxy, "https": proxy}
+            )
+            return response.ok
+            
+        except Exception as e:
+            print(f"Failed to rotate Tor IP: {str(e)}")
+            return False
+    
+    @classmethod
+    async def get_current_ip(cls) -> Optional[str]:
+        """Get the current IP address being used"""
+        if not cls._tor_config.enabled:
+            try:
+                response = requests.get("https://api.ipify.org?format=json")
+                return response.json().get("ip")
+            except:
+                return None
+                
+        try:
+            proxy = f"socks5h://{cls._tor_config.host}:{cls._tor_config.port}"
+            response = requests.get(
+                "https://check.torproject.org/api/ip",
+                proxies={"http": proxy, "https": proxy}
+            )
+            return response.json().get("IP")
+        except:
+            return None
 
 class WebChatResponse(BaseModel):
     content: str

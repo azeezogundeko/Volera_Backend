@@ -1,4 +1,20 @@
 services:
+  tor_proxy:
+    image: dperson/torproxy
+    container_name: tor_proxy
+    expose:
+      - 9050
+    networks:
+      - dokploy-network
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9050"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   qdrant:
     image: qdrant/qdrant:latest
     restart: always
@@ -36,6 +52,9 @@ services:
       - 8000
     env_file:
       - .env
+    environment:
+      - TOR_PROXY_HOST=tor_proxy
+      - TOR_PROXY_PORT=9050
     volumes:
       - data:/app/data
       - ./logs:/app/logs
@@ -44,6 +63,7 @@ services:
       - redis
       - celery_worker
       - qdrant
+      - tor_proxy
     networks:
       - dokploy-network
     labels:
