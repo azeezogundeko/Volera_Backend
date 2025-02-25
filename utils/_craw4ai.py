@@ -344,14 +344,14 @@ async def extract_data_with_css(
     crawler.crawler_strategy.update_user_agent(custom_user_agent)
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
-    config = CrawlerRunConfig(magic=True, **kwargs)
+    # config = CrawlerRunConfig(magic=True, **kwargs)
     
     result = await crawler.arun(
         url=url,
         extraction_strategy=strategy,
         bypass_cache=bypass_cache,
         user_agent=USER_AGENT,
-        config=config
+        magic=True,
     )
     print(result)
     if not result.success:

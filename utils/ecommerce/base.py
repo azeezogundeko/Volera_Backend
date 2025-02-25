@@ -83,7 +83,7 @@ class ScrapingIntegration(EcommerceIntegration):
         products = await extract_data_with_css(
             url=url,
             schema=self.list_schema,
-            bypass_cache=kwargs.get('bypass_cache', False),
+            bypass_cache=kwargs.pop('bypass_cache', False),
             custom_headers=custom_headers,
             **kwargs
         )
@@ -94,7 +94,7 @@ class ScrapingIntegration(EcommerceIntegration):
         product = await extract_data_with_css(
             url=url,
             schema=self.detail_schema,
-            bypass_cache=kwargs.get('bypass_cache', False),
+            bypass_cache=kwargs.pop('bypass_cache', False),
             custom_headers=custom_headers,
             **kwargs
         )
