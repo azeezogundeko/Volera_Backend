@@ -51,6 +51,8 @@ DB_PATH = DB_DIR / "cache"
 URL_CACHE_DIR = Path("data/url_cache")
 URL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+USER_AGENT= str(os.getenv("USER_AGENT"))
+
 class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY") if PRODUCTION_MODE == "true" else os.getenv("APPWRITE_API_KEY_TEST")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))

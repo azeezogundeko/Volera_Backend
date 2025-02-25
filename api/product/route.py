@@ -173,7 +173,7 @@ async def get_product_detail(
         # except AppwriteException:
         try:
             product = await scraper.get_product_details(product_id)
-            print(product)
+            # print(product)
             await manager.db_manager.set(
                     key=product_id,
                     value=product,
@@ -183,7 +183,7 @@ async def get_product_detail(
             logger.error(str(e), exc_info=True)
             raise HTTPException(404, "Failed to Search")
 
-    print(product)
+    # print(product)
 
     return product
 

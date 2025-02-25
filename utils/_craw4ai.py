@@ -14,11 +14,10 @@ import asyncio
 import os
 # from fastembed import FastEmbed
 import logging
-from urllib.parse import urlparse
+from config import USER_AGENT
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from utils.logging import logger
+
 
 class TorProxyConfig(BaseModel):
     """Configuration for Tor proxy settings"""
@@ -342,7 +341,8 @@ async def extract_data_with_css(
     result = await crawler.arun(
         url=url,
         extraction_strategy=strategy,
-        bypass_cache=bypass_cache
+        bypass_cache=bypass_cache,
+        user_agent=USER_AGENT
     )
     if not result.success:
         return []
