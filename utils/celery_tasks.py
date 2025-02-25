@@ -200,6 +200,8 @@ def send_bulk_email(emails: List[str],
     Returns:
         Dict with status and task IDs
     """
+    link = "https://waitlist.volera.app/unsubscribe"
+    unsubscribe_links = [link+ '?email=' + email for email in emails]
     results = []
     chunk_size = min(RATE_LIMIT['burst_size'], RATE_LIMIT['emails_per_minute'])
     
@@ -208,7 +210,7 @@ def send_bulk_email(emails: List[str],
     name_chunks = [user_names[i:i + chunk_size] for i in range(0, len(user_names), chunk_size)]
     
     # Send emails in chunks with rate limiting
-    for i, (chunk, name_chunk) in enumerate(zip(email_chunks, name_chunks)):
+    for i, (chunk, name_chunk, unsubscribe_link) in enumerate(zip(email_chunks, name_chunks, unsubscribe_links)):
         # Add delay between chunks to respect rate limits
         if i > 0:
             time.sleep(60 / RATE_LIMIT['emails_per_minute'] * chunk_size)
@@ -218,7 +220,7 @@ def send_bulk_email(emails: List[str],
                 args=[
                     email,
                     subject,
-                    substitute_variables(html_content, {}, user_name),
+                    substitute_variables(html_content, {'unsubscribe_url': unsubscribe_link}, user_name),
                     from_name,
                     account_key
                 ],

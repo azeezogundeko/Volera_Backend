@@ -28,7 +28,7 @@ class EmailManager:
         subject: str, 
         content: str, 
         emails: List[str], 
-        usernames,
+        usernames: List[str],
         account_key: str
     ) -> Dict:
         """
@@ -51,7 +51,7 @@ class EmailManager:
                 user_names=usernames,
                 subject=subject,
                 html_content=content,
-                 account_key=account_key,
+                account_key=account_key,
                 priority='normal'
             )
 

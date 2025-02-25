@@ -25,7 +25,6 @@ from utils.limiter import Limiter
 
 from appwrite import query
 from fastapi import APIRouter, Body, HTTPException, Request, Query
-from fastapi.requests import Request
 
 router = APIRouter()
 # Send email using EmailManager
@@ -48,7 +47,7 @@ async def create_admin_user(requests: Request, payload: AdminUserIn):
         admin_email=payload.email,
         email_key=payload.email_key,
         is_editor=payload.editor,
-        admin_password = ...
+        admin_password = "your_secure_password"  # Provide a valid password or remove if not needed
     )
     await AdminUsers.create(
         user.email, 
@@ -423,6 +422,7 @@ async def send_users_email(
     request: Request,
     email_request: SendEmailRequest
 ):
+    print(email_request)
     try:
         batch_size = 50  # Process users in batches of 50
         offset = 0
@@ -433,7 +433,7 @@ async def send_users_email(
                 status_code=404,
                 detail="Template not found"
             )
-        html_content = generate_email_html(email_request, template),
+        html_content = generate_email_html(email_request, template)
 
         # Get users based on selection criteria
         if email_request.emails:
@@ -452,9 +452,10 @@ async def send_users_email(
 
             result = email_manager.send_bulk_email(
                 subject=email_request.subject,
-                content=BASE_TEMPLATE.format(email_request.content),
+                content=BASE_TEMPLATE.format(content=email_request.content),
                 emails=[user["email"] for user in all_users],
-                account_key=email_request.account_key
+                account_key=email_request.account_key,
+                usernames=[split_name(user["name"])[0] for user in all_users]
             )
         
             return {
@@ -474,8 +475,8 @@ async def send_users_email(
         if email_request.filters == 'waitlist':
             
             while True:
-                queries.append(query.limit(batch_size))
-                queries.append(query.offset(offset))
+                queries.append(query.Query.limit(batch_size))
+                queries.append(query.Query.offset(offset))
                 waitlist = await WaitList.list(queries)
 
                 if waitlist["total"] == 0:
@@ -492,8 +493,8 @@ async def send_users_email(
         elif email_request.filters == 'all':
             # Fetch users in batches
             while True:
-                queries.append(query.limit(batch_size))
-                queries.append(query.offset(offset))
+                queries.append(query.Query.limit(batch_size))
+                queries.append(query.Query.offset(offset))
                 batch = await get_all_users(queries)
                 users_batch = batch["users"]
                 
@@ -511,12 +512,17 @@ async def send_users_email(
                 usernames_set.add(split_name(user["name"])[0])
 
         else:
-            queries.append(query.equal("label", email_request.filters))
+            if email_request.filters == "active":
+                filters = ["subscribed"]
+            elif email_request.filters == "inactive":
+                filters = ["unsubscribed"]
+                
+            queries.append(query.equal("label", filters))
 
             # Fetch users in batches
             while True:
-                queries.append(query.limit(batch_size))
-                queries.append(query.offset(offset))
+                queries.append(query.Query.limit(batch_size))
+                queries.append(query.Query.offset(offset))
                 batch = await get_all_users(queries)
                 users_batch = batch["users"]
                 
