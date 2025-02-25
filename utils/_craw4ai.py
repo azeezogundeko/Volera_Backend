@@ -353,7 +353,7 @@ async def extract_data_with_css(
         user_agent=USER_AGENT,
         magic=True,
     )
-    print(result)
+    # print(result)
     if not result.success:
         return []
         

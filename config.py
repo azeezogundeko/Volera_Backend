@@ -13,12 +13,14 @@ if PRODUCTION_MODE == "true":
     APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
     APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID")
     PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY"))
+    REDIRECT_URI = str(os.getenv("REDIRECT_URI"))
 else:
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID_TEST")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID_TEST")
     APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT_TEST", "https://cloud.appwrite.io/v1")
     APPWRITE_DATABASE_ID: str = os.getenv("APPWRITE_DATABASE_ID_TEST")
     PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY_TEST"))
+    REDIRECT_URI = str(os.getenv("REDIRECT_URI_TEST"))
 
 # PRODUCTION_MODE='false'
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
@@ -27,6 +29,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")) * 24
 
 PORT = os.getenv("PORT")
 SEARCH_ENGINE_URL = str(os.getenv("SEARCH_ENGINE_URL"))
+
+GOOGLE_CLIENT_ID = str(os.getenv("GOOGLE_CLIENT_ID"))
+GOOGLE_CLIENT_SECRET = str(os.getenv("GOOGLE_CLIENT_SECRET"))
+REDIRECT_URI = str(os.getenv("REDIRECT_URI"))
 
 
 MESSAGE_COLLECTION_ID = "messages"

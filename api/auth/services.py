@@ -84,7 +84,8 @@ async def get_user_by_email(email: str):
         users: str | Any | bytes | None = await asyncio.to_thread(user_db.list, **kwgs)
         user = users["users"][0]
         return UserIn(**user)
-    except Exception:
+    except Exception as e:
+        print(e)
         return None
 
 async def get_user(email: str) -> Optional[UserIn]:
@@ -147,15 +148,30 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
     if user:
         raise HTTPException(status_code=400, detail="Email already exists")
 
-    hashed_password = get_password_hash(payload.password)
-    user_id=hash_email(payload.email)
-    p = dict(
-        user_id=user_id,
-        email=payload.email,
-        password=hashed_password,
-        name=payload.first_name + "_" + payload.last_name
-    )
-    response = await asyncio.to_thread(user_db.create_argon2_user, **p)
+    user_id = hash_email(payload.email)
+    
+    if payload.auth_type == "google":
+        # For Google OAuth users, we don't need a password
+        response = await asyncio.to_thread(
+            user_db.create, 
+            user_id, 
+            email=payload.email, 
+            name=payload.first_name + "_" + payload.last_name
+        )
+        await asyncio.to_thread(user_db.update_status, user_id, True)
+        await asyncio.to_thread(user_db.update_email_verification, user_id, True)
+        
+    else:
+        # For email users, we need to hash the password
+        hashed_password = get_password_hash(payload.password)
+        p = dict(
+            user_id=user_id,
+            email=payload.email,
+            password=hashed_password,
+            name=payload.first_name + "_" + payload.last_name
+        )
+        response = await asyncio.to_thread(user_db.create_argon2_user, **p)
+
     await asyncio.to_thread(user_db.update_labels, user_id, ["unsubscribed"])
     validation_code = generate_random_six_digit_number()
     await asyncio.to_thread(user_db.update_prefs, user_id, 
@@ -164,10 +180,11 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
             "theme": "black", 
             "notification": True, 
             "credits": 500,
-            "timezone": payload.timezone
-            })
+            "timezone": payload.timezone if hasattr(payload, 'timezone') else None
+        })
 
-    send_new_user_email(validation_code, p["email"])
+    if payload.auth_type != "google":
+        send_new_user_email(validation_code, payload.email)
 
     first_name, last_name = response["name"].rsplit("_", 1)
 
@@ -181,12 +198,12 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
         updated_at=response["$updatedAt"]
     )
     
-    access_token = create_access_token(data={"sub": p["email"]})
+    access_token = create_access_token(data={"sub": payload.email})
     await system_log("user")
     return  {
         "user": user,
         "token": {"access_token": access_token, "token_type": "bearer"}
-        }
+    }
 
 
 

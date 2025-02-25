@@ -41,14 +41,17 @@ class UserCreate(BaseModel):
     email: EmailStr
     first_name: str = Field(alias="firstName")
     last_name: str = Field(alias="lastName")
-    password: str
+    password: Optional[str] = None
     referral_code: Optional[str] = Field(alias="referralCode", default=None)
     timezone: Optional[str] = "UTC"
+    auth_type: Optional[Literal["email", "google"]] = "email"
     # country: str
 
     @field_validator('password')
-    def password_strength(cls, v: str):
+    def password_strength(cls, v: Optional[str]):
         # Ensure password is at least 8 characters long
+        if v is None:
+            return v
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')
         

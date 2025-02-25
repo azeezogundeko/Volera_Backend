@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from utils.request_session import http_client
 
 from db import user_db
 from . import services
@@ -7,19 +8,111 @@ from .model import UserPreferences, UserProfile
 from .email import send_forgot_password_email
 from .schema import UserIn, UserPublic, UserPreferenceSchemaOut
 from .schema_in import UserCreate, LoginSchema, ProfileSchema, Profile
-from config import APPWRITE_BUCKET_ID, APPWRITE_ENDPOINT
+from config import (
+    APPWRITE_BUCKET_ID, 
+    APPWRITE_ENDPOINT, 
+    GOOGLE_CLIENT_ID, 
+    GOOGLE_CLIENT_SECRET, 
+    REDIRECT_URI
+    )
 
 from utils.decorator import auth_required
 from utils.logging import logger
 
-# from appwrite import query
-from fastapi import Request
+from appwrite import query
+from fastapi import Request, Query
 from appwrite.client import AppwriteException
 from fastapi.background import BackgroundTasks
 from fastapi.exceptions import HTTPException
 from fastapi import Depends, HTTPException, APIRouter, UploadFile, File, Body
 
 router = APIRouter()
+
+
+@router.get("/google/callback")
+async def google_callback(request: Request, background_tasks: BackgroundTasks, code: str = Query()):
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing code parameter")
+
+    # Prepare the token exchange request
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+
+    # Exchange code for token
+    token_resp = await http_client.post(token_url, data=data)
+    token_json = token_resp.json()
+
+    if token_resp.status_code != 200:
+        raise HTTPException(status_code=token_resp.status_code, detail=token_json)
+
+    access_token = token_json.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="No access token received")
+    
+    # Get user info from Google
+    userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    userinfo_response = await http_client.get(userinfo_url, headers=headers)
+    userinfo = userinfo_response.json()
+
+    email = userinfo.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email provided in user info")
+    try:
+        existing_user = await asyncio.to_thread(user_db.list, queries=[query.Query.equal('email', email)])
+        existing_user = existing_user["users"][0]
+    except Exception:
+        existing_user = None
+
+    print(existing_user)
+    if existing_user is None:
+        # For new users, create account
+        given_name = userinfo.get("given_name", "")
+        family_name = userinfo.get("family_name", given_name)
+        user_response = await services.create_new_user(
+            UserCreate(
+                email=email,
+                firstName=given_name,
+                lastName=family_name,
+                password=None, 
+                auth_type="google"
+            ),
+            background_tasks
+        )
+        # Use the user data from the response
+        user_data = user_response["user"]
+        return {
+            "user": user_data,
+            "token": {"access_token": access_token, "token_type": "bearer"}
+        }
+    else:
+        # For existing users, format the response
+        is_pro = True if "subscribed" in existing_user["labels"] else False
+        first_name, last_name = existing_user["name"].rsplit("_", 1)
+        access_token = services.create_access_token(data={"sub": existing_user["email"]})
+        
+        user_data = {
+            "id": existing_user["$id"],
+            "email": existing_user["email"],
+            "first_name": first_name,
+            "last_name": last_name,
+            "name": f"{first_name}_{last_name}",
+            "created_at": existing_user["$createdAt"],
+            "updated_at": existing_user["$updatedAt"],
+            "is_pro": is_pro,
+            "profile_image": None,
+        }
+        
+        return {
+            "user": user_data,
+            "token": {"access_token": access_token, "token_type": "bearer"}
+        }
 
 
 @router.post("/register", response_model=UserPublic)

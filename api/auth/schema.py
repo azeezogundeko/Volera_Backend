@@ -35,22 +35,28 @@ class UserIn(BaseModel):
     created_at: datetime = Field(alias="$createdAt")
     updated_at: datetime = Field(alias="$updatedAt")
     name: str
-    hash: str
-    hashOptions: HashOptions
+    hash: Optional[str] = None
+    hashOptions: Optional[HashOptions] = None
     registration: datetime
-    status: bool
-    labels: List[str]
-    passwordUpdate: datetime
+    status: bool = True
+    labels: List[str] = []
+    passwordUpdate: Optional[str] = None
     phone: Optional[str] = ''
-    password: str
-    emailVerification: bool
-    phoneVerification: bool
-    mfa: bool
+    password: Optional[str] = None
+    emailVerification: bool = False
+    phoneVerification: bool = False
+    mfa: bool = False
     email: EmailStr
-    prefs: Dict[str, Any]
-    targets: List[Target]
+    prefs: Dict[str, Any] = Field(default_factory=dict)
+    targets: List[Target] = Field(default_factory=list)
     accessedAt: Optional[str] = ''
     timezone: Optional[str] = "UTC"
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 class UserOut(BaseModel):
     id: str
