@@ -118,7 +118,8 @@ async def list_products(
                 results = await reranker.rerank(query, cache_results)
                 if site != "all":
                     results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
-                return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
+                if len(results) != 0:
+                    return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
         except Exception as e:
             logger.error(e, exc_info=True)
 
@@ -142,7 +143,8 @@ async def list_products(
                 search=query,
                 page=page-1,
                 limit=limit,
-                sort=sort
+                sort=sort,
+                bypass_cache=bypass_cache
             ) for integration in direct_integrations
         ]
         direct_results = await asyncio.gather(*direct_tasks, return_exceptions=True)

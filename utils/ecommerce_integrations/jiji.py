@@ -168,7 +168,6 @@ class JijiIntegration(ScrapingIntegration):
                     "_ttp=-zXcmXBPhkOg3rO3zNSTiBVh3JW.tt.1; "
                     "_fbp=fb.1.1736621925765.413507541595222978; "
                     "MgidSensorNVis=4; "
-                    "MgidSensorHref=https://jiji.ng/surulere/computers-and-laptops/laptop-lenovo-ideapad-320-4gb-amd-hdd-320gb-3joBzxd0hOLPv2ZK6mVKxNRB.html?page=1&pos=1&cur_pos=1&ads_per_page=5&ads_count=5&lid=-GogCD5VA-s9N0Bi&indexPosition=0; "
                     "app=5b93eb2885894c78a20dd92a4b859b72; "
                     "rid=direct; "
                     "_js2=QaXImvAtIy-_Wmo2WB91SsJWQ2jXgBYjMiufoue9v64=; "
@@ -177,7 +176,6 @@ class JijiIntegration(ScrapingIntegration):
                     "__eoi=ID=ffb4911308f6f527:T=1736621922:RT=1740469986:S=AA-AfjbIiNiDouh-fyCU6sTnX5KL"
                 ),
                 "Origin": "https://jiji.ng",
-                "Referer": "https://jiji.ng/books-and-games",
                 "Sec-CH-UA": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
                 "Sec-CH-UA-Mobile": "?0",
                 "Sec-CH-UA-Platform": '"Windows"',

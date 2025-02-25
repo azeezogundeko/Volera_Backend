@@ -19,16 +19,27 @@ from fastapi.background import BackgroundTasks
 from fastapi.exceptions import HTTPException
 from fastapi import Depends, HTTPException, APIRouter, UploadFile, File, Body
 
-
-
 router = APIRouter()
 
 
 @router.post("/register", response_model=UserPublic)
 async def register_user(payload: UserCreate, background_tasks: BackgroundTasks):
-    return await services.create_new_user(payload, background_tasks)
+    try:
+        print(payload)
+        return await services.create_new_user(payload, background_tasks)
+    except Exception as e:
+        print(e)
+        logger.error(f'Error {str(e)}', exc_info=True)
+        raise HTTPException(status_code=400, detail="Internal server error")
 
 
+@router.post('/check-email')
+async def check_email_availablity(email: str = Body()):
+    user = await services.get_user_by_email(email)
+    if user is None:
+        return {"message": "success"}
+    
+    raise HTTPException(400, "Email already exists")
 
 @router.post("/verify_account")
 async def verify_account(

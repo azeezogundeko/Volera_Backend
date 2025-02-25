@@ -5,12 +5,21 @@ from .exceptions import PaymentRequiredError
 
 async def validation_exception_handler(request, exc):
     if isinstance(exc, RequestValidationError):
+        error_messages = []
+        for error in exc.errors():
+            error_dict = {
+                "loc": " -> ".join(str(loc) for loc in error.get("loc", [])),
+                "msg": error.get("msg", ""),
+                "type": error.get("type", "")
+            }
+            error_messages.append(error_dict)
+            
         return JSONResponse(
             status_code=422,
             content={
                 "status": "error",
                 "message": "Validation error",
-                "errors": exc.errors()
+                "errors": error_messages
             }
         )
     elif isinstance(exc, ValueError):
@@ -18,7 +27,7 @@ async def validation_exception_handler(request, exc):
             status_code=400,
             content={
                 "status": "error",
-                "message":"Bad Request"  # Convert ValueError to string
+                "message": str(exc)  # Convert ValueError to string
             }
         )
     return JSONResponse(

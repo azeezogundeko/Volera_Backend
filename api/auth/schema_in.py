@@ -42,6 +42,7 @@ class UserCreate(BaseModel):
     first_name: str = Field(alias="firstName")
     last_name: str = Field(alias="lastName")
     password: str
+    referral_code: Optional[str] = Field(alias="referralCode", default=None)
     timezone: Optional[str] = "UTC"
     # country: str
 
