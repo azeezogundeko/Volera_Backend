@@ -153,6 +153,40 @@ class JijiIntegration(ScrapingIntegration):
                 ]
             }
         )
+        
+        self.headers = {
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip, deflate, br, zstd",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Content-Type": "application/json",
+                "Cookie": (
+                    "first_visit=1736597052; "
+                    "uid=67825e3ca67cbb03a502b6c5096a9fae7ee2ffb8; "
+                    "lang=en; "
+                    "_gcl_au=1.1.973748373.1736621916; "
+                    "_tt_enable_cookie=1; "
+                    "_ttp=-zXcmXBPhkOg3rO3zNSTiBVh3JW.tt.1; "
+                    "_fbp=fb.1.1736621925765.413507541595222978; "
+                    "MgidSensorNVis=4; "
+                    "MgidSensorHref=https://jiji.ng/surulere/computers-and-laptops/laptop-lenovo-ideapad-320-4gb-amd-hdd-320gb-3joBzxd0hOLPv2ZK6mVKxNRB.html?page=1&pos=1&cur_pos=1&ads_per_page=5&ads_count=5&lid=-GogCD5VA-s9N0Bi&indexPosition=0; "
+                    "app=5b93eb2885894c78a20dd92a4b859b72; "
+                    "rid=direct; "
+                    "_js2=QaXImvAtIy-_Wmo2WB91SsJWQ2jXgBYjMiufoue9v64=; "
+                    "__gads=ID=574f7ddeec03016d:T=1736621922:RT=1740469986:S=ALNI_MZnEpefACiG8M-hTnkdkK9Z6xTBNQ; "
+                    "__gpi=UID=00000fc67cc1b313:T=1736621922:RT=1740469986:S=ALNI_MbMSTwLyc2zaGMQs2Q6vx_4WgARhg; "
+                    "__eoi=ID=ffb4911308f6f527:T=1736621922:RT=1740469986:S=AA-AfjbIiNiDouh-fyCU6sTnX5KL"
+                ),
+                "Origin": "https://jiji.ng",
+                "Referer": "https://jiji.ng/books-and-games",
+                "Sec-CH-UA": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+                "Sec-CH-UA-Mobile": "?0",
+                "Sec-CH-UA-Platform": '"Windows"',
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+                "X-CSRF-Token": "IjAzZmFkYzk0OWZiMDU4OGYzYTRmNDVjNDdjYjYzYTRmMmYxZjllOTci.Z7123g.eElGeADbZlV9U9JG9tRSNHjhchs"
+            }
         self.db_manager = db_manager
         
     
@@ -318,8 +352,8 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
-        
-        products = await super().get_product_list(url, **kwargs)
+ 
+        products = await super().get_product_list(url, custom_headers=self.headers, **kwargs)
         # page_timeout=60000
         # print(products)
 
@@ -327,7 +361,7 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
-        product = await super().get_product_detail(url, **kwargs)
+        product = await super().get_product_detail(url, custom_headers=self.headers, **kwargs)
         return await self._transform_product_detail(product, product_id) 
 
 

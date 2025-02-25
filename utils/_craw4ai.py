@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 import json
 from pydantic import BaseModel
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig
 from crawl4ai.extraction_strategy import (
     LLMExtractionStrategy,
     JsonCssExtractionStrategy,
@@ -88,10 +88,11 @@ class CrawlerManager:
                     os.environ['HTTP_PROXY'] = proxy_settings
                 
                 # Create crawler instance
+                config = BrowserConfig(headless=True)
                 cls._crawler = AsyncWebCrawler(
                     verbose=True,
                     proxy=proxy_settings,
-                    headless=False,
+                    config=config
                 )
                 await cls._crawler.__aenter__()
                 logger.info("Crawler initialized successfully")
@@ -320,6 +321,8 @@ async def extract_data_with_css(
     url: str,
     schema: dict,
     bypass_cache: bool = True,
+    custom_headers: dict = {},
+    custom_user_agent: str = USER_AGENT,
     **kwargs
 ) -> List[Dict[str, Any]]:
     """
@@ -337,6 +340,8 @@ async def extract_data_with_css(
         List of extracted data items matching the schema
     """
     crawler = await CrawlerManager.get_crawler()
+    crawler.crawler_strategy.set_custom_headers(custom_headers)
+    crawler.crawler_strategy.update_user_agent(custom_user_agent)
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
     config = CrawlerRunConfig(magic=True, **kwargs)
