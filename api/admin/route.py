@@ -555,8 +555,8 @@ async def send_users_email(
         result = email_manager.send_bulk_email(
             subject=email_request.subject,
             content=html_content,
-            emails=users_emails,
-            usernames=users_names,
+            emails=emails,
+            usernames=usernames,
             account_key=email_request.account_key
         )
 

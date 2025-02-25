@@ -6,7 +6,7 @@ load_dotenv()
 
 PRODUCTION_MODE = os.getenv("PRODUCTION_MODE")
 
-# PRODUCTION_MODE='true'
+PRODUCTION_MODE='false'
 if PRODUCTION_MODE == "true":
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
