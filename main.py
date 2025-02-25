@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
         await store.initialize()
         
         logger.info("Initializing web crawler...")
-        await CrawlerManager.initialize(use_tor=True if PRODUCTION_MODE == 'true' else False)
+        await CrawlerManager.initialize(use_tor=False)
         logger.info("Web crawler initialization completed.")
         stats = await db_cache.get_stats()
         logger.info(f"Initial cache stats: {stats}")

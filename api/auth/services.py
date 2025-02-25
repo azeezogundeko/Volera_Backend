@@ -84,7 +84,8 @@ async def get_user_by_email(email: str):
         users: str | Any | bytes | None = await asyncio.to_thread(user_db.list, **kwgs)
         user = users["users"][0]
         return UserIn(**user)
-    except Exception:
+    except Exception as e:
+        print(e)
         return None
 
 async def get_user(email: str) -> Optional[UserIn]:
