@@ -620,6 +620,61 @@ The Volera Team
     """)
 }
 
+BETA_LAUNCH_TEMPLATE = {
+    "id": "volera_beta_launch",
+    "name": "Volera Beta Launch",
+    "subject": "🚀 Early Access: Volera Beta Launch on March 1!",
+    "content": """
+
+        We're thrilled to announce that early access to the Volera Beta is launching on March 1 for our valued early adopters!
+
+        🔥 What's New in the Beta
+        ✅ Intelligent Product Discovery – Quickly find the best products tailored to your preferences.
+        ✅ Real-Time Price Comparison – Compare prices across multiple retailers to get the best deal.
+        ✅ Deal Tracking & Alerts – Get notified instantly when prices drop or new deals become available.
+        ✅ Multi-Platform Integration – Access a wide range of products and deals from various online platforms—all in one place.
+        ✅ User-Friendly Interface – Enjoy a seamless and intuitive browsing experience.
+        ✅ Personalized Recommendations – Get tailored suggestions based on your browsing and purchase history.
+
+        🎯 Quick Tips
+        Make the most of Volera Beta by watching our short tutorial videos to get started.
+        [Watch the Tutorials]
+
+        We appreciate your support! Your feedback will help shape the future of Volera.
+
+        Best regards,
+        The Volera Team
+
+        P.S. If you no longer wish to receive beta launch updates, you can [unsubscribe here].
+        """,
+        "html_content": BASE_TEMPLATE.format(content="""
+        <p>Hi {{name}},</p>
+
+        <p>We're thrilled to announce that early access to the Volera Beta is launching on March 1 for our valued early adopters!</p>
+
+        <h3>🔥 What's New in the Beta</h3>
+        <ul>
+            <li>✅ Intelligent Product Discovery – Quickly find the best products tailored to your preferences.</li>
+            <li>✅ Real-Time Price Comparison – Compare prices across multiple retailers to get the best deal.</li>
+            <li>✅ Deal Tracking & Alerts – Get notified instantly when prices drop or new deals become available.</li>
+            <li>✅ Multi-Platform Integration – Access a wide range of products and deals from various online platforms—all in one place.</li>
+            <li>✅ User-Friendly Interface – Enjoy a seamless and intuitive browsing experience.</li>
+            <li>✅ Personalized Recommendations – Get tailored suggestions based on your browsing and purchase history.</li>
+        </ul>
+
+        <h3>🎯 Quick Tips</h3>
+        <p>Make the most of Volera Beta by watching our short tutorial videos to get started.</p>
+        <p><a href="www.youtube.com/@volera1-v4i">Watch the Tutorials</a></p>
+
+        <p>We appreciate your support! Your feedback will help shape the future of Volera.</p>
+
+        <p>Best regards,<br>The Volera Team</p>
+
+        <p>P.S. If you no longer wish to receive beta launch updates, you can <a href="#">unsubscribe here</a>.</p>
+    """)
+
+}
+
 # Collection of all templates
 EMAIL_TEMPLATES = {
     "welcome_email": WELCOME_EMAIL,
@@ -629,7 +684,8 @@ EMAIL_TEMPLATES = {
     "support_reply": SUPPORT_REPLY,
     "newsletter": NEWSLETTER,
     "reengagement": REENGAGEMENT,
-    "custom_user_email": CUSTOM_USER_EMAIL
+    "custom_user_email": CUSTOM_USER_EMAIL,
+    "volera_beta_launch": BETA_LAUNCH_TEMPLATE
 }
 
 def get_email_template_by_id(template_id: str):
