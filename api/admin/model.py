@@ -19,7 +19,7 @@ class Contact(AppwriteModelBase):
     acknowledged: bool = AppwriteField(type="bool", default=False)
 
 class WaitList(AppwriteModelBase):
-    collection_id= "waitlist"
+    collection_id= "wish_list"
     email: str = AppwriteField()
     
 class AdminUsers(AppwriteModelBase):
