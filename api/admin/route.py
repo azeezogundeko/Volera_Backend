@@ -423,7 +423,7 @@ async def send_users_email(
     request: Request,
     email_request: SendEmailRequest
 ):
-    print(email_request)
+    # print(email_request)
     try:
         batch_size = 50  # Process users in batches of 50
         offset = 0
@@ -491,6 +491,9 @@ async def send_users_email(
                     emails_set.add(doc.email)
                     usernames_set.add(doc.email.split("@")[0])
 
+            print(emails_set)
+            print(usernames_set)
+
         elif email_request.filters == 'all':
             # Fetch users in batches
             while True:
@@ -544,7 +547,9 @@ async def send_users_email(
         usernames = list(usernames_set)
         emails = list(emails_set)
 
-        if not all_users:
+ 
+
+        if not usernames:
             raise HTTPException(
                 status_code=400,
                 detail="No users found matching the criteria"
