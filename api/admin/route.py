@@ -156,8 +156,8 @@ async def get_email_config() -> Dict:
     return safe_config
 
 
+# @admin_required
 @router.get("/email/templates", response_model=List[EmailTemplateResponse])
-@admin_required
 async def get_email_templates(request: Request, include_preview: bool = False):
     """
     Get all available email templates.
