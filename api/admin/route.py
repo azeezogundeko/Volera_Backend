@@ -452,7 +452,7 @@ async def send_users_email(
 
             result = email_manager.send_bulk_email(
                 subject=email_request.subject,
-                content=BASE_TEMPLATE.format(content=email_request.content),
+                content=html_content,
                 emails=[user["email"] for user in all_users],
                 account_key=email_request.account_key,
                 usernames=[split_name(user["name"])[0] for user in all_users]
