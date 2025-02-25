@@ -376,7 +376,7 @@ def admin_required(func=None):
                     detail="Authentication required."
                 )
             try:
-                admin = await AdminUsers.read(current_user.id)
+                await AdminUsers.read(current_user.id)
             except Exception as e:
                 print(e)
                 raise HTTPException(

@@ -300,7 +300,7 @@ async def get_dashboard_graphs():
 
 @admin_required
 @router.get("/users")
-async def get_all_users(
+async def get_all_user(
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     search: Optional[str] = Query(default=None),
