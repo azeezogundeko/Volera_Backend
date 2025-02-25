@@ -318,7 +318,9 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
+        
         products = await super().get_product_list(url, **kwargs)
+        # page_timeout=60000
         # print(products)
 
         return await self._transform_product_list(products)

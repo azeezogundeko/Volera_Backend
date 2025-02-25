@@ -90,7 +90,8 @@ class CrawlerManager:
                 # Create crawler instance
                 cls._crawler = AsyncWebCrawler(
                     verbose=True,
-                    proxy=proxy_settings
+                    proxy=proxy_settings,
+                    headless=False,
                 )
                 await cls._crawler.__aenter__()
                 logger.info("Crawler initialized successfully")
@@ -318,7 +319,8 @@ async def filter_webpage_content(
 async def extract_data_with_css(
     url: str,
     schema: dict,
-    bypass_cache: bool = True
+    bypass_cache: bool = True,
+    **kwargs
 ) -> List[Dict[str, Any]]:
     """
     Extract structured data from a webpage using CSS selectors.
@@ -337,13 +339,14 @@ async def extract_data_with_css(
     crawler = await CrawlerManager.get_crawler()
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
+    config = CrawlerRunConfig(magic=True, **kwargs)
     
     result = await crawler.arun(
         url=url,
         extraction_strategy=strategy,
         bypass_cache=bypass_cache,
         user_agent=USER_AGENT,
-        magic=True
+        config=config
     )
     print(result)
     if not result.success:
