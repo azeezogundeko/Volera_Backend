@@ -417,8 +417,8 @@ users_names = [
     "Volera Engr",
 ]
 
+# @admin_required
 @router.post("/email/bulk/send")
-@admin_required
 async def send_users_email(
     request: Request,
     email_request: SendEmailRequest
