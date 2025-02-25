@@ -9,7 +9,8 @@ from .services import (
     get_error_rate_data, 
     get_date_logs,
     calculate_error_rate,
-    generate_email_html
+    generate_email_html,
+    get_all_users
     )
 
 from .email_templates import EMAIL_TEMPLATES, BASE_TEMPLATE, get_email_template_by_id
