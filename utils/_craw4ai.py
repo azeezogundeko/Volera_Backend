@@ -337,13 +337,16 @@ async def extract_data_with_css(
     crawler = await CrawlerManager.get_crawler()
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
+    config = CrawlerRunConfig(magic=True)
     
     result = await crawler.arun(
         url=url,
         extraction_strategy=strategy,
         bypass_cache=bypass_cache,
-        user_agent=USER_AGENT
+        user_agent=USER_AGENT,
+        config=config
     )
+    print(result)
     if not result.success:
         return []
         
