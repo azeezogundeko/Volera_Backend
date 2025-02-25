@@ -624,8 +624,10 @@ BETA_LAUNCH_TEMPLATE = {
     "id": "volera_beta_launch",
     "name": "Volera Beta Launch",
     "subject": "🚀 Early Access: Volera Beta Launch on March 1!",
+    "description": "Announces the early access launch of the Volera Beta to users.",
     "content": """
-
+        >Hi {{name}},
+        
         We're thrilled to announce that early access to the Volera Beta is launching on March 1 for our valued early adopters!
 
         🔥 What's New in the Beta
@@ -647,7 +649,7 @@ BETA_LAUNCH_TEMPLATE = {
 
         P.S. If you no longer wish to receive beta launch updates, you can [unsubscribe here].
         """,
-        "html_content": BASE_TEMPLATE.format(content="""
+    "html_content": BASE_TEMPLATE.format(content="""
         <p>Hi {{name}},</p>
 
         <p>We're thrilled to announce that early access to the Volera Beta is launching on March 1 for our valued early adopters!</p>
@@ -672,7 +674,6 @@ BETA_LAUNCH_TEMPLATE = {
 
         <p>P.S. If you no longer wish to receive beta launch updates, you can <a href="#">unsubscribe here</a>.</p>
     """)
-
 }
 
 # Collection of all templates
