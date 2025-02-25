@@ -456,6 +456,8 @@ class JumiaIntegration(ScrapingIntegration):
                     "url": product["url"]
                 })
 
+                print(product['url'])
+
         return product_detail
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:

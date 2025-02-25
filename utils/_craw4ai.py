@@ -14,6 +14,7 @@ import asyncio
 import os
 # from fastembed import FastEmbed
 import logging
+from urllib.parse import urlparse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +25,7 @@ class TorProxyConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 9050
     enabled: bool = False
+    container_name: str = "tor_proxy"
 
 class CrawlerManager:
     _instance = None
@@ -31,43 +33,77 @@ class CrawlerManager:
     _tor_config: TorProxyConfig = TorProxyConfig()
     
     @classmethod
+    async def _test_proxy_connection(cls, host: str, port: int) -> bool:
+        """Test if proxy connection is available"""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(5)
+                result = sock.connect_ex((host, port))
+                return result == 0
+        except Exception as e:
+            logger.warning(f"Proxy connection test failed: {str(e)}")
+            return False
+
+    @classmethod
+    async def _get_docker_host(cls) -> str:
+        """Get the appropriate host for Docker environment"""
+        if os.environ.get('DOCKER_CONTAINER'):
+            # If running inside Docker, use the service name
+            return cls._tor_config.container_name
+        return cls._tor_config.host
+
+    @classmethod
     async def initialize(cls, use_tor: bool = False, tor_host: str = "127.0.0.1", tor_port: int = 9050):
         """Initialize the crawler instance if it doesn't exist"""
         if cls._crawler is None:
-            # Configure Tor proxy if enabled
-            if use_tor:
-                cls._tor_config = TorProxyConfig(
-                    host=tor_host,
-                    port=tor_port,
-                    enabled=True
+            try:
+                # Configure Tor proxy if enabled
+                if use_tor:
+                    # Determine the appropriate host
+                    actual_host = await cls._get_docker_host()
+                    
+                    cls._tor_config = TorProxyConfig(
+                        host=actual_host,
+                        port=tor_port,
+                        enabled=True
+                    )
+                    
+                    # Test proxy connection
+                    if not await cls._test_proxy_connection(tor_host, tor_port):
+                        logger.warning(f"Tor proxy not accessible at {tor_host}:{tor_port}. Falling back to direct connection.")
+                        cls._tor_config.enabled = False
+                    else:
+                        # Configure global socket to use SOCKS5 proxy
+                        socks.set_default_proxy(socks.SOCKS5, actual_host, tor_port)
+                        socket.socket = socks.socksocket
+                        logger.info(f"Tor proxy enabled at {actual_host}:{tor_port}")
+                
+                # Initialize crawler with proxy settings if Tor is enabled
+                proxy_settings = None
+                if cls._tor_config.enabled:
+                    proxy_settings = f"socks5h://{cls._tor_config.host}:{cls._tor_config.port}"
+                    logger.info(f"Using proxy settings: {proxy_settings}")
+                    
+                    # Set environment variables for requests
+                    os.environ['HTTPS_PROXY'] = proxy_settings
+                    os.environ['HTTP_PROXY'] = proxy_settings
+                
+                # Create crawler instance
+                cls._crawler = AsyncWebCrawler(
+                    verbose=True,
+                    proxy=proxy_settings
                 )
-                # Configure global socket to use SOCKS5 proxy
-                socks.set_default_proxy(socks.SOCKS5, tor_host, tor_port)
-                socket.socket = socks.socksocket
-                print("Tor proxy enabled")
-            
-            # Initialize crawler with proxy settings if Tor is enabled
-            proxy_settings = None
-            if cls._tor_config.enabled:
-                proxy_settings = f"socks5h://{cls._tor_config.host}:{cls._tor_config.port}"
-                print("Tor proxy settings: ", proxy_settings)
-            
-            # Create crawler with default config
-            # config = CrawlerRunConfig(
-            #     magic=True,
-            #     parser_type='html.parser',
-            #     only_text=False,
-            #     excluded_tags=[],
-            #     keep_data_attributes=True
-            # )
-            
-            cls._crawler = AsyncWebCrawler(
-                verbose=True,
-                # config=config,
-                proxy=proxy_settings  # Set proxy at crawler level
-            )
-            await cls._crawler.__aenter__()
-    
+                await cls._crawler.__aenter__()
+                logger.info("Crawler initialized successfully")
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize crawler: {str(e)}")
+                # Initialize without proxy as fallback
+                cls._tor_config.enabled = False
+                cls._crawler = AsyncWebCrawler(verbose=True)
+                await cls._crawler.__aenter__()
+                logger.info("Crawler initialized without proxy (fallback mode)")
+
     @classmethod
     async def get_crawler(cls) -> AsyncWebCrawler:
         """Get the singleton crawler instance"""

@@ -139,7 +139,7 @@ class VectorStore:
         from qdrant_client.http import models as rest
         import time
 
-        max_retries = 5
+        max_retries = 2
         retry_delay = 5  # seconds
         
         for attempt in range(max_retries):
@@ -420,7 +420,7 @@ class DiskCacheDB:
         Initialize the cache.
         Prevent reinitialization for the singleton instance.
         """
-        self.ttl = ttl  
+        self.ttl = 7*24*60*60  
         self.cache_dir=cache_dir
        
         # self.size_limit=size_limit

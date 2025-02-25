@@ -55,6 +55,7 @@ services:
     environment:
       - TOR_PROXY_HOST=tor_proxy
       - TOR_PROXY_PORT=9050
+      - DOCKER_CONTAINER=1
     volumes:
       - data:/app/data
       - ./logs:/app/logs

@@ -5,7 +5,7 @@ from pathlib import Path
 load_dotenv()
 
 PRODUCTION_MODE = os.getenv("PRODUCTION_MODE")
-print(PRODUCTION_MODE)
+
 # PRODUCTION_MODE='true'
 if PRODUCTION_MODE == "true":
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
