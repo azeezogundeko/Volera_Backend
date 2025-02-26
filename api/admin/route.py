@@ -211,7 +211,7 @@ async def preview_email_template(template: EmailTemplatePreview):
             content = content.replace(f"{{{{{var_name}}}}}", var_value)
         
         # Generate HTML
-        html = generate_html_email(content)
+        html = generate_email_html(content)
         
         return {
             "success": True,

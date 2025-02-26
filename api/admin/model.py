@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from db._appwrite.model_base import AppwriteModelBase
 from db._appwrite.fields import AppwriteField
 from typing import Dict, Optional, List
@@ -57,7 +59,7 @@ class AppLog(AppwriteModelBase):
 
 
     @classmethod
-    async def update_log(cls, type: "user" | "transaction", amount: float = None) -> None:
+    async def update_log(cls, type: Literal["user", "transaction"], amount: float = None) -> None:
         """
         Update daily usage for a given user at the provided timestamp.
         """
@@ -107,7 +109,7 @@ class DailyLog(AppwriteModelBase):
 
           
     @classmethod
-    async def update_log(cls, type: "user" | "error" | "transaction", amount: float = None) -> None:
+    async def update_log(cls, type: Literal["user", "error", "transaction"], amount: float = None) -> None:
         """
         Update daily usage for a given user at the provided timestamp.
         """
@@ -159,7 +161,7 @@ class MonthlyLog(AppwriteModelBase):
         return await super().get_or_create(document_id, {"month": document_id})
 
     @classmethod
-    async def update_log(cls, type: "user" | "error" | "transaction", amount: float = None) -> None:
+    async def update_log(cls, type: Literal["user", "error", "transaction"], amount: float = None) -> None:
         """
         Update monthly usage for a given user at the provided timestamp.
         """
