@@ -21,7 +21,7 @@ processing_semaphore = Semaphore(MAX_CONCURRENT)
 
 def determine_priority(user: UserIn, batch=False) -> int:
     """Business logic for request prioritization"""
-    if "premium" in user.labels:
+    if "subscribed" in user.labels:
         return 0  # Highest priority
 
     if batch is True:

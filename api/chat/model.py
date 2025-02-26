@@ -80,5 +80,6 @@ class Message(AppwriteModelBase):
     images: List[dict] = AppwriteField(required=False, type="array", default=[])
     type: Literal["product", "message", "image_search", "sources"] = AppwriteField(default="message", size=20)
     products: List[dict] = AppwriteField(required=False, type="array", default=[])
+    # product_ids: List[str] = AppwriteField(required=False, type="array", default=[])
     content_index = AppwriteField(type="index", index_type="fulltext", index_attr=["content"])
     id_index = AppwriteField(type="index", index_type="key", index_attr=["chat_id"])

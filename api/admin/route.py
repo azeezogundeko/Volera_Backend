@@ -1,5 +1,6 @@
 from asyncio import gather, to_thread
 
+import asyncio
 from typing import Dict, List, Optional
 
 from datetime import datetime
@@ -582,3 +583,44 @@ async def send_users_email(
             status_code=500,
             detail=f"Error queueing emails: {str(e)}"
         )
+
+@super_admin_required
+@router.post("/clear-cache")
+async def clear_all_caches():
+    """
+    Clear both VectorStore and DiskCacheDB caches.
+    This endpoint requires super admin privileges.
+    """
+    try:
+        # Initialize both caches
+        from db.cache.dict import VectorStore, DiskCacheDB
+        
+        vector_store = VectorStore()
+        disk_cache = DiskCacheDB()
+        
+        # Initialize both caches
+        await vector_store.initialize()
+        await disk_cache.initialize()
+        
+        # Clear VectorStore by deleting all keys
+        if vector_store.use_qdrant and vector_store.qdrant_client:
+            # Delete the entire collection for Qdrant
+            await asyncio.to_thread(
+                vector_store.qdrant_client.delete_collection,
+                collection_name=vector_store.collection_name
+            )
+            # Reinitialize to create a fresh collection
+            await vector_store._init_qdrant()
+        else:
+            # For FAISS, reinitialize the index
+            await vector_store._init_faiss()
+        
+        # Clear DiskCache
+        await disk_cache.clear()
+        
+        logger.info("Successfully cleared both VectorStore and DiskCacheDB caches")
+        return {"message": "Successfully cleared all caches"}
+        
+    except Exception as e:
+        logger.error(f"Error clearing caches: {str(e)}", exc_info=True)
+        raise HTTPException(500, f"Failed to clear caches: {str(e)}")

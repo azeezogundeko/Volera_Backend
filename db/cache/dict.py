@@ -355,12 +355,19 @@ class VectorStore:
         else:
             if not self.vectorstore:
                 await self._init_faiss()
+            
+            # Delete existing entry if it exists to avoid collision
+            try:
+                await self.delete([key])
+            except:
+                pass  # Ignore if key doesn't exist
+                
             await self.vectorstore.aadd_texts(
                 [query],
                 ids=[key],
                 metadatas=[dict(result=result, query=query)]
             )
-            logger.info(f"Added point {key} to FAISS with TTL of 1 hour.")
+            logger.info(f"Added/Updated point {key} in FAISS with TTL of 1 hour.")
 
     async def delete(self, keys: Optional[List[str]] = None, **kwargs: Any):
         """

@@ -1,69 +1,22 @@
-import diskcache as dc
-import secrets
-import string
+import zlib
+import base62  # Install with: pip install pybase62
 
+def shorten_url(url: str) -> str:
+    # Compress the URL and encode to Base62
+    compressed = zlib.compress(url.encode('utf-8'), level=9)
+    encoded = base62.encodebytes(compressed)
+    # Return first 20 characters (truncate if necessary)
+    return encoded
 
-class URLShortener:
-    def __init__(self, cache_dir='url_cache'):
-        self.cache = dc.Cache(cache_dir)
-        self.code_length = 6
-        self.expiration = 30 * 24 * 60 * 60  # 30 days in seconds
+def restore_url(short_id: str) -> str:
+    # Decode Base62 and decompress
+    compressed = base62.decodebytes(short_id)
+    original = zlib.decompress(compressed)
+    return original.decode('utf-8')
 
-    def shorten_url(self, url):
-        """
-        Shortens a URL by generating a unique short code and storing it in the cache.
-        
-        Args:
-            url (str): The original URL to shorten
-            
-        Returns:
-            str: The generated short code
-        """
-        while True:
-            short_code = self._generate_short_code()
-            # Use add() instead of set() to prevent race conditions
-            if self.cache.add(short_code, url, expire=self.expiration):
-                return short_code
+original_url = "https://www.example.com/some/long/path?query=param"
+short_id = shorten_url(original_url)  # e.g., "1a2b3c4d5e6f7g8h9i0j"
+restored_url = restore_url(short_id)  # Matches original_url
 
-    def enlarge_url(self, short_code):
-        """
-        Retrieves the original URL for a given short code.
-        
-        Args:
-            short_code (str): The short code to look up
-            
-        Returns:
-            str: Original URL if found and valid, None otherwise
-        """
-        return self.cache.get(short_code, default=None)
-
-    def _generate_short_code(self):
-        """
-        Generates a cryptographically secure random short code using base62 characters.
-        
-        Returns:
-            str: Generated short code
-        """
-        alphabet = string.ascii_letters + string.digits  # Base62 characters
-        return ''.join(secrets.choice(alphabet) for _ in range(self.code_length))
-
-    def close(self):
-        """
-        Closes the cache connection. Should be called when done with the shortener.
-        """
-        self.cache.close()
-
-
-# Example usage
-if __name__ == "__main__":
-    shortener = URLShortener()
-    
-    # Shorten a URL
-    short_code = shortener.shorten_url("369779069")
-    print(f"Short code: {short_code}")
-    
-    # Enlarge a URL
-    original_url = shortener.enlarge_url(short_code)
-    print(f"Original URL: {original_url}")
-    
-    shortener.close()
+print(short_id)
+print(restored_url)

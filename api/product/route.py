@@ -89,19 +89,24 @@ async def process_request(user: UserIn, request: Request, payload: SearchRequest
             image_data = await asyncio.gather(
                 *(image.read() for image in payload.images)
             )
-            description = await image_analysis(
+            reviewed_query = await image_analysis(
                 image_data,
                 get_product_prompt(query, IMAGE_DESCRIPTION_PROMPT)
             )
-            logger.info(f"Image analysis completed: {query[:50]}...")
-            query = f"USER QUERY: {query}\nIMAGE DESCRIPTIONS: {description}"
+            query = reviewed_query
+
+            
 
         # Query agent execution
-        response = await query_agent.run(query)
-        result = response.data
-        processed_query = result.reviewed_query
-        sort_params = result.sort
-        filter_params = result.filter.__dict__
+        # response = await query_agent.run(query)
+        # result = response.data
+        # processed_query = result.reviewed_query
+        # sort_params = result.sort
+        # filter_params = result.filter.__dict__
+
+        processed_query = query
+        sort_params = None
+        filter_params = None
 
         # Product listing
         ecommerce_manager = services.get_ecommerce_manager(request)
@@ -166,22 +171,22 @@ async def get_product_detail(
     )
     
     if product is None:
-        # try:
-        #     product = await Product.read(product_id)
-        #     product = product.to_dict()
-        #     product["product_id"] = product.pop("$id")
-        # except AppwriteException:
         try:
-            product = await scraper.get_product_details(product_id)
-            # print(product)
-            await manager.db_manager.set(
-                    key=product_id,
-                    value=product,
-                    tag="detail",
-                )
-        except Exception as e:
-            logger.error(str(e), exc_info=True)
-            raise HTTPException(404, "Failed to Search")
+            product = await Product.read(product_id)
+            product = product.to_dict()
+            product["product_id"] = product.pop("$id")
+        except AppwriteException:
+            try:
+                product = await scraper.get_product_details(product_id)
+                # print(product)
+                await manager.db_manager.set(
+                        key=product_id,
+                        value=product,
+                        tag="detail",
+                    )
+            except Exception as e:
+                logger.error(str(e), exc_info=True)
+                raise HTTPException(404, "Failed to Search")
 
     # print(product)
 

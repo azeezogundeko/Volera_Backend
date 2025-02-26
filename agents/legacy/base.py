@@ -101,7 +101,7 @@ class BaseAgent:
             filters 
             )
 
-    def get_message_data(self, chat_id: str, type: str,  sources=None, images=None, products=None, content=None):
+    def get_message_data(self, chat_id: str, type: str,  sources=None, images=None, products=None, content=None, original_products=None):
         return {
                 "role": "assistant",
                 "chat_id": chat_id,
@@ -109,7 +109,8 @@ class BaseAgent:
                 "products": products,
                 "sources": sources,
                 "type": type,
-                "content": content
+                "content": content,
+                "original_products": original_products
             }
 
     async def send_signals(
@@ -167,7 +168,9 @@ class BaseAgent:
              content=content, 
              sources=source_data, 
              images=image_data, 
-             products=product_data
+             products=product_data,
+             original_products=products
+            #  product_ids=[product['product_id'] for product in products]
         )
         state["message_data"] = message_data
 

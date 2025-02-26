@@ -96,7 +96,7 @@ async def create_new_chat(
         )  
    
     except Exception as e:
-        logger.error(f"Error creating new chat: {e}", exc_info=True)
+        # logger.error(f"Error creating new chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Could not create chat: {str(e)}")
 
 

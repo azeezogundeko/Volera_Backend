@@ -1,6 +1,7 @@
 import io
 import asyncio
 import base64
+import json
 # import httpx
 from typing import List
 import google.generativeai as genai
@@ -26,7 +27,21 @@ async def image_analysis(images: List[bytes], prompt):
         contents.append({'mime_type':'image/jpeg', 'data': base64.b64encode(image).decode('utf-8')})
 
     response = await asyncio.to_thread(model.generate_content, [*contents, prompt])
-    return response.text
+    try:
+        # Parse the JSON response
+        json_response = json.loads(response.text)
+        # Return just the search query string
+        return json_response.get("search_query", "")
+    except json.JSONDecodeError:
+        # If JSON parsing fails, try to extract query from the raw text
+        text = response.text.strip()
+        if '"search_query":' in text:
+            # Try to extract the query value if the response is malformed JSON
+            query_start = text.find('"search_query":') + len('"search_query":')
+            query_end = text.find('"', query_start + 2)
+            if query_end > query_start:
+                return text[query_start:query_end].strip(' "')
+        return text  # Return raw text as fallback
 
 # async def analyze_image(image: bytes, prompt, is_url=False):
 #     client = Groq(api_key=groq_api_key)
@@ -121,24 +136,34 @@ def get_product_prompt(user_query, prompt):
     
 IMAGE_DESCRIPTION_PROMPT = """
 
-You are an expert image analyst specializing in providing detailed descriptions of images to enhance users' understanding and shopping experiences. Your task is to analyze the provided image alongside the user's query to generate a comprehensive description that captures the essence of the image and offers relevant insights.
+You are an expert image analyst specializing in converting visual content into optimized search queries. Your task is to analyze the provided image alongside the user's query to generate a precise, search-engine-friendly query that will help find similar or relevant products.
 
 INPUT FORMAT
-Image: The image you want to describe.
+Image: The image you want to analyze.
 
-User Query: The user's query related to the image.
+User Query: The user's initial query related to the image.
 
 OUTPUT FORMAT
-Description: A detailed description of the image that is relevant to the user's query.
+A JSON object containing a refined search query:
 {{
-"description": "..."
+"search_query": "..."
 }}
+
+GUIDELINES FOR QUERY GENERATION:
+- Focus on key product features, brands, and specifications visible in the image
+- Include relevant color, style, and design elements
+- Use common product category terms
+- Keep the query concise but descriptive (4-8 words)
+- Avoid unnecessary words like "buy", "shop", "get"
+- Use standard product terminology
 
 EXAMPLES
 Image: a photo of a wristwatch encoded in base64 format
 
 User Query: "I want to buy a smartwatch"
 
-Description: "This is a sleek black smartwatch with a rectangular touchscreen display, featuring a silver bezel and a sporty black strap. It appears to have various health monitoring features and is suitable for fitness enthusiasts looking for a versatile smartwatch."
+Output: {{
+"search_query": "black rectangular touchscreen smartwatch fitness tracker"
+}}
 
 """
