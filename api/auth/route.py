@@ -87,6 +87,7 @@ async def google_callback(request: Request, background_tasks: BackgroundTasks, c
         )
         # Use the user data from the response
         user_data = user_response["user"]
+        access_token = user_response["token"]["access_token"]
         return {
             "user": user_data,
             "token": {"access_token": access_token, "token_type": "bearer"}
