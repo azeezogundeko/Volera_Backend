@@ -4,9 +4,9 @@ from utils.request_session import http_client
 
 from db import user_db
 from . import services
-from .model import UserPreferences, UserProfile
+from .model import UserPreferences, UserProfile, Referral
 from .email import send_forgot_password_email
-from .schema import UserIn, UserPublic, UserPreferenceSchemaOut
+from .schema import UserIn, UserPublic, UserPreferenceSchemaOut, ReferralSchemaOut
 from .schema_in import UserCreate, LoginSchema, ProfileSchema, Profile
 from config import (
     APPWRITE_BUCKET_ID, 
@@ -27,6 +27,43 @@ from fastapi.exceptions import HTTPException
 from fastapi import Depends, HTTPException, APIRouter, UploadFile, File, Body
 
 router = APIRouter()
+
+
+@router.get("/referral", response_model=ReferralSchemaOut)
+@auth_required
+async def get_referral(request: Request, limit: int = Query(default=10)):
+    user = request.state.user
+    referred_users = []
+    try:
+        referral = await Referral.get_referral_by_user_id(user.id)
+        if referral is None:
+            # Create new referral and await it
+            referral = await services.create_referral_code(user.id)
+
+        # query_ = [query.Query.equal("referred_by", user.id)]
+        # referred_users_ = await Referral.list(query_, limit=limit)
+        # referred_users = []
+        # if referred_users_["total"] > 0:
+        #     user_ref_id = [user.user_id for user in referred_users_["documents"]]
+        #     tasks = []
+        #     for user_id in user_ref_id:
+        #         tasks.append(services.get_user_by_id(user_id))
+        #     users = await asyncio.gather(*tasks)
+        #     referred_users = [{"id": user.id, "name": user.name, "email": user.email} for user in users]
+
+        return {
+            # "message": "Referral details retrieved successfully",
+            # "error": None,
+            "id": referral.id,
+            "referral_code": referral.referral_code,
+            "referral_count": referral.referral_count,
+            "referral_limit": referral.referral_limit,
+            "referred_users": referred_users,
+            "referral_status": referral.referral_status
+        }
+    except Exception as e:
+        logger.error(f'Error {str(e)}', exc_info=True)
+        raise HTTPException(status_code=400, detail="Internal server error")
 
 
 @router.get("/google/callback")

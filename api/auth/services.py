@@ -11,6 +11,7 @@ from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from .schema import UserIn, TokenData, UserOut
 from .schema_in import ProfileSchema, UserCreate
 from api.admin.services import system_log
+from .model import Referral
 
 from utils.emails import send_new_user_email
 from utils.logging import logger
@@ -186,6 +187,12 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
     if payload.auth_type != "google":
         send_new_user_email(validation_code, payload.email)
 
+    await create_referral_code(user_id)
+
+    if payload.referral_code:
+        await Referral.refer_user(user_id, payload.referral_code)
+
+
     first_name, last_name = response["name"].rsplit("_", 1)
 
     user = dict(
@@ -261,3 +268,27 @@ async def create_user_profile(
             "profile": user_profile.to_dict(),
             "preference": user_preferences.to_dict()
         }
+
+
+async def create_referral_code(user_id: str):
+    """
+    Create a new referral code for a user.
+    Returns the created referral object.
+    """
+    try:
+        # Generate a unique referral code
+        code = f"REF{user_id[:6]}{generate_random_six_digit_number()}"
+        
+        # Create and return the referral
+        referral = await Referral.create_referral(user_id, code)
+        return referral
+        
+    except Exception as e:
+        logger.error(f"Error creating referral code: {str(e)}")
+        raise HTTPException(500, "Failed to create referral code")
+
+
+
+
+    
+

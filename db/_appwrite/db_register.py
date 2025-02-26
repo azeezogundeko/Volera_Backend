@@ -3,7 +3,7 @@ from .model_base import AppwriteModelBase #, CollectionMetadata
 from api.track.model import TrackedItem, PriceHistory
 from api.chat.model import Chat, Message, File, SavedChat, MessageImage
 from api.product.model import Product, WishList
-from api.auth.model import UserProfile, UserPreferences
+from api.auth.model import UserProfile, UserPreferences, Referral
 from api.admin.model import Contact
 from api.admin.model import DailyLog, MonthlyLog, AppLog, AdminUsers
 # from agents.legacy.llm import LLMCall
@@ -35,7 +35,7 @@ AppwriteModelBase.register_model(DailyLog)
 AppwriteModelBase.register_model(MonthlyLog)
 AppwriteModelBase.register_model(AppLog)
 AppwriteModelBase.register_model(AdminUsers)
-
+AppwriteModelBase.register_model(Referral)
 
 async def prepare_database():
     await AppwriteModelBase.create_all_collections()

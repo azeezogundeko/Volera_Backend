@@ -1,4 +1,4 @@
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict, Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 from pydantic import EmailStr
@@ -111,3 +111,12 @@ class UserPublic(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+class ReferralSchemaOut(BaseModel):
+    id: str 
+    referral_code: str
+    referral_count: int
+    referral_limit: int
+    referred_users: List[Dict[str, Any]]
+    referral_status: Literal["active", "inactive"]

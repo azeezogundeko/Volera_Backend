@@ -329,13 +329,17 @@ class AppwriteModelBase:
                             key=field["key"],
                             size=field.get("size", 16384),  # Default size for arrays
                             required=field.get("required", False),
-                            array=True)
+                            array=True,
+                            default=field.get("default", [])
+                            )
 
                     elif field.get("type") == "datetime":
                         await cls.client.create_datetime_attribute(
                             collection_id=cls.collection_id,
                             key=field["key"],
-                            required=field.get("required", False))
+                            required=field.get("required", False),
+                            default=field.get("default", None)
+                            )
 
                     elif field.get("type") == "float":
                         await cls.client.create_float_attribute(
