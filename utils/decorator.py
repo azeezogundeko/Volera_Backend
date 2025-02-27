@@ -240,12 +240,13 @@ class AsyncCache:
 
 
 def credit_required(amount: int):
-    from api.auth.credit_manager import check_credits, track_credits as track_llm_call
+    from api.auth.credit_manager import check_credits
+    from api.auth.model import UserCredits
     from .exceptions import PaymentRequiredError
 
     """
     Decorator that checks and deducts credits before processing the request.
-    Refunds credits if the operation fails.
+    Only deducts credits after successful operation.
     """
     def decorator(func: Callable[..., Coroutine[Any, Any, Any]]):
         @wraps(func)
@@ -262,18 +263,28 @@ def credit_required(amount: int):
                     detail="Authentication required."
                 )
     
-            # 1. Check available credits
+            # Check available credits upfront
             has_credit, credits = await check_credits(current_user.id, "amount", amount)
             if has_credit is False:
                 raise PaymentRequiredError(f"Insufficient credits. Required: {amount}, Available: {credits}")
 
-            # 2. Execute the endpoint logic
-            result = await func(request, *args, **kwargs)
+            try:
+                # Execute the endpoint logic
+                result = await func(request, *args, **kwargs)
 
-            # 3. Final commit if everything succeeds
-            await track_llm_call(current_user.id, type="amount", amount=amount)
-
-            return result
+                # Deduct credits only after successful execution
+                await UserCredits.update_balance(
+                    current_user.id,
+                    -amount,
+                    transaction_type=f"api_endpoint_{func.__name__}"
+                )
+                
+                return result
+                
+            except Exception as e:
+                logger.error(f"Error in endpoint {func.__name__} for user {current_user.id}: {e}")
+                raise  # Re-raise the exception after logging
+                
         return wrapper
     return decorator
 

@@ -208,57 +208,81 @@ async def scrape_multiple_products(tracked_items):
     Delegates each tracked item to individual Celery tasks with retry mechanism.
     """
     from api.product.model import Product
+    from api.auth.model import UserCredits
 
     failed_items = []
     batch_start = time.time()
     processed = 0
     
+    # Group items by user to check credits once per user
+    user_items = {}
     for item in tracked_items:
+        if item.user_id not in user_items:
+            user_items[item.user_id] = []
+        user_items[item.user_id].append(item)
+    
+    for user_id, items in user_items.items():
         try:
-            user_id = item.user_id
-            has_credits, _ = await check_credits(user_id, type='amount', amount=TRACK_CREDITS)
+            # Check credits for all items at once
+            total_credits_needed = len(items) * TRACK_CREDITS
+            has_credits, _ = await check_credits(user_id, type='amount', amount=total_credits_needed)
+            
             if not has_credits:
-                logger.warning(f"User {user_id} has insufficient credits. Skipping.")
+                logger.warning(f"User {user_id} has insufficient credits for {len(items)} items. Skipping.")
                 continue
-            try:
-                product = await Product.read(item.product_id)
-            except Exception as e:
-                logger.error(f"Product {item.product_id} not found: {e}")
-                continue
-
-            if not product.url: 
-                logger.warning(f"Tracked item {item.id} has no URL. Skipping.")
-                continue
-
-            # Schedule individual Celery task for each tracked item
-            task = scrape_single_product.apply_async(
-                args=(
-                    product.url, 
-                    product.id,
-                    product.source, 
-                    item.user_id, 
-                    item.id,
-                    product.name if hasattr(product, 'name') else 'Unknown Product',
-                    item.target_price
-                ),
-                expires=3600  # Task expires after 1 hour
-            )
+                
+            successful_items = []
             
-            processed += 1
-            
-            # Track failed tasks
-            if task.status == states.FAILURE:
-                failed_items.append(item.id)
-                logger.error(f"Initial scheduling failed for tracked item {item.id}")
-            else:
-                await track_llm_call(user_id, type='amount', amount=TRACK_CREDITS)
+            # Process each item
+            for item in items:
+                try:
+                    product = await Product.read(item.product_id)
+                    if not product or not product.url:
+                        logger.warning(f"Product {item.product_id} not found or has no URL. Skipping.")
+                        continue
+
+                    # Schedule Celery task
+                    task = scrape_single_product.apply_async(
+                        args=(
+                            product.url, 
+                            product.id,
+                            product.source, 
+                            item.user_id, 
+                            item.id,
+                            product.name if hasattr(product, 'name') else 'Unknown Product',
+                            item.target_price
+                        ),
+                        expires=3600
+                    )
+                    
+                    if task.status == states.FAILURE:
+                        failed_items.append(item.id)
+                        logger.error(f"Initial scheduling failed for tracked item {item.id}")
+                    else:
+                        successful_items.append(item)
+                        processed += 1
+
+                except Exception as e:
+                    logger.error(f"Error processing tracked item {item.id}: {e}")
+                    failed_items.append(item.id)
+                    
+            # Deduct credits only for successful items
+            if successful_items:
+                credits_to_deduct = len(successful_items) * TRACK_CREDITS
+                await UserCredits.update_balance(
+                    user_id, 
+                    -credits_to_deduct,
+                    transaction_type="price_tracking_batch"
+                )
+                logger.info(f"Deducted {credits_to_deduct} credits for user {user_id} for {len(successful_items)} successful items")
 
         except Exception as e:
-            logger.error(f"Error processing tracked item {item.id}: {e}")
-            failed_items.append(item.id)
+            logger.error(f"Error processing items for user {user_id}: {e}")
+            failed_items.extend(item.id for item in items)
     
     batch_duration = time.time() - batch_start
     if failed_items:
         logger.warning(f"Failed to process {len(failed_items)} tracked items: {failed_items}")
     
-    logger.info(f"Processed {processed} items in {batch_duration:.2f} seconds") 
+    logger.info(f"Processed {processed} items in {batch_duration:.2f} seconds")
+    return processed 

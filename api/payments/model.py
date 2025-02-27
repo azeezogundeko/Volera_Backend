@@ -45,7 +45,7 @@ class DailyUsage(AppwriteModelBase):
     total_credits_used: int = AppwriteField(type="int", default=0)
 
     @classmethod
-    async def update_usage(cls, user_id: str, credits_used: int,timestamp: datetime = datetime.now(), user_timezone: str = 'UTC') -> None:
+    async def update_usage(cls, user_id: str, credits_used: int, timestamp: datetime = datetime.now(), user_timezone: str = 'UTC') -> None:
         """
         Update daily usage for a given user at the provided timestamp.
         

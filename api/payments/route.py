@@ -178,7 +178,7 @@ async def get_billing_data(
     else:
         plan_name = plan["documents"][0].plan.upper()
 
-    current_credits = credits.balance
+    # current_credits = credits.balance
         
     return {
         "currentPlan": plan_name + " Plan",

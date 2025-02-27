@@ -19,6 +19,7 @@ from ..tools.general import (
 from pydantic_ai import Agent
 from pydantic import Field, BaseModel
 from utils.websocket import websocket_manager
+from utils.logging import logger
 
 class Specification(BaseModel):
     label: str 
@@ -71,55 +72,56 @@ agent = Agent(
         ]
 )
 
-async def product_agent(websocker_id,user_id, query, products, message_history): 
-    # message_history = []
+async def product_agent(websocker_id, user_id, query, products, message_history): 
+    from api.auth.model import UserCredits
+    
     user_preferences = await get_user_preferences(user_id)
     query = f"USER_PREFERENCES: {user_preferences} \n USER QUESTION: {query} \n PRODUCTS IN QUESTION: {products}"
-    # while True:
-    
 
-    has_credits, credits =  await check_credits(user_id, "text")
+    # Check credits upfront
+    has_credits, credits = await check_credits(user_id, "text", amount=20)
     if has_credits is False:
         await websocket_manager.send_json(websocker_id,
-    
         data={
             "type": "ERROR", 
             "message": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊",
-            # "response": "Oops! It looks like you've run out of credits. Please purchase more credits to continue using my assistance. 😊"
         })
-        
         return message_history
 
+    try:
+        # Run agent
+        response = await agent.run(query, message_history=message_history)
+        message_history = message_history + response.new_messages()
 
-    response = await agent.run(query, message_history=message_history)
+        # Deduct credits only after successful agent run
+        await UserCredits.update_balance(
+            user_id, 
+            -20,
+            transaction_type="product_agent_query"
+        )
 
-    message_history = message_history + response.new_messages()
-    await track_llm_call(user_id, type= 'amount', amount=20)
+        # Process and send results
+        result = preprocess_results(response.data, products)
+        await websocket_manager.send_json(websocker_id,
+        {
+            "type": "AGENT_RESPONSE",
+            "action": result["action"],
+            "data": {
+                "searchResults": result["searchResults"],
+                "filters": result["filters"],
+                "aiResponse": result["response"]
+            }
+        })
+        return message_history
 
-    result = preprocess_results(response.data, products)
-    await websocket_manager.send_json(websocker_id,
-    {
-        "type": "AGENT_RESPONSE",
-        "action": result["action"],
-        "data": {
-            "searchResults":  result["searchResults"],
-            "filters": result["filters"],
-            "aiResponse": result["response"]
-        }}
-    )
-    return message_history
-    # websocket = websocket_manager.get_websocket(websocker_id)
-
-    # response = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
-    # if response is None:
-    #     break
-    # type = response["type"]
-    # if type != "AGENT_REQUEST":
-    #     break
-    # data = response["data"]
-    # query = data["message"]
-    # query = f"USER_ID: {user_id} \n USER QUESTION: {query}"
-        # products = data["currentProducts"]
+    except Exception as e:
+        logger.error(f"Error in product agent for user {user_id}: {e}")
+        await websocket_manager.send_json(websocker_id,
+        {
+            "type": "ERROR",
+            "message": "An error occurred while processing your request. Please try again."
+        })
+        return message_history
 
 def preprocess_results(product: ResponseSchema, products: List[Dict[str, Any]]):
     r = {}
