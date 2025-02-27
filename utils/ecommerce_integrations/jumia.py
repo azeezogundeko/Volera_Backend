@@ -337,7 +337,15 @@ class JumiaIntegration(ScrapingIntegration):
         """Transform scraped product list to standard format."""
         transformed = []
         for product in products:
-            url = f"{self.base_url}{product.get('url', '')}"
+            # Handle both relative and absolute URLs
+            product_url = product.get('url', '')
+            if product_url.startswith('http'):
+                url = product_url
+            else:
+                # Remove leading slash if present to avoid double slashes
+                product_url = product_url.lstrip('/')
+                url = f"{self.base_url}/{product_url}"
+
             product_id = self.generate_url_id(url)
             item = {
                 "product_id": product_id,
@@ -359,7 +367,6 @@ class JumiaIntegration(ScrapingIntegration):
                 key=product_id,
                 value=item,
                 tag="list",
-
             )
         return transformed
 
@@ -394,8 +401,9 @@ class JumiaIntegration(ScrapingIntegration):
             
         return {}
 
-    async def _transform_product_detail(self, product: List[Dict[str, Any]] | Dict[str, Any], product_id) -> Dict[str, Any]:
+    async def _transform_product_detail(self, product: List[Dict[str, Any]] | Dict[str, Any], product_id, url) -> Dict[str, Any]:
         """Transform scraped product detail to standard format."""
+        print(url)
         # Validate and normalize structure first
         product = self._validate_product_structure(product)
         if not product:
@@ -412,7 +420,7 @@ class JumiaIntegration(ScrapingIntegration):
             "name": basic_info.get("name", ""),
             "brand": basic_info.get("brand", ""),
             "product_id": product_id,
-            "url": f"{self.base_url}{product.get('url', '')}",
+            "url": url,
             "category": product.get("category", "") if product.get("category") else self.extract_category(basic_info.get("name", "")),
             "brand": product.get("brand", "") if product.get("brand") else self.extract_brands(basic_info.get("name", "")),
             "description": "",  # Not directly available in schema
@@ -449,14 +457,14 @@ class JumiaIntegration(ScrapingIntegration):
                 for review in product_reviews.get("reviews", [])
             ]
         }
-        if self.db_manager:
-            product = await self.db_manager.get(product_id, tag="list")
-            if product:
-                product_detail.update({
-                    "url": product["url"]
-                })
+        # if self.db_manager:
+        #     product = await self.db_manager.get(product_id, tag="list")
+        #     if product:
+        #         product_detail.update({
+        #             "url": product["url"]
+        #         })
 
-                print(product['url'])
+        #         print(product['url'])
 
         return product_detail
 
@@ -470,7 +478,7 @@ class JumiaIntegration(ScrapingIntegration):
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail by scraping."""
         product = await super().get_product_detail(url, **kwargs)
-        return await self._transform_product_detail(product, product_id) 
+        return await self._transform_product_detail(product, product_id, url) 
 
 
     async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:

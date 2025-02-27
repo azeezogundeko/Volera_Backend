@@ -118,25 +118,34 @@ async def list_products(
                 results = await reranker.rerank(query, cache_results)
                 if site != "all":
                     results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
-                if len(results) != 0:
+                if len(results) > 0:  # Only return cached results if we found matches
                     return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
+                else:
+                    logger.info(f"Cache hit but no matching results for query: {query}. Fetching fresh results.")
         except Exception as e:
             logger.error(e, exc_info=True)
 
     # Get fresh results using the shared utility function
+    logger.info(f"Fetching fresh results for query: {query}")
     results = await search_and_process_products(
         ecommerce_manager,
         query=query,
         max_results=max_results,
-        site=site
+        site=site,
+        limit=limit,
+        bypass_cache=bypass_cache
     )
 
     if results:
         try:
             await ecommerce_manager.store.add(product_id, query, results)
+            logger.info(f"Cached {len(results)} new results for query: {query}")
         except Exception as e:
-            logger.error(e, exc_info=True)
+            logger.error(f"Error caching results: {e}", exc_info=True)
+            
         return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
+    else:
+        logger.info(f"No results found for query: {query}")
 
     return []
 

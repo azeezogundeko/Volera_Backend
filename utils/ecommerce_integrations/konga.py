@@ -213,6 +213,8 @@ class KongaIntegration(GraphQLIntegration):
                         else:
                             print(f"Error response from Algolia API: {data}")
 
+                    
+
             except Exception as e:
                 logger.error(f"Exception during Algolia API request: {str(e)}", exc_info=True)
 

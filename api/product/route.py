@@ -89,24 +89,19 @@ async def process_request(user: UserIn, request: Request, payload: SearchRequest
             image_data = await asyncio.gather(
                 *(image.read() for image in payload.images)
             )
-            reviewed_query = await image_analysis(
+            description = await image_analysis(
                 image_data,
                 get_product_prompt(query, IMAGE_DESCRIPTION_PROMPT)
             )
-            query = reviewed_query
-
-            
+            logger.info(f"Image analysis completed: {query[:50]}...")
+            query = f"USER QUERY: {query}\nIMAGE DESCRIPTIONS: {description}"
 
         # Query agent execution
-        # response = await query_agent.run(query)
-        # result = response.data
-        # processed_query = result.reviewed_query
-        # sort_params = result.sort
-        # filter_params = result.filter.__dict__
-
-        processed_query = query
-        sort_params = None
-        filter_params = None
+        response = await query_agent.run(query)
+        result = response.data
+        processed_query = result.reviewed_query
+        sort_params = result.sort
+        filter_params = result.filter.__dict__
 
         # Product listing
         ecommerce_manager = services.get_ecommerce_manager(request)
@@ -132,7 +127,7 @@ async def process_request(user: UserIn, request: Request, payload: SearchRequest
     except Exception as e:
         logger.error(f"Processing failure: {str(e)}", exc_info=True)
         raise
-
+    
 
 async def queue_worker(priority_level: int):
     """Process queued requests with priority handling"""
