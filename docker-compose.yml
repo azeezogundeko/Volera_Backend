@@ -100,6 +100,12 @@ services:
     volumes:
       - redis_data:/data
       - ./redis.conf:/usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   celery_worker:
     build: .
@@ -112,8 +118,13 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - C_FORCE_ROOT=true
+      - CELERY_BROKER_CONNECTION_RETRY=true
+      - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=true
+      - CELERY_BROKER_CONNECTION_MAX_RETRIES=10
+      - CELERY_BROKER_CONNECTION_TIMEOUT=30
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - dokploy-network
     healthcheck:
@@ -121,6 +132,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   celery_beat:
     build: .
@@ -133,8 +145,13 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - C_FORCE_ROOT=true
+      - CELERY_BROKER_CONNECTION_RETRY=true
+      - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=true
+      - CELERY_BROKER_CONNECTION_MAX_RETRIES=10
+      - CELERY_BROKER_CONNECTION_TIMEOUT=30
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - dokploy-network
 
