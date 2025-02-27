@@ -338,13 +338,14 @@ class JumiaIntegration(ScrapingIntegration):
         transformed = []
         for product in products:
             # Handle both relative and absolute URLs
-            product_url = product.get('url', '')
-            if product_url.startswith('http'):
-                url = product_url
-            else:
-                # Remove leading slash if present to avoid double slashes
-                product_url = product_url.lstrip('/')
-                url = f"{self.base_url}/{product_url}"
+            url = product.get('url', '')
+            print(url)
+            # if product_url.startswith('http'):
+            #     url = product_url
+            # else:
+            #     # Remove leading slash if present to avoid double slashes
+            #     product_url = product_url.lstrip('/')
+            #     url = f"{self.base_url}/{product_url}"
 
             product_id = self.generate_url_id(url)
             item = {
