@@ -63,6 +63,7 @@ def scrape_single_product(self, url, product_id, source, user_id, track_id, prod
     """
     Celery task to scrape a single product with retry mechanism.
     Will retry up to 3 times with 5 minutes delay between attempts.
+    Updates last_checked timestamp after successful scraping.
     """
     from api.track.model import PriceHistory, TrackedItem
     from api.product.model import Product
@@ -80,10 +81,14 @@ def scrape_single_product(self, url, product_id, source, user_id, track_id, prod
             if price is None or price <= 0:
                 raise ValueError(f"Invalid price {price} for product {product_id}")
 
-            # Update tracked item with current price
+            current_time = datetime.now(timezone.utc)
+
+            # Update tracked item with current price and last checked timestamp
             loop.run_until_complete(
                 TrackedItem.update(track_id, data={
-                    "current_price": price
+                    "current_price": price,
+                    "last_checked": current_time.isoformat(),
+                    "last_error": None  # Clear any previous errors
                 })
             )
             
@@ -93,7 +98,7 @@ def scrape_single_product(self, url, product_id, source, user_id, track_id, prod
                     document_id=Product.get_unique_id(),
                     data={
                         "price": price,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": current_time.isoformat(),
                         "tracked_id": track_id,
                         "user_id": user_id,
                     },
@@ -115,25 +120,25 @@ def scrape_single_product(self, url, product_id, source, user_id, track_id, prod
     except Exception as e:
         logger.error(f"Error scraping {url} for product {product_id}: {e}")
         try:
+            # Update tracked item to indicate error
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            current_time = datetime.now(timezone.utc)
+            loop.run_until_complete(
+                TrackedItem.update(track_id, data={
+                    "last_error": str(e),
+                    "last_checked": current_time.isoformat()
+                })
+            )
+            loop.close()
+            
             # Exponential backoff for retries
             retry_delay = self.default_retry_delay * (2 ** self.request.retries)
             raise self.retry(exc=e, countdown=retry_delay)
+            
         except MaxRetriesExceededError:
             # After all retries are exhausted, schedule for next run
             logger.error(f"Max retries exceeded for product {product_id}. Will try again in next scheduled run.")
-            # Update tracked item to indicate failure
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(
-                    TrackedItem.update(track_id, data={
-                        "last_error": str(e),
-                        "last_checked": datetime.now(timezone.utc).isoformat()
-                    })
-                )
-                loop.close()
-            except Exception as update_error:
-                logger.error(f"Failed to update tracked item status: {update_error}")
             return {"status": "failed", "error": str(e)}
 
 @with_scraping_rate_limit
@@ -206,17 +211,31 @@ async def scrape_multiple_products(tracked_items):
     """
     Handles the scraping of multiple products concurrently.
     Delegates each tracked item to individual Celery tasks with retry mechanism.
+    Ensures each product is only tracked once per day.
     """
     from api.product.model import Product
+    from api.track.model import TrackedItem
     from api.auth.model import UserCredits
+    from datetime import datetime, timedelta
 
     failed_items = []
     batch_start = time.time()
     processed = 0
     
+    # Get current date in UTC
+    current_time = datetime.now(timezone.utc)
+    today = current_time.date()
+    
     # Group items by user to check credits once per user
     user_items = {}
     for item in tracked_items:
+        # Skip if already checked today
+        if hasattr(item, 'last_checked') and item.last_checked:
+            last_checked = datetime.fromisoformat(item.last_checked.replace('Z', '+00:00'))
+            if last_checked.date() == today:
+                logger.info(f"Skipping item {item.id} - already checked today at {last_checked}")
+                continue
+                
         if item.user_id not in user_items:
             user_items[item.user_id] = []
         user_items[item.user_id].append(item)
@@ -240,6 +259,11 @@ async def scrape_multiple_products(tracked_items):
                     if not product or not product.url:
                         logger.warning(f"Product {item.product_id} not found or has no URL. Skipping.")
                         continue
+
+                    # Update last_checked timestamp before scheduling task
+                    await TrackedItem.update(item.id, {
+                        "last_checked": current_time.isoformat()
+                    })
 
                     # Schedule Celery task
                     task = scrape_single_product.apply_async(
