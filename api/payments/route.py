@@ -109,7 +109,11 @@ async def verify_payment(
         
         try:
             # Update credits atomically using the new UserCredits model
-            new_balance, success = await UserCredits.update_balance(user.id, pplan["credits"])
+            new_balance, success = await UserCredits.update_balance(
+                user.id, 
+                pplan["credits"],
+                transaction_type=f"payment_{plan_name}"
+            )
             
             if not success:
                 logger.error(f"Failed to update credits for user {user.id} after 3 retries")

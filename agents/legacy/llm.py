@@ -42,38 +42,41 @@ class LLMCall(AppwriteModelBase):
 #     return True, credits.balance - cost
 
 
-# async def track_llm_call(user_id: str, type: str, amount=None, tokens: dict = None) -> None:
-#     """
-#     Tracks an LLM call, logs usage details, and deducts user credits.
+# async def track_llm_call(user_id: str, type: str, amount: int, tokens: int):
+#     """Track LLM call and deduct credits"""
+#     try:
+#         cost_map = {
+#             "text": 1,
+#             "image": 5
+#         }
+        
+#         # Deduct credits atomically
+#         cost = cost_map[type] * tokens
+#         new_balance, success = await UserCredits.update_balance(
+#             user_id, 
+#             -cost,
+#             f"llm_usage_{type}"  # Transaction type for LLM usage
+#         )
+        
+#         if not success:
+#             logger.error(f"Failed to deduct {cost} credits for user {user_id}")
+#             return False
 
-#     :param user_id: The ID of the user making the request.
-#     :param type: The type of request ("text" or "image").
-#     :param amount: Optional specific amount to deduct.
-#     :param tokens: A dictionary containing token usage details.
-#     """
-#     cost_map = {"text": 5, "image": 10, "amount": amount}
-#     cost = cost_map.get(type)
+# #     data = {
+# #         "user_id": user_id,
+# #         "input_tokens": tokens.get("input_tokens", 0),
+# #         "output_tokens": tokens.get("output_tokens", 0),
+# #         "total_tokens": tokens.get("total_tokens", 0),
+# #         "cost": cost,
+# #     }
 
-#     if cost is None:
-#         raise ValueError("Invalid type. Must be 'text' or 'image'.")
+#         logger.info(f"Deducted {cost} credits for {type} LLM call. New balance: {new_balance}")
+#         return True
 
-#     tokens = tokens or {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-
-#     data = {
-#         "user_id": user_id,
-#         "input_tokens": tokens.get("input_tokens", 0),
-#         "output_tokens": tokens.get("output_tokens", 0),
-#         "total_tokens": tokens.get("total_tokens", 0),
-#         "cost": cost,
-#     }
-
-#     # Deduct credits atomically
-#     new_balance, success = await UserCredits.update_balance(user_id, -cost)
-#     if not success:
-#         raise ValueError("Insufficient credits")
-
-#     await DailyUsage.update_usage(user_id, cost)
+#     except Exception as e:
+#         logger.error(f"Error tracking LLM call: {str(e)}")
+#         return False
 
 
-#     # await asyncio.gather(*tasks)
-#     logger.info(f"LLM call tracked for user {user_id}: cost {cost}, new balance {new_balance}")
+# #     # await asyncio.gather(*tasks)
+# #     logger.info(f"LLM call tracked for user {user_id}: cost {cost}, new balance {new_balance}")

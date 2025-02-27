@@ -30,7 +30,7 @@ async def track_credits(user_id: str, type: str, amount=None, tokens: dict = Non
         raise ValueError("Invalid type. Must be 'text' or 'image'.")
 
     # Deduct credits atomically
-    new_balance, success = await UserCredits.update_balance(user_id, -cost)
+    new_balance, success = await UserCredits.update_balance(user_id, -cost, f"llm_usage_{type}")
     if not success:
         raise ValueError("Insufficient credits")
 
