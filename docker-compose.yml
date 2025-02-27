@@ -99,6 +99,10 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    sysctls:
+      - vm.overcommit_memory=1
+    ulimits:
+      memlock: -1
 
   celery_worker:
     build: .

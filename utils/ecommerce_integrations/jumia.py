@@ -339,7 +339,7 @@ class JumiaIntegration(ScrapingIntegration):
         for product in products:
             # Handle both relative and absolute URLs
             url = product.get('url', '')
-            print(url)
+            # print(url)
             # if product_url.startswith('http'):
             #     url = product_url
             # else:
