@@ -5,6 +5,8 @@ from celery.exceptions import MaxRetriesExceededError
 from functools import wraps
 import time
 
+from agents.legacy.llm import check_credits, track_llm_call
+
 from utils.scrape import TrackerWebScraper
 from utils.logging import logger
 from utils.celery_tasks import celery_app
@@ -14,6 +16,7 @@ from appwrite.query import Query
 
 tracker = TrackerWebScraper()
 semaphore = asyncio.Semaphore(10)  # Limit concurrent scraping
+TRACK_CREDITS = 10
 
 def with_scraping_rate_limit(func):
     """Decorator to implement rate limiting for scraping"""
@@ -179,6 +182,7 @@ async def scrape_products():
         tracked_items = response["documents"]
         if not tracked_items:
             break
+
             
         logger.info(f"Processing batch of {len(tracked_items)} tracked items (offset: {offset})")
         await scrape_multiple_products(tracked_items)
@@ -211,6 +215,11 @@ async def scrape_multiple_products(tracked_items):
     
     for item in tracked_items:
         try:
+            user_id = item.user_id
+            has_credits, _ = await check_credits(user_id, type='amount', amount=TRACK_CREDITS)
+            if not has_credits:
+                logger.warning(f"User {user_id} has insufficient credits. Skipping.")
+                continue
             try:
                 product = await Product.read(item.product_id)
             except Exception as e:
@@ -241,6 +250,8 @@ async def scrape_multiple_products(tracked_items):
             if task.status == states.FAILURE:
                 failed_items.append(item.id)
                 logger.error(f"Initial scheduling failed for tracked item {item.id}")
+            else:
+                await track_llm_call(user_id, type='amount', amount=TRACK_CREDITS)
 
         except Exception as e:
             logger.error(f"Error processing tracked item {item.id}: {e}")

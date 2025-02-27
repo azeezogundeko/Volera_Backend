@@ -59,6 +59,7 @@ class MultiSearchTool:
                 
                 results = []
                 for result in data.get('results', []):
+                    print(result)
                     if isinstance(result, dict):
                         result = {
                             'title': result.get('title', ''),

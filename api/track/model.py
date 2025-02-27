@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from db._appwrite.fields import AppwriteField
 from db._appwrite.model_base import AppwriteModelBase
@@ -45,6 +45,8 @@ class TrackedItem(AppwriteModelBase):
     price_change: bool = AppwriteField(type="bool", default=False)
     alert_sent: bool = AppwriteField(required=False, type="bool", default=False)
     index = AppwriteField(type="index", index_type="key", index_attr=["user_id", "product_id"])
+    last_error: str = AppwriteField(type="string", required=False, default="")
+    last_checked: datetime = AppwriteField(type="datetime", required=False, default=datetime.now(timezone.utc).isoformat())
  
     
     @classmethod

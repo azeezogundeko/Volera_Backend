@@ -6,6 +6,7 @@ from api.auth.model import UserPreferences
 from api.track.model import TrackedItem
 from db.cache.dict import DiskCacheDB
 from utils.ecommerce_manager import EcommerceManager
+from utils.product_utils import search_and_process_products
 from config import DB_PATH
 
 from api.track.scrape import scraper
@@ -21,12 +22,10 @@ async def search_product_list(user_id: str, optimized_query: str, n_results: int
     Search for products and return a list of results.
     """
     ecommerce_manager = get_ecommerce_manager()
-    products = await list_products(
+    products = await search_and_process_products(
         ecommerce_manager,
-        user_id="666666666666666666666666",
         query=optimized_query,
-        max_results=3,
-        limit=n_results
+        max_results=n_results
     )
     return products
 

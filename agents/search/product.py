@@ -1,4 +1,4 @@
-import asyncio
+# import asyncio
 from typing import List, Dict, Any
 
 from schema import GeminiDependencies
@@ -7,12 +7,14 @@ from .prompts import product_agent_prompt
 from ..legacy.llm import check_credits, track_llm_call
 from ..tools.search import search_tool
 from ..tools.general import (
-    track_product_price,
-    get_product_specifications,
+    # track_product_price,
+    # get_product_specifications,
     get_user_preferences,
-    save_product_to_waishlist,
-    search_product_list
+    # save_product_to_waishlist,
+    search_product_list,
+    # get_ecommerce_manager
 )
+# from utils.product_utils import search_and_process_products
 
 from pydantic_ai import Agent
 from pydantic import Field, BaseModel
