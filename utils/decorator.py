@@ -240,7 +240,7 @@ class AsyncCache:
 
 
 def credit_required(amount: int):
-    from agents.legacy.base import check_credits, track_llm_call
+    from api.auth.credit_manager import check_credits, track_credits as track_llm_call
     from .exceptions import PaymentRequiredError
 
     """

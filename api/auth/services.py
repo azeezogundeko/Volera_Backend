@@ -10,8 +10,9 @@ from .model import UserProfile, UserPreferences
 from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from .schema import UserIn, TokenData, UserOut
 from .schema_in import ProfileSchema, UserCreate
+
 from api.admin.services import system_log
-from .model import Referral
+from .model import Referral, UserCredits
 
 from utils.emails import send_new_user_email
 from utils.logging import logger
@@ -179,10 +180,10 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
         {
             "validation_code": validation_code, 
             "theme": "black", 
-            "notification": True, 
-            "credits": 500,
+            "notification": True,
             "timezone": payload.timezone if hasattr(payload, 'timezone') else None
         })
+    await UserCredits.get_or_create(user_id)
 
     if payload.auth_type != "google":
         send_new_user_email(validation_code, payload.email)

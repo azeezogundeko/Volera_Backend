@@ -1,10 +1,12 @@
 import asyncio
+from datetime import datetime
 
 from .model import Subscription, SubscriptionLog, DailyUsage
 from .schema import PaymentData
-from .services import send_payment_acknowledgement, record_credit_transaction
+from .services import send_payment_acknowledgement
 from config import PAYSTACK_SECRET_KEY
 from api.auth.schema import UserIn
+from api.auth.model import UserCredits
 from db import user_db
 from utils.logging import logger
 from api.admin.services import system_log
@@ -89,37 +91,48 @@ async def verify_payment(
         channel = data["channel"]
 
         plan_name = plan_name.lstrip().split()[0]
-
         pplan = Plan.get_plan(plan_name)
 
         if pplan['price'] != naira_amount:
-            await SubscriptionLog.create(user.id, {"error": "User paid incorrect amount for plan {plan_name}. Expected {pplan['price']}"})
+            await SubscriptionLog.create(user.id, {"error": f"User paid incorrect amount for plan {plan_name}. Expected {pplan['price']}"})
             raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, detail=f"User paid incorrect amount for plan {plan_name}. Expected {pplan['price']}")
 
         # Save to database
         data = dict(
-                amount=naira_amount,
-                currency=currency,
-                channel=channel,
-                user_id = user.id,
-                plan=plan_name,
-                transaction_id = transaction_id
-            )
-        prefs = user_db.get_prefs(user.id)
-        current_credits = prefs.get("credits", 0)
-        new_credits = int(current_credits) + pplan["credits"]
-        tasks = [
-            asyncio.to_thread(user_db.update_prefs, user.id, {"credits": new_credits}),
-            asyncio.to_thread(user_db.update_labels, user.id, ["subscribed"]),
-            Subscription.create(Subscription.get_unique_id(), data),
-            system_log("transaction", amount=naira_amount)
-        ]
+            amount=naira_amount,
+            currency=currency,
+            channel=channel,
+            user_id = user.id,
+            plan=plan_name,
+            transaction_id = transaction_id
+        )
+        
+        try:
+            # Update credits atomically using the new UserCredits model
+            new_balance, success = await UserCredits.update_balance(user.id, pplan["credits"])
+            
+            if not success:
+                logger.error(f"Failed to update credits for user {user.id} after 3 retries")
+                raise HTTPException(500, detail="Failed to update credits")
+                        
+            # Update labels and create subscription
+            await asyncio.to_thread(user_db.update_labels, user.id, ["subscribed"])
+            await Subscription.create(Subscription.get_unique_id(), data)
+            
+            
+            # Log the transaction
+            await system_log("transaction", amount=naira_amount)
+            
+            # Send acknowledgement email
+            user_first_name = user.name.split("_")[0]
+            send_payment_acknowledgement(user_first_name, user.email, transaction_id, naira_amount, pplan["credits"], channel)
 
-        await asyncio.gather(*tasks)
-        user_first_name = user.name.split("_")[0]
-        send_payment_acknowledgement(user_first_name, user.email, transaction_id, naira_amount, pplan["credits"], channel, b)
-
-        return {"status": True, "data": data}
+            return {"status": True, "data": data}
+            
+        except Exception as e:
+            logger.error(f"Payment processing error for user {user.id}: {str(e)}", exc_info=True)
+            await SubscriptionLog.create(user.id, {"error": f"Payment processing error: {str(e)}"})
+            raise HTTPException(500, detail="Error processing payment")
 
     else:
         await SubscriptionLog.create(user.id, {"error": "Payment was unsuccessful"})
@@ -134,7 +147,7 @@ async def get_billing_data(
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     
-    prefs = user_db.get_prefs(user.id)
+    credits = await UserCredits.get_or_create(user.id)
     credit_usage = await DailyUsage.list(
         queries=[
             query.Query.equal("user_id", user.id),
@@ -145,7 +158,7 @@ async def get_billing_data(
     credit_usage = credit_usage["documents"][:30]
 
     if credit_usage:
-        total_usage = sum(du.total_credits for du in credit_usage)
+        total_usage = sum(du.total_credits_used for du in credit_usage)
 
     plan = await Subscription.list(
         queries=[
@@ -161,18 +174,17 @@ async def get_billing_data(
     else:
         plan_name = plan["documents"][0].plan.upper()
 
-    current_credits = prefs.get("credits", 0)
-    total_usage = -total_usage
+    current_credits = credits.balance
         
     return {
         "currentPlan": plan_name + " Plan",
         "usedCredits": total_usage, 
-        "totalCredits": int(total_usage) + int(current_credits),
-        "remainingCredits": current_credits,
+        "totalCredits": credits.balance,
+        "remainingCredits": credits.balance - total_usage,
         "creditHistory": [
             {
                 "date": du.created_at,
-                "credits": -du.total_credits
+                "credits": du.total_credits_used
             }
             for du in credit_usage
         ]        

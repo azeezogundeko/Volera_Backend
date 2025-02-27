@@ -42,10 +42,10 @@ class DailyUsage(AppwriteModelBase):
     # Define model attributes (for schema and local validation if needed)
     user_id: str = AppwriteField()
     day: str = AppwriteField() # store as YYYY-MM-DD string
-    total_credits: int = AppwriteField(type="int", default=0)
+    total_credits_used: int = AppwriteField(type="int", default=0)
 
     @classmethod
-    async def update_usage(cls, user_id: str, timestamp: datetime, delta: int, user_timezone: str) -> None:
+    async def update_usage(cls, user_id: str, credits_used: int,timestamp: datetime = datetime.now(), user_timezone: str = 'UTC') -> None:
         """
         Update daily usage for a given user at the provided timestamp.
         
@@ -68,14 +68,14 @@ class DailyUsage(AppwriteModelBase):
         try:
             # Try to read the existing document.
             daily_doc = await cls.read(document_id)
-            new_total = daily_doc.total_credits + delta
-            await cls.update(document_id, {"total_credits": new_total})
+            new_total = daily_doc.total_credits_used + credits_used
+            await cls.update(document_id, {"total_credits_used": new_total})
         except AppwriteException:
             # Document does not exist; create a new one.
             data = {
                 "user_id": user_id,
                 "day": day_str,
-                "total_credits": delta
+                "total_credits_used": credits_used
             }
             await cls.create(document_id, data)
 

@@ -1,5 +1,6 @@
 from typing import Literal, List
 from asyncio import to_thread
+from datetime import datetime
 
 from appwrite.client import AppwriteException
 from db._appwrite.model_base import AppwriteModelBase
@@ -194,3 +195,90 @@ class Referral(AppwriteModelBase):
         if referral["total"] == 0:
             return None
         return referral["documents"][0]
+
+class UserCredits(AppwriteModelBase):
+    collection_id = "user_credits"
+    
+    # user_id: str = AppwriteField(size=255)
+    balance: int = AppwriteField(type="int", default=0)
+    version: int = AppwriteField(type="int", default=1)  # For optimistic locking
+
+    @classmethod
+    async def get_or_create(cls, user_id: str) -> "UserCredits":
+        """Get or create a user's credit record."""
+        try:
+            try:
+                credits = await cls.read(user_id)
+            except AppwriteException:
+                credits = await cls.create(user_id, {
+                    "balance": 500,
+                    "version": 1
+                })
+            # Create new record if none exists
+            return credits
+        
+        except Exception as e:
+            logger.error(f"Error in get_or_create credits for user {user_id}: {str(e)}")
+            raise
+
+    @classmethod
+    async def update_balance(cls, user_id: str, delta: int) -> tuple[int, bool]:
+        """
+        Update user's credit balance atomically using optimistic locking.
+        
+        Args:
+            user_id: The user's ID
+            delta: Amount to add (positive) or subtract (negative)
+            
+        Returns:
+            tuple[new_balance, success]
+        """
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # Get current credit record
+                credit_record = await cls.get_or_create(user_id)
+                current_version = credit_record.version
+                current_balance = credit_record.balance
+                
+                # Calculate new values
+                new_balance = current_balance + delta
+                new_version = current_version + 1
+                
+                if new_balance < 0:
+                    return current_balance, False
+                
+                # Try to update with version check
+                try:
+                    await cls.update(user_id, {
+                        "balance": new_balance,
+                        "version": new_version
+                    })
+                    
+                    # Update was successful
+                    return new_balance, True
+                    
+                except AppwriteException:
+                    logger.error(f"Version mismatch for user {user_id}")
+                    # Version mismatch, retry
+                    retry_count += 1
+                    continue
+                    
+            except Exception as e:
+                logger.error(f"Error updating credits for user {user_id}: {str(e)}")
+                raise
+        
+        # Max retries reached
+        return current_balance, False
+
+    @classmethod
+    async def get_balance(cls, user_id: str) -> int:
+        """Get current credit balance for a user."""
+        try:
+            credit_record = await cls.get_or_create(user_id)
+            return credit_record.balance
+        except Exception as e:
+            logger.error(f"Error getting credit balance for user {user_id}: {str(e)}")
+            raise
