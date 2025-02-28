@@ -54,10 +54,11 @@ def schedule_price_tracking():
 
 @celery_app.task(
     name='price_tracking.scrape_single_product',
-    bind=True, 
-    max_retries=3, 
+    bind=True,
+    max_retries=3,
     default_retry_delay=300,
-    rate_limit='60/m'  # Limit to 60 tasks per minute
+    rate_limit='60/m',
+    queue='price_tracking'
 )
 def scrape_single_product(self, url, product_id, source, user_id, track_id, product_name, target_price):
     """

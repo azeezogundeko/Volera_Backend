@@ -85,6 +85,7 @@ class ScrapingIntegration(EcommerceIntegration):
             schema=self.list_schema,
             bypass_cache=kwargs.pop('bypass_cache', False),
             custom_headers=custom_headers,
+            page_timeout=kwargs.pop('page_timeout', 30000),
             **kwargs
         )
         return products if isinstance(products, list) else [products] if products else []

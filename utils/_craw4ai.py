@@ -18,6 +18,7 @@ from config import USER_AGENT
 
 from utils.logging import logger
 
+CHROME_STORAGE_PATH = os.environ.get('CHROME_STORAGE_PATH', '/app/craw4ai_config/state.json')
 
 class TorProxyConfig(BaseModel):
     """Configuration for Tor proxy settings"""
@@ -88,7 +89,7 @@ class CrawlerManager:
                     os.environ['HTTP_PROXY'] = proxy_settings
                 
                 # Create crawler instance
-                config = BrowserConfig(headless=True)
+                config = BrowserConfig(headless=True, storage_state=CHROME_STORAGE_PATH)
                 cls._crawler = AsyncWebCrawler(
                     verbose=True,
                     proxy=proxy_settings,
@@ -323,6 +324,7 @@ async def extract_data_with_css(
     bypass_cache: bool = True,
     custom_headers: dict = {},
     custom_user_agent: str = USER_AGENT,
+    page_timeout: int = 30000,
     **kwargs
 ) -> List[Dict[str, Any]]:
     """
@@ -344,7 +346,7 @@ async def extract_data_with_css(
     crawler.crawler_strategy.update_user_agent(custom_user_agent)
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
-    # config = CrawlerRunConfig(magic=True, **kwargs)
+    config = CrawlerRunConfig(magic=True, **kwargs)
     
     result = await crawler.arun(
         url=url,
@@ -352,6 +354,7 @@ async def extract_data_with_css(
         bypass_cache=bypass_cache,
         user_agent=USER_AGENT,
         magic=True,
+        page_timeout=page_timeout,
     )
     # print(result)
     if not result.success:

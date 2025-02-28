@@ -350,7 +350,7 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
- 
+        kwargs['page_timeout'] = 60000
         products = await super().get_product_list(url, custom_headers=self.headers, **kwargs)
         # page_timeout=60000
         # print(products)

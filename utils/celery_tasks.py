@@ -33,20 +33,29 @@ celery_app.conf.update(
     task_queues={
         'high_priority': {'routing_key': 'high_priority'},
         'default': {'routing_key': 'default'},
-        'low_priority': {'routing_key': 'low_priority'}
+        'low_priority': {'routing_key': 'low_priority'},
+        'price_tracking': {'routing_key': 'price_tracking'}  # Add dedicated queue for price tracking
     },
     task_routes={
         'send_email': {'queue': 'default'},
         'send_bulk_email': {'queue': 'low_priority'},
-        'price_tracking.schedule_price_tracking': {'queue': 'default'},
-        'price_tracking.scrape_single_product': {'queue': 'default'}
+        'price_tracking.schedule_price_tracking': {'queue': 'price_tracking'},
+        'price_tracking.scrape_single_product': {'queue': 'price_tracking'}
+    },
+    task_default_rate_limit='60/m',  # Default rate limit
+    task_annotations={
+        'price_tracking.scrape_single_product': {
+            'rate_limit': '60/m',
+            'max_retries': 3,
+            'default_retry_delay': 300
+        }
     },
     beat_schedule={
         'track-prices-midnight': {
             'task': 'price_tracking.schedule_price_tracking',
             'schedule': crontab(minute=0, hour=0),  # Run at midnight (00:00)
             'options': {
-                'queue': 'default',
+                'queue': 'price_tracking',
                 'expires': 3600,  # Tasks expire after 1 hour
                 'retry': True,
                 'retry_policy': {

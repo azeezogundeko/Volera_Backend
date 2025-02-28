@@ -6,3 +6,5 @@
 /logs
 /data
 *.html
+# Chrome storage state
+craw4ai_config/state.json

@@ -6,7 +6,7 @@ load_dotenv()
 
 PRODUCTION_MODE = os.getenv("PRODUCTION_MODE")
 # print(PRODUCTION_MODE)
-# PRODUCTION_MODE='true'
+PRODUCTION_MODE='true'
 if PRODUCTION_MODE == "true":
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
@@ -22,7 +22,6 @@ else:
     PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY_TEST"))
     REDIRECT_URI = str(os.getenv("REDIRECT_URI_TEST"))
     
-# PAYSTACK_SECRET_KEY = str(os.getenv("PAYSTACK_SECRET_KEY_TEST"))
 # PRODUCTION_MODE='false'
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")

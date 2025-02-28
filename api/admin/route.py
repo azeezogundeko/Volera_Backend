@@ -27,6 +27,8 @@ from utils.limiter import Limiter
 
 from appwrite import query
 from fastapi import APIRouter, Body, HTTPException, Request, Query
+import os
+import json
 
 router = APIRouter()
 # Send email using EmailManager
@@ -624,3 +626,39 @@ async def clear_all_caches():
     except Exception as e:
         logger.error(f"Error clearing caches: {str(e)}", exc_info=True)
         raise HTTPException(500, f"Failed to clear caches: {str(e)}")
+
+@router.post("/chrome-storage")
+@super_admin_required
+async def update_chrome_storage(
+    request: Request,
+    storage_data: dict = Body(...),
+):
+    """Update Chrome storage state file"""
+    try:
+        storage_path = os.environ.get('CHROME_STORAGE_PATH', '/app/craw4ai_config/state.json')
+        os.makedirs(os.path.dirname(storage_path), exist_ok=True)
+        
+        with open(storage_path, 'w') as f:
+            json.dump(storage_data, f, indent=2)
+            
+        return {"status": "success", "message": "Chrome storage state updated successfully"}
+    except Exception as e:
+        logger.error(f"Failed to update Chrome storage: {str(e)}")
+        raise HTTPException(500, detail=f"Failed to update Chrome storage: {str(e)}")
+
+@router.get("/chrome-storage")
+@super_admin_required
+async def get_chrome_storage(request: Request):
+    """Get current Chrome storage state"""
+    try:
+        storage_path = os.environ.get('CHROME_STORAGE_PATH', '/app/craw4ai_config/state.json')
+        if not os.path.exists(storage_path):
+            return {"status": "not_found", "data": {}}
+            
+        with open(storage_path, 'r') as f:
+            storage_data = json.load(f)
+            
+        return {"status": "success", "data": storage_data}
+    except Exception as e:
+        logger.error(f"Failed to read Chrome storage: {str(e)}")
+        raise HTTPException(500, detail=f"Failed to read Chrome storage: {str(e)}")
