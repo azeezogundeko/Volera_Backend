@@ -17,7 +17,7 @@ from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 
 from config import PRODUCTION_MODE
 
-if PRODUCTION_MODE == "true":
+if PRODUCTION_MODE:
     USER_QDRANT = True
 else:
     USER_QDRANT = False
