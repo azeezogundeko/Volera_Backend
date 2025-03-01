@@ -1,9 +1,11 @@
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, List
 
-from typing import List, Literal
+from typing import Literal
 
 from utils.logging import logger
+from utils.decorator import auth_required
+from utils.search_cache import search_cache_manager
 
 from config import PRODUCTION_MODE
 from ..auth.services import get_current_user
@@ -13,7 +15,7 @@ from .schema import ChatOut, MessageOut, FileOut
 
 from agents.tools.search import search_tool
 
-from fastapi import Body
+from fastapi import Body, Request
 from fastapi import Depends, Query, File as FastAPIFile
 
 from fastapi import HTTPException, APIRouter
@@ -26,6 +28,34 @@ import re
 
 router = APIRouter()
 
+@auth_required
+@router.get("/suggestions", response_model=List[SearchSuggestion])
+async def get_search_suggestions(
+    request: Request,
+    query: str = Query(..., min_length=1, description="Search query to get suggestions for"),
+    limit: Optional[int] = Query(10, ge=1, le=50, description="Maximum number of suggestions to return")
+) -> List[SearchSuggestion]:
+    """
+    Get search suggestions based on the input query.
+    Uses cached search history for suggestions.
+    """
+    try:
+
+        # Get suggestions from cache
+        suggestions = search_cache_manager.get_suggestions(query, limit)
+        
+        # Convert to SearchSuggestion objects
+        return [
+            SearchSuggestion(suggestion=suggestion)
+            for suggestion in suggestions
+        ]
+
+    except Exception as e:
+        logger.error(f"Failed to get search suggestions: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get search suggestions: {str(e)}"
+        )
 
 @router.get("/saved_chats")
 async def get_saved_chats(
@@ -202,36 +232,5 @@ async def upload_files(
     return {"message": "Files uploaded successfully", "files": datas}
 
 
-@router.get("/suggestions", response_model=List[SearchSuggestion])
-async def get_search_suggestions(
-    query: str = Query(..., min_length=1, description="Search query to get suggestions for"),
-    limit: Optional[int] = Query(10, ge=1, le=50, description="Maximum number of suggestions to return")
-) -> List[SearchSuggestion]:
-    """
-    Get search suggestions based on the input query.
-    Uses Google Search in development and MultiSearch in production.
-    """
-    try:
-        
-        suggestions = []
 
-        if PRODUCTION_MODE:
-            # Use MultiSearch in production
-            raw_suggestions = search_tool.search(query, limit=limit)
-        else:
-            # Use Google Search in development
-            raw_suggestions = search_tool._google_search(query, limit=limit)
 
-        # Convert results to SearchSuggestion objects
-        suggestions = [
-            SearchSuggestion(suggestion=suggestion)
-            for suggestion in raw_suggestions
-        ][:limit]
-
-        return suggestions
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get search suggestions: {str(e)}"
-        ) 

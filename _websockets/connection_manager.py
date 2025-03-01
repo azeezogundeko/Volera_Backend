@@ -13,6 +13,7 @@ from _websockets.schema import WebSocketMessage, RequestWebsockets
 # from api.product.services import filter_products
 from db._appwrite.session import appwrite_session_manager
 from utils.websocket import WebSocketManager
+from utils.search_cache import search_cache_manager
 from api.chat.model import File
 # from .message_handler import handle_message
 
@@ -65,13 +66,15 @@ class ConnectionManager:
     
     
     async def start_session(self, user_id: str, data: WebSocketMessage):
+        title = self.generate_title_from_content(data.data.content)
         metadata = {
             "focus_mode": data.focus_mode,
             "optimization_mode": data.optimization_mode,
-            "title": self.generate_title_from_content(data.data.content),
+            "title": title,
             "chat_id": data.data.chat_id,
             "file_ids": data.file_ids
         }
+        search_cache_manager.add_search_query(title)
         session_id = await appwrite_session_manager.start_session(user_id, metadata)
         return session_id
 

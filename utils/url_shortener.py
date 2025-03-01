@@ -5,7 +5,7 @@ from typing import Optional
 from diskcache import Cache
 from config import PRODUCTION_MODE, URL_CACHE_DIR
 
-PRODUCTION_MODE = "false"
+
 class URLShortener:
     def __init__(self, redis_url="redis://redis:6379/0"):
         self.code_length = 6
@@ -13,7 +13,7 @@ class URLShortener:
         self.key_prefix = "url_short:"  # Namespace for URL shortener keys
         
         # Initialize the appropriate cache backend based on environment
-        if PRODUCTION_MODE == "true":
+        if PRODUCTION_MODE:
             self.cache = redis.from_url(redis_url)
             self.is_redis = True
         else:

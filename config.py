@@ -55,6 +55,8 @@ DB_PATH = DB_DIR / "cache"
 
 URL_CACHE_DIR = Path("data/url_cache")
 URL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+SEARCH_CACHE_DIR = Path("data/search_cache")
+SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT= str(os.getenv("USER_AGENT"))
 
