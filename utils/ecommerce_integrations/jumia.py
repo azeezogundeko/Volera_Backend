@@ -487,12 +487,16 @@ class JumiaIntegration(ScrapingIntegration):
             # First try to get the product using the parent class method
             
             products = await self.extract_data(url, product_id, type="detail", **kwargs)
+            print('1')
+            print(products)
             if products:
                 products = products[0]
 
                 return products
 
             product = await super().get_product_detail(url, **kwargs)
+            print('2')
+            print(product)
             if product:
                 return await self._transform_product_detail(product, product_id, url)
             # If no product found, try to scrape directly
@@ -551,7 +555,7 @@ class JumiaIntegration(ScrapingIntegration):
             return {}
 
 
-    async def extract_data(self, url: str, product_id: str, type="list", **kwargs) -> List[Dict[str, Any]]:
+    async def extract_data(self, url: str, product_id: str = None, type="list", **kwargs) -> List[Dict[str, Any]]:
         try:
             response = await self.client.get(url)
             html_content = response.text
@@ -569,46 +573,90 @@ class JumiaIntegration(ScrapingIntegration):
             script_content = script_tag.string
             json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
             
-            # Parse the JSON data
-            data = json.loads(json_data)
-            
-            # Extract product information
-            products = data.get('products', [])
-
-            # List to store extracted product data
-            product_list = []
-            
-            for product in products:
-                url = f"{self.base_url}{product.get('url', '')}"
-                product_info = {
-                    "product_id": product_id,
-                    'category': product.get('categories', '')[0],
-                    'name': product.get('displayName', ''),
-                    'brand': product.get('brand', ''),
-                    'current_price': float(product.get('prices', {}).get('rawPrice', '')),
-                    'old_price': self._clean_price(product.get('prices', {}).get('oldPrice', '')),
-                    'discount':self._clean_discount(product.get('prices', {}).get('discount', '')),
-                    'rating': product.get('rating', {}).get('average', ''),
-                    'rating_count': product.get('rating', {}).get('totalRatings', ''),
-                    'image': product.get('image', ''),
-                    'url': url,
-                    'source': self.name
-                }
-                product_list.append(product_info)
-                if type == "list":
-                    await self.db_manager.set(
-                        key=product_id,
-                        value=product_info,
-                        tag="list",
+            try:
+                # Parse the JSON data
+                data = json.loads(json_data)
+                
+                if type == "detail":
+                    # For detail view, get the product from the store
+                    product = data.get('product', {})
+                    if not product:
+                        return []
+                        
+                    product_info = {
+                        "product_id": product_id,  # Ensure product_id is included
+                        "category": product.get('categories', [''])[0],
+                        "product_basic_info": {
+                            "name": product.get('displayName', ''),
+                            "current_price": str(product.get('prices', {}).get('price', '')),
+                            "brand": product.get('brand', ''),
+                            "rating": f"{product.get('rating', {}).get('average', '0')} out of 5",
+                            "reviews_count": product.get('brand', ''),  # Using brand as fallback
+                            "images": [
+                                {
+                                    "url": img.get('url', ''),
+                                    "zoom_url": img.get('zoom', ''),
+                                    "alt": f"product_image_name-{product.get('displayName', '')}-{idx+1}"
+                                }
+                                for idx, img in enumerate(product.get('images', []))
+                            ]
+                        },
+                        "product_details": [{
+                            "features": [
+                                {"feature": feature}
+                                for feature in product.get('highlights', [])
+                            ],
+                            "specifications": []
+                        }],
+                        "product_reviews": {
+                            "reviews": []
+                        }
+                    }
+                    
+                    if self.db_manager:
+                        await self.db_manager.set(
+                            key=product_id,
+                            value=product_info,
+                            tag="detail",
                         )
+                    
+                    return [product_info]
+                    
                 else:
-                    await self.db_manager.set(
-                        key=product_id,
-                        value=product_info,
-                        tag="detail",
-                        )
-            
-            return product_list
-        else:
-            return []
+                    # For list view, get products array
+                    products = data.get('products', [])
+                    product_list = []
+                    
+                    for product in products:
+                        url = f"{self.base_url}{product.get('url', '')}"
+                        product_info = {
+                            "product_id": self.generate_url_id(url),
+                            'category': product.get('categories', [''])[0],
+                            'name': product.get('displayName', ''),
+                            'brand': product.get('brand', ''),
+                            'current_price': float(product.get('prices', {}).get('price', 0)),
+                            'old_price': self._clean_price(product.get('prices', {}).get('oldPrice', '')),
+                            'discount': self._clean_discount(product.get('prices', {}).get('discount', '')),
+                            'rating': product.get('rating', {}).get('average', ''),
+                            'rating_count': product.get('rating', {}).get('totalRatings', ''),
+                            'image': product.get('image', ''),
+                            'url': url,
+                            'source': self.name
+                        }
+                        product_list.append(product_info)
+                        
+                        if self.db_manager:
+                            await self.db_manager.set(
+                                key=product_info["product_id"],
+                                value=product_info,
+                                tag="list",
+                            )
+                    
+                    return product_list
+                    
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse JSON data from script tag for URL: {url}")
+                return []
+                
+        return []
 
