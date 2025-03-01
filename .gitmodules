@@ -1,0 +1,4 @@
+[submodule "flare-bypasser"]
+	path = flare-bypasser
+	url = https://github.com/yoori/flare-bypasser.git
+	branch = main

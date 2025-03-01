@@ -43,3 +43,18 @@ docker cp backup_state.json <container_id>:/app/craw4ai_config/state.json
 - Verify the storage path matches `CHROME_STORAGE_PATH` environment variable
 - Ensure the storage volume is properly mounted in all services that need it
 - Check container logs for any storage-related errors 
+
+## Submodules
+
+This project uses Git submodules. After cloning the repository, run:
+
+```bash
+# Initialize submodules
+git submodule init
+
+# Update submodules
+git submodule update
+
+# Or do both in one command
+git submodule update --init --recursive
+``` 

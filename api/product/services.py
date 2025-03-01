@@ -125,7 +125,7 @@ async def list_products(
         except Exception as e:
             logger.error(e, exc_info=True)
 
-    # Get fresh results using the shared utility function
+    # Get fresh results using the shared utility function   
     logger.info(f"Fetching fresh results for query: {query}")
     results = await search_and_process_products(
         ecommerce_manager,

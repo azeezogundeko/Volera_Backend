@@ -348,10 +348,10 @@ class JijiIntegration(ScrapingIntegration):
 
         return transformed
 
-    async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
+    async def get_product_list(self, url: str,  **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
         kwargs['page_timeout'] = 60000
-        products = await super().get_product_list(url, custom_headers=self.headers, **kwargs)
+        products = await super().get_product_list(url, custom_headers=self.headers, use_flare_bypasser=True, **kwargs)
         # page_timeout=60000
         # print(products)
 
@@ -359,7 +359,7 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
-        product = await super().get_product_detail(url, custom_headers=self.headers, **kwargs)
+        product = await super().get_product_detail(url, custom_headers=self.headers, use_flare_bypasser=True, **kwargs)
         return await self._transform_product_detail(product, product_id) 
 
 

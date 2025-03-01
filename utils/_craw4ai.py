@@ -15,6 +15,7 @@ import os
 # from fastembed import FastEmbed
 import logging
 from config import USER_AGENT
+from utils.flare_bypasser import flare_bypasser
 
 from utils.logging import logger
 
@@ -325,6 +326,7 @@ async def extract_data_with_css(
     custom_headers: dict = {},
     custom_user_agent: str = USER_AGENT,
     page_timeout: int = 30000,
+    use_flare_bypasser: bool = False,
     **kwargs
 ) -> List[Dict[str, Any]]:
     """
@@ -347,12 +349,18 @@ async def extract_data_with_css(
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
     config = CrawlerRunConfig(magic=True, **kwargs)
-    
-    result = await crawler.arun(
-        url=url,
-        extraction_strategy=strategy,
-        bypass_cache=bypass_cache,
-        user_agent=USER_AGENT,
+
+    if use_flare_bypasser:
+        pass
+
+
+
+    else:
+        result = await crawler.arun(
+            url=url,
+            extraction_strategy=strategy,
+            bypass_cache=bypass_cache,
+            user_agent=USER_AGENT,
         magic=True,
         page_timeout=page_timeout,
     )

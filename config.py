@@ -4,10 +4,9 @@ from pathlib import Path
 
 load_dotenv()
 
-PRODUCTION_MODE = os.getenv("PRODUCTION_MODE")
+PRODUCTION_MODE = os.getenv("PRODUCTION_MODE", "false").lower() == "true"
 # print(PRODUCTION_MODE)
-PRODUCTION_MODE='true'
-if PRODUCTION_MODE == "true":
+if PRODUCTION_MODE:
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
     APPWRITE_ENDPOINT: str = os.getenv("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
@@ -60,8 +59,11 @@ URL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 USER_AGENT= str(os.getenv("USER_AGENT"))
 
 class ApiKeyConfig:
-    APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY") if PRODUCTION_MODE == "true" else os.getenv("APPWRITE_API_KEY_TEST")
+    APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY") if PRODUCTION_MODE else os.getenv("APPWRITE_API_KEY_TEST")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))
     GEMINI_API_KEY_2 = str(os.getenv("GEMINI_API_KEY_2"))
     GEMINI_API_KEY = str(os.getenv("GEMINI_API_KEY"))
-    GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY")) 
+    GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY"))
+
+# Flare Bypasser Configuration
+FLARE_BYPASSER_URL = os.getenv("FLARE_BYPASSER_URL", "http://flare-bypasser:20080") if PRODUCTION_MODE else None 

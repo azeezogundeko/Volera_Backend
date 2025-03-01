@@ -78,7 +78,7 @@ class ScrapingIntegration(EcommerceIntegration):
         self.detail_schema = detail_schema
         self.client = http_client
 
-    async def get_product_list(self, url: str, custom_headers: dict = {}, **kwargs) -> List[Dict[str, Any]]:
+    async def get_product_list(self, url: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> List[Dict[str, Any]]:
         from utils._craw4ai import extract_data_with_css
         products = await extract_data_with_css(
             url=url,
@@ -86,11 +86,12 @@ class ScrapingIntegration(EcommerceIntegration):
             bypass_cache=kwargs.pop('bypass_cache', False),
             custom_headers=custom_headers,
             page_timeout=kwargs.pop('page_timeout', 30000),
+            use_flare_bypasser=use_flare_bypasser,
             **kwargs
         )
         return products if isinstance(products, list) else [products] if products else []
 
-    async def get_product_detail(self, url: str, custom_headers: dict = {}, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> Dict[str, Any]:
         from utils._craw4ai import extract_data_with_css
         product = await extract_data_with_css(
             url=url,
