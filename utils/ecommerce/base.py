@@ -7,6 +7,9 @@ from ..request_session import http_client
 from ..scrape import TrackerWebScraper
 from ..entity_recognition import extract_brands, extract_categories
 
+from utils.logging import logger
+
+
 
 class IntegrationType(Enum):
     SCRAPING = "scraping"
@@ -48,21 +51,7 @@ class EcommerceIntegration(ABC):
 
     async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
         """Get details for a specific product"""
-        try:
-            product = await self._get_product_detail(url, **kwargs)
-            
-            # Handle different return types safely
-            if not product:
-                return {}
-            
-            if isinstance(product, list):
-                return product[0] if product else {}
-                
-            return product
-            
-        except Exception as e:
-            logger.error(f"Error getting product detail from base class: {str(e)}")
-            return {}
+        pass    
 
     def matches_url(self, url: str) -> bool:
         """Check if URL matches this integration's patterns."""
@@ -106,14 +95,29 @@ class ScrapingIntegration(EcommerceIntegration):
 
     async def get_product_detail(self, url: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> Dict[str, Any]:
         from utils._craw4ai import extract_data_with_css
-        product = await extract_data_with_css(
+        
+    
+        try:
+            product = await extract_data_with_css(
             url=url,
             schema=self.detail_schema,
             bypass_cache=kwargs.pop('bypass_cache', False),
             custom_headers=custom_headers,
             **kwargs
-        )
-        return product[0] if isinstance(product, list) else product if product else {}
+            )
+            
+            # Handle different return types safely
+            if not product:
+                return {}
+            
+            if isinstance(product, list):
+                return product[0] if product else {}
+                
+            return product
+            
+        except Exception as e:
+            logger.error(f"Error getting product detail from base class: {str(e)}")
+            return {}
 
 
     async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
