@@ -1,5 +1,6 @@
-from typing import List, Optional, Literal
 import time
+import asyncio
+from typing import List, Optional, Literal
 
 from appwrite.client import AppwriteException
 
@@ -19,8 +20,6 @@ from utils.image import image_analysis, get_product_prompt, IMAGE_DESCRIPTION_PR
 from appwrite import query
 from fastapi import APIRouter, Query, Request, Depends, Body, status
 from fastapi.exceptions import HTTPException
-import asyncio
-
 
 
 router = APIRouter()
@@ -28,7 +27,11 @@ router = APIRouter()
 
 @router.post("/save_product")
 async def save_product(product: ProductDetail, user: UserIn = Depends(get_current_user)):
-    return await services.save_product(product, user)
+    try:
+        return await services.save_product(product, user)
+    except Exception as e:
+        logger.error(str(e))
+        pass
 
 
 @router.post("/search", response_model=List[ProductResponse])

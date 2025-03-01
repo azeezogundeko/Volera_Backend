@@ -339,7 +339,7 @@ class JumiaIntegration(ScrapingIntegration):
         for product in products:
             # Handle both relative and absolute URLs
             url = product.get('url', '')
-            print(url)
+            # print(url)
             # if product_url.startswith('http'):
             #     url = product_url
             # else:
@@ -357,7 +357,7 @@ class JumiaIntegration(ScrapingIntegration):
                 "original_price": self._clean_price(product.get("original_price", "")),
                 "discount": self._clean_discount(product.get("discount", "")),
                 "image": product.get("image", ""),
-                "url": url,
+                "url": f"{self.base_url}{product.get('url', '')}",
                 "source": "jumia",
                 "rating": self._clean_rating(product.get("rating", "0")),
                 "rating_count": self._clean_rating_count(product.get("rating_count", ""))
