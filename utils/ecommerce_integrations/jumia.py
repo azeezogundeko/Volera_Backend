@@ -474,23 +474,25 @@ class JumiaIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
-        products = await self.extract_list_data(url, **kwargs)
-        return products
-        # return await self._transform_product_list(products)
+        products = await self.extract_data(url, type="list", **kwargs)
+        if products:
+            return products
+        products = await super().get_product_list(url, **kwargs)    
+        return await self._transform_product_list(products)
 
 
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get detailed information about a specific product from Jumia."""
         try:
             # First try to get the product using the parent class method
-            product = await super().get_product_detail(url, **kwargs)
-            if product:
-                return product
             
-            products = await self.extract_data(url, **kwargs)
+            products = await self.extract_data(url, product_id, type="detail", **kwargs)
             if products:
                 return products[0]
 
+            product = await super().get_product_detail(url, **kwargs)
+            if product:
+                return product
             # If no product found, try to scrape directly
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=self.headers)
@@ -535,6 +537,7 @@ class JumiaIntegration(ScrapingIntegration):
                 # Add source and URL
                 product_data['source'] = 'jumia'
                 product_data['url'] = url
+                product_data['product_id'] = product_id
                 
                 return product_data
                 
@@ -546,12 +549,12 @@ class JumiaIntegration(ScrapingIntegration):
             return {}
 
 
-    async def extract_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
+    async def extract_data(self, url: str, product_id: str, type="list", **kwargs) -> List[Dict[str, Any]]:
         try:
             response = await self.client.get(url)
             html_content = response.text
         except Exception:
-            pass
+            return []
 
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -575,7 +578,6 @@ class JumiaIntegration(ScrapingIntegration):
             
             for product in products:
                 url = f"{self.base_url}{product.get('url', '')}"
-                product_id = self.generate_url_id(url)
                 product_info = {
                     "product_id": product_id,
                     'category': product.get('categories', '')[0],
@@ -591,16 +593,20 @@ class JumiaIntegration(ScrapingIntegration):
                     'source': self.name
                 }
                 product_list.append(product_info)
-
-                await self.db_manager.set(
-                    key=product_id,
-                    value=product_info,
-                    tag="list",
-                    )
+                if type == "list":
+                    await self.db_manager.set(
+                        key=product_id,
+                        value=product_info,
+                        tag="list",
+                        )
+                else:
+                    await self.db_manager.set(
+                        key=product_id,
+                        value=product_info,
+                        tag="detail",
+                        )
             
             return product_list
         else:
-            print(f"URL failed {url}")
-            products = await super().get_product_list(url, **kwargs)
-            return await self._transform_product_list(products)
+            return []
 

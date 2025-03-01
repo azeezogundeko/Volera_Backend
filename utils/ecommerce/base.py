@@ -49,7 +49,7 @@ class EcommerceIntegration(ABC):
         """Get list of products from a category/search page."""
         pass
 
-    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get details for a specific product"""
         pass    
 
@@ -93,7 +93,7 @@ class ScrapingIntegration(EcommerceIntegration):
         )
         return products if isinstance(products, list) else [products] if products else []
 
-    async def get_product_detail(self, url: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(self, url: str, product_id: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> Dict[str, Any]:
         from utils._craw4ai import extract_data_with_css
         
     
