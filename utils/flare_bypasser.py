@@ -15,7 +15,7 @@ class FlareBypasserClient:
         self.base_url = base_url
         self.proxy = proxy
         self.client = httpx.AsyncClient(
-            timeout=60.0,
+            timeout=180.0,
             follow_redirects=True,
             proxies=proxy if proxy else None
         )
@@ -38,7 +38,7 @@ class FlareBypasserClient:
         payload = {
             "cmd": "request.get",
             "url": url,
-            "maxTimeout": 60000
+            "maxTimeout": 180000
         }
         
         if self._cookies:
@@ -93,9 +93,9 @@ class FlareBypasser:
             return
             
         self.base_url = base_url or "http://flare-bypasser:8080"
-        self.client = httpx.AsyncClient(timeout=60.0)
+        self.client = httpx.AsyncClient(timeout=180.0)
         
-    async def get_cookies(self, url: str, max_timeout: int = 60000) -> Dict:
+    async def get_cookies(self, url: str, max_timeout: int = 180000) -> Dict:
         """Get cookies after solving Cloudflare challenge."""
         if not self.client:
             return None
@@ -111,7 +111,7 @@ class FlareBypasser:
         response.raise_for_status()
         return response.json()
     
-    async def get_page(self, url: str, max_timeout: int = 60000, cookies: Optional[List[Dict]] = None) -> Dict:
+    async def get_page(self, url: str, max_timeout: int = 180000, cookies: Optional[List[Dict]] = None) -> Dict:
         """Get page content after solving Cloudflare challenge."""
         if not self.client:
             return None
@@ -129,7 +129,7 @@ class FlareBypasser:
         response.raise_for_status()
         return response.json()
     
-    async def make_post(self, url: str, post_data: Dict, max_timeout: int = 60000, cookies: Optional[List[Dict]] = None) -> Dict:
+    async def make_post(self, url: str, post_data: Dict, max_timeout: int = 180000, cookies: Optional[List[Dict]] = None) -> Dict:
         """Make POST request after solving Cloudflare challenge."""
         if not self.client:
             return None

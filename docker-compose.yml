@@ -202,6 +202,9 @@ services:
     environment:
       - TZ=UTC
       - PORT=8080
+      - FLARE_BYPASSER_TIMEOUT=180
+      - FLARE_BYPASSER_RETRY_COUNT=3
+      - FLARE_BYPASSER_RETRY_DELAY=5
     networks:
       - dokploy-network
     restart: unless-stopped
