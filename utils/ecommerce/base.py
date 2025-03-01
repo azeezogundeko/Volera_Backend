@@ -46,10 +46,23 @@ class EcommerceIntegration(ABC):
         """Get list of products from a category/search page."""
         pass
 
-    @abstractmethod
-    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
-        """Get detailed information about a specific product."""
-        pass
+    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+        """Get details for a specific product"""
+        try:
+            product = await self._get_product_detail(url, **kwargs)
+            
+            # Handle different return types safely
+            if not product:
+                return {}
+            
+            if isinstance(product, list):
+                return product[0] if product else {}
+                
+            return product
+            
+        except Exception as e:
+            logger.error(f"Error getting product detail from base class: {str(e)}")
+            return {}
 
     def matches_url(self, url: str) -> bool:
         """Check if URL matches this integration's patterns."""

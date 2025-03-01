@@ -197,6 +197,7 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
     first_name, last_name = response["name"].rsplit("_", 1)
 
     user = dict(
+        is_new=True,
         user_id=response["$id"],
         email=response["email"],
         first_name=first_name,

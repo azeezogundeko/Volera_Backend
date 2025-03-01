@@ -6,6 +6,9 @@ from db.cache.dict import DiskCacheDB
 
 import json
 from bs4 import BeautifulSoup
+import httpx
+
+from utils.logging import logger
 
 
 class JumiaIntegration(ScrapingIntegration):
@@ -476,20 +479,79 @@ class JumiaIntegration(ScrapingIntegration):
         # return await self._transform_product_list(products)
 
 
-    async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
-        """Get product detail by scraping."""
-        product = await super().get_product_detail(url, **kwargs)
-        return await self._transform_product_detail(product, product_id, url) 
+    async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
+        """Get detailed information about a specific product from Jumia."""
+        try:
+            # First try to get the product using the parent class method
+            product = await super().get_product_detail(url, **kwargs)
+            if product:
+                return product
+            
+            products = await self.extract_data(url, **kwargs)
+            if products:
+                return products[0]
+
+            # If no product found, try to scrape directly
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, headers=self.headers)
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Extract product details
+                product_data = {}
+                
+                # Get product name
+                name_elem = soup.find('h1', class_='-fs20 -pts -pbxs')
+                if name_elem:
+                    product_data['name'] = name_elem.text.strip()
+                else:
+                    logger.warning(f"Product name not found for URL: {url}")
+                    return {}
+                
+                # Get price
+                price_elem = soup.find('span', class_='-b -ltr -tal -fs24')
+                if price_elem:
+                    price_text = price_elem.text.strip().replace('₦', '').replace(',', '')
+                    try:
+                        product_data['price'] = float(price_text)
+                    except ValueError:
+                        product_data['price'] = 0.0
+                
+                # Get image URL
+                img_elem = soup.find('img', class_='--lazyLoaded')
+                if img_elem:
+                    product_data['image_url'] = img_elem.get('src', '')
+                
+                # Get description
+                desc_elem = soup.find('div', class_='-pvxs')
+                if desc_elem:
+                    product_data['description'] = desc_elem.text.strip()
+                
+                # Get availability
+                stock_elem = soup.find('span', class_='-fs12')
+                product_data['in_stock'] = bool(stock_elem and 'out of stock' not in stock_elem.text.lower())
+                
+                # Add source and URL
+                product_data['source'] = 'jumia'
+                product_data['url'] = url
+                
+                return product_data
+                
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error getting Jumia product detail for {url}: {str(e)}")
+            return {}
+        except Exception as e:
+            logger.error(f"Error getting Jumia product detail for {url}: {str(e)}")
+            return {}
 
 
-    async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
+    async def extract_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         try:
             response = await self.client.get(url)
             html_content = response.text
         except Exception:
-            # print(f"URL failed {url} throug {str(e)}")
-            products = await super().get_product_list(url, **kwargs)
-            return await self._transform_product_list(products)
+            pass
 
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')

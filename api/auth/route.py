@@ -145,6 +145,7 @@ async def google_callback(request: Request, background_tasks: BackgroundTasks, c
             "updated_at": existing_user["$updatedAt"],
             "is_pro": is_pro,
             "profile_image": None,
+            "is_new": False,
         }
         
         return {
