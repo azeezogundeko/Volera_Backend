@@ -112,6 +112,9 @@ class ScrapingIntegration(EcommerceIntegration):
             
             if isinstance(product, list):
                 return product[0] if product else {}
+            
+            print('3')
+            print(product)
                 
             return product
             
