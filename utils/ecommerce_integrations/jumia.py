@@ -487,16 +487,12 @@ class JumiaIntegration(ScrapingIntegration):
             # First try to get the product using the parent class method
             
             products = await self.extract_data(url, product_id, type="detail", **kwargs)
-            print('1')
-            print(products)
             if products:
                 products = products[0]
 
                 return products
 
             product = await super().get_product_detail(url, **kwargs)
-            print('2')
-            print(product)
             if product:
                 return await self._transform_product_detail(product, product_id, url)
             # If no product found, try to scrape directly
