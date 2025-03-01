@@ -154,4 +154,4 @@ class FlareBypasser:
             await self.client.aclose()
 
 # Global instance
-flare_bypasser = FlareBypasser()
+# flare_bypasser = FlareBypasser()

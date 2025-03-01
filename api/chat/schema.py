@@ -4,7 +4,9 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict
 
-
+class SearchSuggestion(BaseModel):
+    suggestion: str
+    
 class FileSchema(BaseModel):
     id : str = Field(serialization_alias="fileId", alias="$id")
     name: str = Field(serialization_alias="fileName")

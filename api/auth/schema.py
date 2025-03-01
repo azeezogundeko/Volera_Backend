@@ -120,3 +120,6 @@ class ReferralSchemaOut(BaseModel):
     referral_limit: int
     referred_users: List[Dict[str, Any]]
     referral_status: Literal["active", "inactive"]
+
+class SearchSuggestion(BaseModel):
+    suggestion: str

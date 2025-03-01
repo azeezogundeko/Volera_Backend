@@ -27,7 +27,7 @@ from utils.request_session import http_client
 # from utils.emails import send_waitlist_email
 from utils.exceptions import PaymentRequiredError
 from utils.exceptions_handlers import validation_exception_handler, payment_exception_handler
-from utils.flare_bypasser import flare_bypasser
+# from utils.flare_bypasser import flare_bypasser
 
 import uvicorn
 import sentry_sdk
@@ -98,8 +98,8 @@ async def lifespan(app: FastAPI):
         await background_task.close()
         logger.info("Background task closed successfully")
 
-        await flare_bypasser.close()
-        logger.info("Flare bypasser client closed successfully")
+        # await flare_bypasser.close()
+        # logger.info("Flare bypasser client closed successfully")
 
         db_cache.close()
         logger.info("Database manager closed successfully")

@@ -240,8 +240,9 @@ class AsyncCache:
 
 
 def credit_required(amount: int):
-    from api.auth.credit_manager import check_credits
-    from api.auth.model import UserCredits
+    from api.auth.credit_manager import check_credits, track_credits
+    # from api.auth.model import UserCredits
+
     from .exceptions import PaymentRequiredError
 
     """
@@ -273,11 +274,7 @@ def credit_required(amount: int):
                 result = await func(request, *args, **kwargs)
 
                 # Deduct credits only after successful execution
-                await UserCredits.update_balance(
-                    current_user.id,
-                    -amount,
-                    transaction_type=f"api_endpoint_{func.__name__}"
-                )
+                await track_credits(current_user.id, type="amount", amount=amount)
                 
                 return result
                 

@@ -51,7 +51,7 @@ class BaseAgent:
         system_prompt: str,
         result_type: BaseSchemaType,
         deps_type: BaseDependencies,
-        timeout:int = 10,
+        timeout:int = 30,
         retries: int = 3,
     ):
         self.timeout = timeout

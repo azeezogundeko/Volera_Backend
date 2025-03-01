@@ -1,13 +1,17 @@
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 from typing import List, Literal
 
 from utils.logging import logger
 
+from config import PRODUCTION_MODE
 from ..auth.services import get_current_user
-from ..auth.schema import UserIn
+from ..auth.schema import UserIn, SearchSuggestion
 from .model import Chat, Message, SavedChat, File
 from .schema import ChatOut, MessageOut, FileOut
+
+from agents.tools.search import search_tool
 
 from fastapi import Body
 from fastapi import Depends, Query, File as FastAPIFile
@@ -82,11 +86,11 @@ async def filter_chats(
 
 @router.post("/new", response_model=ChatOut)
 async def create_new_chat(
-    chatId: str = Body(),
     user: UserIn = Depends(get_current_user)
 ):
     try:
-        return await Chat.create(
+        chatId = Chat.get_unique_id()
+        chat = await Chat.create(
             document_id=chatId,
             data={
                 "title": "New Chat",
@@ -94,11 +98,11 @@ async def create_new_chat(
                 "start_time": datetime.now().isoformat(),
             }
         )  
+        return chat
    
     except Exception as e:
-        # logger.error(f"Error creating new chat: {e}", exc_info=True)
+        logger.error(f"Error creating new chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Could not create chat: {str(e)}")
-
 
 
 # Route to get all chats
@@ -196,3 +200,38 @@ async def upload_files(
             raise HTTPException(status_code=500, detail="Could not upload file {}".format(file.filename))
 
     return {"message": "Files uploaded successfully", "files": datas}
+
+
+@router.get("/suggestions", response_model=List[SearchSuggestion])
+async def get_search_suggestions(
+    query: str = Query(..., min_length=1, description="Search query to get suggestions for"),
+    limit: Optional[int] = Query(10, ge=1, le=50, description="Maximum number of suggestions to return")
+) -> List[SearchSuggestion]:
+    """
+    Get search suggestions based on the input query.
+    Uses Google Search in development and MultiSearch in production.
+    """
+    try:
+        
+        suggestions = []
+
+        if PRODUCTION_MODE:
+            # Use MultiSearch in production
+            raw_suggestions = search_tool.search(query, limit=limit)
+        else:
+            # Use Google Search in development
+            raw_suggestions = search_tool._google_search(query, limit=limit)
+
+        # Convert results to SearchSuggestion objects
+        suggestions = [
+            SearchSuggestion(suggestion=suggestion)
+            for suggestion in raw_suggestions
+        ][:limit]
+
+        return suggestions
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get search suggestions: {str(e)}"
+        ) 
