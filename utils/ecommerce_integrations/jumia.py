@@ -6,9 +6,6 @@ from db.cache.dict import DiskCacheDB
 
 import json
 from bs4 import BeautifulSoup
-import httpx
-
-from utils.logging import logger
 
 
 class JumiaIntegration(ScrapingIntegration):
@@ -341,8 +338,8 @@ class JumiaIntegration(ScrapingIntegration):
         transformed = []
         for product in products:
             # Handle both relative and absolute URLs
-            url = f'{self.base_url}{product.get("url", "")}'
-            # print(url)
+            url = product.get('url', '')
+            print(url)
             # if product_url.startswith('http'):
             #     url = product_url
             # else:
@@ -474,89 +471,25 @@ class JumiaIntegration(ScrapingIntegration):
 
     async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
-        products = await self.extract_data(url, type="list", **kwargs)
-        if products:
-            return products
-        products = await super().get_product_list(url, **kwargs)    
-        return await self._transform_product_list(products)
+        products = await self.extract_list_data(url, **kwargs)
+        return products
+        # return await self._transform_product_list(products)
 
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
-        """Get detailed information about a specific product from Jumia."""
-        try:
-            # First try to get the product using the parent class method
-            
-            products = await self.extract_data(url, product_id, type="detail", **kwargs)
-            if products:
-                products = products[0]
-
-                return products
-
-            product = await super().get_product_detail(url, **kwargs)
-            if product:
-                return await self._transform_product_detail(product, product_id, url)
-            # If no product found, try to scrape directly
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=self.headers)
-                response.raise_for_status()
-                
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Extract product details
-                product_data = {}
-                
-                # Get product name
-                name_elem = soup.find('h1', class_='-fs20 -pts -pbxs')
-                if name_elem:
-                    product_data['name'] = name_elem.text.strip()
-                else:
-                    logger.warning(f"Product name not found for URL: {url}")
-                    return {}
-                
-                # Get price
-                price_elem = soup.find('span', class_='-b -ltr -tal -fs24')
-                if price_elem:
-                    price_text = price_elem.text.strip().replace('₦', '').replace(',', '')
-                    try:
-                        product_data['price'] = float(price_text)
-                    except ValueError:
-                        product_data['price'] = 0.0
-                
-                # Get image URL
-                img_elem = soup.find('img', class_='--lazyLoaded')
-                if img_elem:
-                    product_data['image_url'] = img_elem.get('src', '')
-                
-                # Get description
-                desc_elem = soup.find('div', class_='-pvxs')
-                if desc_elem:
-                    product_data['description'] = desc_elem.text.strip()
-                
-                # Get availability
-                stock_elem = soup.find('span', class_='-fs12')
-                product_data['in_stock'] = bool(stock_elem and 'out of stock' not in stock_elem.text.lower())
-                
-                # Add source and URL
-                product_data['source'] = 'jumia'
-                product_data['url'] = url
-                product_data['product_id'] = product_id
-                
-                return product_data
-                
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error getting Jumia product detail for {url}: {str(e)}")
-            return {}
-        except Exception as e:
-            logger.error(f"Error getting Jumia product detail for {url}: {str(e)}")
-            return {}
+        """Get product detail by scraping."""
+        product = await super().get_product_detail(url, product_id, **kwargs)
+        return await self._transform_product_detail(product, product_id, url) 
 
 
-    async def extract_data(self, url: str, product_id: str = None, type="list", **kwargs) -> List[Dict[str, Any]]:
+    async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         try:
             response = await self.client.get(url)
             html_content = response.text
         except Exception:
-            return []
+            # print(f"URL failed {url} throug {str(e)}")
+            products = await super().get_product_list(url, **kwargs)
+            return await self._transform_product_list(products)
 
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -569,90 +502,42 @@ class JumiaIntegration(ScrapingIntegration):
             script_content = script_tag.string
             json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
             
-            try:
-                # Parse the JSON data
-                data = json.loads(json_data)
-                
-                if type == "detail":
-                    # For detail view, get the product from the store
-                    product = data.get('product', {})
-                    if not product:
-                        return []
-                        
-                    product_info = {
-                        "product_id": product_id,  # Ensure product_id is included
-                        "category": product.get('categories', [''])[0],
-                        "product_basic_info": {
-                            "name": product.get('displayName', ''),
-                            "current_price": str(product.get('prices', {}).get('price', '')),
-                            "brand": product.get('brand', ''),
-                            "rating": f"{product.get('rating', {}).get('average', '0')} out of 5",
-                            "reviews_count": product.get('brand', ''),  # Using brand as fallback
-                            "images": [
-                                {
-                                    "url": img.get('url', ''),
-                                    "zoom_url": img.get('zoom', ''),
-                                    "alt": f"product_image_name-{product.get('displayName', '')}-{idx+1}"
-                                }
-                                for idx, img in enumerate(product.get('images', []))
-                            ]
-                        },
-                        "product_details": [{
-                            "features": [
-                                {"feature": feature}
-                                for feature in product.get('highlights', [])
-                            ],
-                            "specifications": []
-                        }],
-                        "product_reviews": {
-                            "reviews": []
-                        }
-                    }
-                    
-                    if self.db_manager:
-                        await self.db_manager.set(
-                            key=product_id,
-                            value=product_info,
-                            tag="detail",
-                        )
-                    
-                    return [product_info]
-                    
-                else:
-                    # For list view, get products array
-                    products = data.get('products', [])
-                    product_list = []
-                    
-                    for product in products:
-                        url = f"{self.base_url}{product.get('url', '')}"
-                        product_info = {
-                            "product_id": self.generate_url_id(url),
-                            'category': product.get('categories', [''])[0],
-                            'name': product.get('displayName', ''),
-                            'brand': product.get('brand', ''),
-                            'current_price': float(product.get('prices', {}).get('price', 0)),
-                            'old_price': self._clean_price(product.get('prices', {}).get('oldPrice', '')),
-                            'discount': self._clean_discount(product.get('prices', {}).get('discount', '')),
-                            'rating': product.get('rating', {}).get('average', ''),
-                            'rating_count': product.get('rating', {}).get('totalRatings', ''),
-                            'image': product.get('image', ''),
-                            'url': url,
-                            'source': self.name
-                        }
-                        product_list.append(product_info)
-                        
-                        if self.db_manager:
-                            await self.db_manager.set(
-                                key=product_info["product_id"],
-                                value=product_info,
-                                tag="list",
-                            )
-                    
-                    return product_list
-                    
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse JSON data from script tag for URL: {url}")
-                return []
-                
-        return []
+            # Parse the JSON data
+            data = json.loads(json_data)
+            
+            # Extract product information
+            products = data.get('products', [])
 
+            # List to store extracted product data
+            product_list = []
+            
+            for product in products:
+                url = f"{self.base_url}{product.get('url', '')}"
+                product_id = self.generate_url_id(url)
+                product_info = {
+                    "product_id": product_id,
+                    'category': product.get('categories', '')[0],
+                    'name': product.get('displayName', ''),
+                    'brand': product.get('brand', ''),
+                    'current_price': float(product.get('prices', {}).get('rawPrice', '')),
+                    'old_price': self._clean_price(product.get('prices', {}).get('oldPrice', '')),
+                    'discount':self._clean_discount(product.get('prices', {}).get('discount', '')),
+                    'rating': product.get('rating', {}).get('average', ''),
+                    'rating_count': product.get('rating', {}).get('totalRatings', ''),
+                    'image': product.get('image', ''),
+                    'url': url,
+                    'source': self.name
+                }
+                product_list.append(product_info)
+
+                await self.db_manager.set(
+                    key=product_id,
+                    value=product_info,
+                    tag="list",
+                    )
+            
+            return product_list
+        else:
+            print(f"URL failed {url}")
+            products = await super().get_product_list(url, **kwargs)
+            return await self._transform_product_list(products)
