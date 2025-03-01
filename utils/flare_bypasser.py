@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 import asyncio
 from config import FLARE_BYPASSER_URL, PRODUCTION_MODE
 
-class AsyncClient:
+class FlareBypasserClient:
     """Async client for handling Cloudflare protection."""
     def __init__(self, base_url: str = FLARE_BYPASSER_URL, proxy: Optional[str] = None):
         if not PRODUCTION_MODE:
@@ -92,7 +92,7 @@ class FlareBypasser:
             self.client = None
             return
             
-        self.base_url = base_url or "http://flare-bypasser:20080"
+        self.base_url = base_url or "http://flare-bypasser:8003"
         self.client = httpx.AsyncClient(timeout=60.0)
         
     async def get_cookies(self, url: str, max_timeout: int = 60000) -> Dict:
@@ -153,52 +153,5 @@ class FlareBypasser:
         if self.client:
             await self.client.aclose()
 
-# Global instances
+# Global instance
 flare_bypasser = FlareBypasser()
-async_client = AsyncClient()
-
-async def get_cloudflare_cookies(url: str) -> Dict:
-    """Helper function to get Cloudflare cookies for a URL."""
-    # Only process Jiji URLs in production mode
-    if not PRODUCTION_MODE or not url.startswith("https://jiji."):
-        return None
-        
-    try:
-        result = await flare_bypasser.get_cookies(url)
-        if result and result.get("status") == "ok":
-            return {
-                "cookies": result["solution"]["cookies"],
-                "user_agent": result["solution"]["userAgent"]
-            }
-        return None
-    except Exception as e:
-        print(f"Error getting Cloudflare cookies: {str(e)}")
-        return None
-
-async def get_jiji_page(url: str, cookies: Optional[List[Dict]] = None) -> Optional[str]:
-    """Helper function to get Jiji page content."""
-    if not PRODUCTION_MODE or not url.startswith("https://jiji."):
-        return None
-        
-    try:
-        result = await flare_bypasser.get_page(url, cookies=cookies)
-        if result and result.get("status") == "ok":
-            return result["solution"]["response"]
-        return None
-    except Exception as e:
-        print(f"Error getting Jiji page: {str(e)}")
-        return None
-
-async def get_page_with_client(url: str) -> Optional[str]:
-    """Helper function to get page content using AsyncClient."""
-    if not PRODUCTION_MODE:
-        return None
-        
-    try:
-        async with AsyncClient() as client:
-            response = await client.get(url)
-            return response.text
-    except Exception as e:
-        print(f"Error getting page with client: {str(e)}")
-        return None
-

@@ -351,9 +351,27 @@ async def extract_data_with_css(
     config = CrawlerRunConfig(magic=True, **kwargs)
 
     if use_flare_bypasser:
-        pass
+        # Use flare bypasser to get the page content
+        solution = await flare_bypasser.get_page(url, max_timeout=page_timeout)
+        
+        if solution["status"] != "ok":
+            raise Exception("Failed to bypass Cloudflare protection")
+            
+        html_result = solution["solution"]["response"]
 
+        result = await crawler.aprocess_html(
+            url=url,
+            html=html_result,
+            extracted_content=None,
+            extraction_strategy=strategy,
+            config=config,
+            verbose=True,
+            bypass_cache=bypass_cache,
+            pdf_data=False,
+            screenshot=False
+        )
 
+        print(result)
 
     else:
         result = await crawler.arun(

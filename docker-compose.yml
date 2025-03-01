@@ -198,25 +198,20 @@ services:
       context: ./flare-bypasser
       dockerfile: Dockerfile
     expose:
-      - 20080
+      - 8003
     environment:
       - TZ=UTC
-      - PORT=20080
+      - PORT=8003
     networks:
       - dokploy-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:20080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     labels:
       - traefik.enable=true
       - traefik.http.routers.flare-bypasser.rule=Host(`flare.volera.app`)
       - traefik.http.routers.flare-bypasser.entrypoints=websecure
       - traefik.http.routers.flare-bypasser.tls=true
       - traefik.http.routers.flare-bypasser.tls.certresolver=letsencrypt
-      - traefik.http.services.flare-bypasser.loadbalancer.server.port=20080
+      - traefik.http.services.flare-bypasser.loadbalancer.server.port=8003
 
 volumes:
   searxng_data:
