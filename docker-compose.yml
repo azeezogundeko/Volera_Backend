@@ -72,7 +72,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.volera-backend.rule=Host(`server.volera.app`)
-      - traefik.http.routers.volera-backend.entrypoints=web
+      - traefik.http.routers.volera-backend.entrypoints=websecure
+      - traefik.http.routers.volera-backend.tls=true
+      - traefik.http.routers.volera-backend.tls.certresolver=letsencrypt
       - traefik.http.services.volera-backend.loadbalancer.server.port=8000
 
   searxng:
