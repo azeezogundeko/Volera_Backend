@@ -490,7 +490,7 @@ class JumiaIntegration(ScrapingIntegration):
             if products:
                 products = products[0]
 
-                return await self._transform_product_detail(products, product_id, url)
+                return products
 
             product = await super().get_product_detail(url, **kwargs)
             if product:
@@ -541,7 +541,7 @@ class JumiaIntegration(ScrapingIntegration):
                 product_data['url'] = url
                 product_data['product_id'] = product_id
                 
-                return await self._transform_product_detail(product_data, product_id, url)
+                return product_data
                 
         except httpx.HTTPError as e:
             logger.error(f"HTTP error getting Jumia product detail for {url}: {str(e)}")
