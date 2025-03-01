@@ -98,6 +98,7 @@ class ScrapingIntegration(EcommerceIntegration):
         
     
         try:
+            print('==========================================================')
             product = await extract_data_with_css(
             url=url,
             schema=self.detail_schema,
@@ -105,12 +106,14 @@ class ScrapingIntegration(EcommerceIntegration):
             custom_headers=custom_headers,
             **kwargs
             )
+            print('==========================================================')
             
             # Handle different return types safely
             if not product:
                 return {}
             
             if isinstance(product, list):
+                print('==========================================================')
                 return product[0] if product else {}
             
             print('3')
