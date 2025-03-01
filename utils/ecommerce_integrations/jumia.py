@@ -488,11 +488,13 @@ class JumiaIntegration(ScrapingIntegration):
             
             products = await self.extract_data(url, product_id, type="detail", **kwargs)
             if products:
-                return products[0]
+                products = products[0]
+
+                return await self._transform_product_detail(products, product_id, url)
 
             product = await super().get_product_detail(url, **kwargs)
             if product:
-                return product
+                return await self._transform_product_detail(product, product_id, url)
             # If no product found, try to scrape directly
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=self.headers)
@@ -539,7 +541,7 @@ class JumiaIntegration(ScrapingIntegration):
                 product_data['url'] = url
                 product_data['product_id'] = product_id
                 
-                return product_data
+                return await self._transform_product_detail(product_data, product_id, url)
                 
         except httpx.HTTPError as e:
             logger.error(f"HTTP error getting Jumia product detail for {url}: {str(e)}")
