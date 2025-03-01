@@ -198,10 +198,10 @@ services:
       context: ./flare-bypasser
       dockerfile: Dockerfile
     expose:
-      - 8003
+      - 8080
     environment:
       - TZ=UTC
-      - PORT=8003
+      - PORT=8080
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -211,7 +211,7 @@ services:
       - traefik.http.routers.flare-bypasser.entrypoints=websecure
       - traefik.http.routers.flare-bypasser.tls=true
       - traefik.http.routers.flare-bypasser.tls.certresolver=letsencrypt
-      - traefik.http.services.flare-bypasser.loadbalancer.server.port=8003
+      - traefik.http.services.flare-bypasser.loadbalancer.server.port=8080
 
 volumes:
   searxng_data:

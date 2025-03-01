@@ -92,7 +92,7 @@ class FlareBypasser:
             self.client = None
             return
             
-        self.base_url = base_url or "http://flare-bypasser:8003"
+        self.base_url = base_url or "http://flare-bypasser:8080"
         self.client = httpx.AsyncClient(timeout=60.0)
         
     async def get_cookies(self, url: str, max_timeout: int = 60000) -> Dict:
