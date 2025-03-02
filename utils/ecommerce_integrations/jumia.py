@@ -511,9 +511,94 @@ class JumiaIntegration(ScrapingIntegration):
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail by scraping."""
-        product = await super().get_product_detail(url, product_id, **kwargs)
-        return await self._transform_product_detail(product, product_id, url) 
+        try:
+            product = await self.extract_product_detail(url, product_id, **kwargs)
+            return product
+        except Exception as e:
+            print(f"Direct extraction failed for {url}, falling back to base scraper: {str(e)}")
+            product = await super().get_product_detail(url, product_id, custom_headers=self.headers, **kwargs)
+            return await self._transform_product_detail(product, product_id, url)
 
+    async def extract_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
+        """Extract product detail using the window.__STORE__ data."""
+        try:
+            # First check URL accessibility with HEAD request
+            if not await self._check_url_accessibility(url):
+                raise Exception("URL not accessible")
+                
+            # If HEAD request successful, proceed with GET
+            response = await self.session.get(url)
+            html_content = response.text
+        except Exception as e:
+            raise Exception(f"Failed to fetch product detail: {str(e)}")
+
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Find the script tag containing the product data
+        script_tag = soup.find('script', text=lambda t: t and 'window.__STORE__' in t)
+        
+        if not script_tag:
+            raise Exception("Product data not found in page")
+
+        # Extract the JSON data from the script tag
+        script_content = script_tag.string
+        json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
+        
+        # Parse the JSON data
+        data = json.loads(json_data)
+        
+        # Extract product information
+        product = data.get('product', {})
+        if not product:
+            raise Exception("No product data found in store")
+
+        # Extract specifications
+        specs = []
+        for spec_group in product.get('specifications', []):
+            for spec in spec_group.get('values', []):
+                specs.append({
+                    "label": spec_group.get('name', ''),
+                    "value": spec
+                })
+
+        # Extract reviews
+        reviews = []
+        for review in product.get('reviews', {}).get('items', []):
+            reviews.append({
+                "rating": self._clean_rating(review.get('rating', 0)),
+                "title": review.get('title', ''),
+                "comment": review.get('comment', ''),
+                "date": review.get('created_at', ''),
+                "author": review.get('reviewer_name', ''),
+                "verified": review.get('is_verified_purchase', False)
+            })
+
+        # Build the product detail object
+        product_detail = {
+            "product_id": product_id,
+            "name": product.get('name', ''),
+            "brand": product.get('brand', {}).get('name', ''),
+            "category": product.get('category', {}).get('name', ''),
+            "description": product.get('description', ''),
+            "current_price": float(product.get('price', {}).get('amount', 0)),
+            "original_price": self._clean_price(product.get('price', {}).get('old_amount', '')),
+            "discount": self._clean_discount(product.get('price', {}).get('discount', '')),
+            "url": url,
+            "image": product.get('image', {}).get('url', ''),
+            "images": [img.get('url', '') for img in product.get('images', [])],
+            "source": self.name,
+            "rating": self._clean_rating(product.get('rating', {}).get('average', 0)),
+            "rating_count": self._clean_rating_count(product.get('rating', {}).get('count', 0)),
+            "specifications": specs,
+            "reviews": reviews,
+            "seller": {
+                "name": product.get('seller', {}).get('name', ''),
+                "rating": self._clean_rating(product.get('seller', {}).get('rating', {}).get('average', 0))
+            }
+        }
+
+        return product_detail
 
     async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         try:
