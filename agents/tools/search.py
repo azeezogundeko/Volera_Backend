@@ -60,16 +60,16 @@ class MultiSearchTool:
                 results = []
                 for result in data.get('results', []):
                     print(result)
-                    if isinstance(result, dict):
-                        result = {
-                            'title': result.get('title', ''),
-                            'link': result.get('url', ''),
-                            'snippet': result.get('content', ''),
-                            'source': result.get('engine', 'searxng')
-                        }
+                    # if isinstance(result, dict):
+                    re = {
+                        'title': result.get('title', ''),
+                        'link': result.get('url', ''),
+                        'snippet': result.get('content', ''),
+                        'source': result.get('engine', 'searxng')
+                    }
 
                     if categories == "images":
-                        result = {
+                        re = {
                             'title': result.get('title', ''),
                             'link': result.get('url', ''),  # Use img_src for the actual image URL
                             'image_url': result.get('img_src', ''),  # Use img_src for the actual image URL
@@ -78,7 +78,7 @@ class MultiSearchTool:
                             'thumbnail': result.get('thumbnail_src', '')  # Include thumbnail URL
                         }
 
-                    results.append(result)
+                    results.append(re)
                     
 
                 # Validate results
@@ -169,7 +169,7 @@ class MultiSearchTool:
                 response.raise_for_status()
                 data = response.json()
 
-                print(data)
+                # print(data)
                 if 'error' in data:
                     logger.error(f"Google Search API error: {data['error']}")
                     return []
