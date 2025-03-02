@@ -6,6 +6,7 @@ from db.cache.dict import DiskCacheDB
 
 import json
 from bs4 import BeautifulSoup
+import httpx
 
 
 class JumiaIntegration(ScrapingIntegration):
@@ -258,7 +259,26 @@ class JumiaIntegration(ScrapingIntegration):
             "Cookie": "sponsoredUserId=385174644203393638867825e26aefe8; regeneratedSponsoredUserId=1; newsletter=1; userLanguage=en_NG; _gcl_au=1.1.1401530358.1736597033; _ga=GA1.1.1713371664.1736597033; _fbp=fb.2.1736597034909.22767246798886060; policy=v1.0; __cf_bm=vLxIo9mogJU_D1IY6erMQ2ldoi57DljL8uqxmj9P6aw-1740890595-1.0.1.1-KdTYbhsXkn3gjwlV_e4ZAJu81Iwfej919PmatPo6LqllMbYHxllH5nZWErVa1TwPBYsa1B0DiZ5P2jnhEauvWWaW_IXNRBplNwMNh75ey_s; spadsUid=dadbadd8-f720-11ef-8603-6650dad24c66; sb-closed=true; ABTests=%5B%7B%22name%22%3A%22SearchABTest%22%2C%22scenario%22%3A%22default%22%2C%22updatedAt%22%3A1738156728%7D%2C%7B%22name%22%3A%22Home%22%2C%22scenario%22%3A%22B%22%2C%22updatedAt%22%3A1739269696%7D%2C%7B%22name%22%3A%22MLP%22%2C%22scenario%22%3A%22B%22%2C%22updatedAt%22%3A1622023689%7D%2C%7B%22name%22%3A%22CLP%22%2C%22scenario%22%3A%22A%22%2C%22updatedAt%22%3A1636709906%7D%2C%7B%22name%22%3A%22Cart%22%2C%22scenario%22%3A%22E%22%2C%22updatedAt%22%3A1621344636%7D%2C%7B%22name%22%3A%22SponProdPdp%22%2C%22scenario%22%3A%22A%22%2C%22updatedAt%22%3A1709647935%7D%2C%7B%22name%22%3A%22UserReco%22%2C%22scenario%22%3A%22B%22%2C%22updatedAt%22%3A1725300505%7D%2C%7B%22name%22%3A%22SponProdPdpV3%22%2C%22scenario%22%3A%22B%22%2C%22updatedAt%22%3A1722160470%7D%5D; SOLSESSID=d8773945b31e11b27dfc528282975b47; moe_uuid=c6c67cb5-4dac-4d68-935b-a4457f1467df; cto_bundle=iqRCSV9la2MlMkJBazNucmFZNFRPalNQVWclMkZ1MDl0ZG83MGFjdzB1NFMlMkIxRVV0Y01XUUklMkZPbnlRMUVVZHRqZGJUT2hqeGslMkZNOXhBJTJGeVMlMkJKU1FoSXoxNENoSFIyNzclMkZ3Ujh2bHpGcHE3c3BCQkxFQk5TNnV1RUhYNjM1JTJGbDdtR3piOTZBMjZJMjlVdWk2USUyQkZHQUp5NmhPaSUyRndPVnIxeHpLSmh4cyUyRmZXVFVwZFhyQXhrYXdnbEV1Skd4YjZuU2ZMaDc2cWc4cXRvSWNBbWdVSmh6NTVqdGlSU0hnJTNEJTNE; __gads=ID=8b485637d2c2f7d3:T=1736675404:RT=1740890604:S=ALNI_Mbbk5pwClWSkbdxEf1gqatR5R56vg; __gpi=UID=00000fc69b1cf079:T=1736675404:RT=1740890604:S=ALNI_Ma03UF9WW5oqYHTpI-48VTwa_fQcQ; __eoi=ID=be2289f9fecd04e6:T=1736675404:RT=1740890604:S=AA-AfjYbypTobcw0Nb5Eg90RPt3a; _ga_SDKHD9CQ3C=GS1.1.1740890599.5.0.1740890606.53.0.0; FCNEC=%5B%5B%22AKsRol-CiQG4epcVHQyejndM_vEVtr3zq0wMa9ycCq2Q6eFRkoX930IC1DtxKzCm8yyiUiAxqubICAjQZ_Z5mit2CyLGNs64YabJuq-iQVawvphN2wtxec9KWsKR0DLb130wptem5j0ww4P8n0mdD0G1Oh5tP7KdLg%3D%3D%22%5D%5D"
         }
         self.db_manager = db_manager
+        self.session = httpx.AsyncClient(
+            headers=self.headers,
+            follow_redirects=True,
+            timeout=30.0
+        )
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.session.aclose()
+
+    async def _check_url_accessibility(self, url: str) -> bool:
+        """Check if URL is accessible using HEAD request first."""
+        try:
+            await self.session.head(url, follow_redirects=True)
+            return True
+        except Exception as e:
+            print(f"HEAD request failed for {url}: {str(e)}")
+            return False
 
     def _extract_search_params(self, url: str) -> Dict[str, Any]:
         """Extract search parameters from URL."""
@@ -497,7 +517,12 @@ class JumiaIntegration(ScrapingIntegration):
 
     async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
         try:
-            response = await self.client.get(url, headers=self.headers)
+            # First check URL accessibility with HEAD request
+            if not await self._check_url_accessibility(url):
+                raise Exception("URL not accessible")
+                
+            # If HEAD request successful, proceed with GET
+            response = await self.session.get(url)
             html_content = response.text
         except Exception as e:
             print(f"URL failed {url} through {str(e)}")
