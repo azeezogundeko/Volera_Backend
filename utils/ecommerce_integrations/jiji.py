@@ -359,7 +359,7 @@ class JijiIntegration(ScrapingIntegration):
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail using GraphQL."""
-        product = await super().get_product_detail(url, custom_headers=self.headers, use_flare_bypasser=True, **kwargs)
+        product = await super().get_product_detail(url, product_id=product_id, custom_headers=self.headers, use_flare_bypasser=True, **kwargs)
         return await self._transform_product_detail(product, product_id) 
 
 

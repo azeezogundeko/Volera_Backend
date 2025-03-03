@@ -2,14 +2,13 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 from ..ecommerce.base import ScrapingIntegration
 from db.cache.dict import DiskCacheDB
+
+from ..logging import logger
 # from utils import db_manager
 
 import json
 from bs4 import BeautifulSoup
 import httpx
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class JumiaIntegration(ScrapingIntegration):

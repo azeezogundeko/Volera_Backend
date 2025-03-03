@@ -96,30 +96,35 @@ class AppwriteSessionManager:
         document_id = Message.get_unique_id()
         products = message_logs.pop("original_products")
 
-        # print(products)
+        print(products)
         tasks = []
         for product in products:
             tasks.append(self.save_products(product))
         tasks.append(Message.create(document_id, message_logs))
-        await gather(*tasks, return_exceptions=True)
+        results = await gather(*tasks, return_exceptions=True)
+        print(results)
 
     async def save_products(self, product: Dict[str, Any]):
+        specification = product.get('specification', [])
+        features = product.get('features', [])
+        original_price = product.get('old_price', float(0))
+
         product_dict = dict(
-            name=product["name"],
-            brand=product["brand"],
-            url=product["url"],
-            current_price=product["current_price"],
-            image=product["image"],
-            features=product["features"] if product["features"] else [],
-            specification=product["specification"] if product["specification"] else [],
-            ratings=product["rating"],
-            source=product["source"],
-            original_price=product["original_price"],
-            discount=product["discount"],
-            reviews_count=product["rating_count"],
-            currency=product["currency"]
+            name=product.get("name", ""),
+            brand=product.get("brand", ""),
+            url=product.get("url", ""),
+            current_price=product.get("current_price", float(0)),
+            image=product.get("image", ""),
+            features=features,
+            specification=specification,
+            ratings=product.get("rating", float(0)),
+            source=product.get("source", ""),
+            original_price=original_price,
+            discount=product.get("discount", float(0)),
+            reviews_count=product.get("rating_count", 0),
+            currency=product.get("currency", "₦")
         )
-        await Product.create(product["product_id"], product_dict)
+        return await Product.create(product["product_id"], product_dict)
 
     async def log_message(
         self, 
