@@ -7,6 +7,9 @@ from db.cache.dict import DiskCacheDB
 import json
 from bs4 import BeautifulSoup
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class JumiaIntegration(ScrapingIntegration):
@@ -513,11 +516,27 @@ class JumiaIntegration(ScrapingIntegration):
         """Get product detail by scraping."""
         try:
             product = await self.extract_product_detail(url, product_id, **kwargs)
-            return product
         except Exception as e:
-            print(f"Direct extraction failed for {url}, falling back to base scraper: {str(e)}")
-            product = await super().get_product_detail(url, product_id, custom_headers=self.headers, **kwargs)
-            return await self._transform_product_detail(product, product_id, url)
+            logger.warning(f"Direct extraction failed for {url}, falling back to base scraper: {str(e)}")
+            try:
+                product = await super().get_product_detail(url, product_id, custom_headers=self.headers, **kwargs)
+                product = await self._transform_product_detail(product, product_id, url)
+            except Exception as e:
+                logger.error(f"Base scraper also failed for {url}: {str(e)}")
+                product = None
+
+        # If both extraction methods fail, try to get basic info from list cache
+        if not product and self.db_manager:
+            try:
+                product = await self.db_manager.get(product_id, tag='list')
+                if product:
+                    logger.info(f"Retrieved basic product info from list cache for {product_id}")
+            except Exception as e:
+                logger.error(f"Error accessing list cache for product {product_id}: {str(e)}")
+
+    
+        return product if product else {}
+    
 
     async def extract_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Extract product detail using the window.__STORE__ data."""
