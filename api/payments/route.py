@@ -183,8 +183,8 @@ async def get_billing_data(
     return {
         "currentPlan": plan_name + " Plan",
         "usedCredits": total_usage, 
-        "totalCredits": credits.balance,
-        "remainingCredits": credits.balance - total_usage,
+        "totalCredits": credits.balance + total_usage,
+        "remainingCredits": credits.balance,
         "creditHistory": [
             {
                 "date": du.created_at,
