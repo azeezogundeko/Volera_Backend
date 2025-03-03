@@ -43,29 +43,29 @@ celery_app.conf.update(
         'price_tracking.scrape_single_product': {'queue': 'price_tracking'}
     },
     task_default_rate_limit='60/m',  # Default rate limit
-    task_annotations={
-        'price_tracking.scrape_single_product': {
-            'rate_limit': '60/m',
-            'max_retries': 3,
-            'default_retry_delay': 300
-        }
-    },
-    beat_schedule={
-        'track-prices-midnight': {
-            'task': 'price_tracking.schedule_price_tracking',
-            'schedule': crontab(minute=0, hour=0),  # Run at midnight (00:00)
-            'options': {
-                'queue': 'price_tracking',
-                'expires': 3600,  # Tasks expire after 1 hour
-                'retry': True,
-                'retry_policy': {
-                    'max_retries': 3,
-                    'interval_start': 0,
-                    'interval_step': 0.2,
-                    'interval_max': 0.2,
-                }
-            }
-        },
+    # task_annotations={
+    #     'price_tracking.scrape_single_product': {
+    #         'rate_limit': '60/m',
+    #         'max_retries': 3,
+    #         'default_retry_delay': 300
+    #     }
+    # },
+    # beat_schedule={
+    #     'track-prices-midnight': {
+    #         'task': 'price_tracking.schedule_price_tracking',
+    #         'schedule': crontab(minute=0, hour=0),  # Run at midnight (00:00)
+    #         'options': {
+    #             'queue': 'price_tracking',
+    #             'expires': 3600,  # Tasks expire after 1 hour
+    #             'retry': True,
+    #             'retry_policy': {
+    #                 'max_retries': 3,
+    #                 'interval_start': 0,
+    #                 'interval_step': 0.2,
+    #                 'interval_max': 0.2,
+    #             }
+    #         }
+    #     },
         # 'track-prices-startup': {
         #     'task': 'price_tracking.schedule_price_tracking',
         #     'schedule': 0.0,  # Run immediately after startup
@@ -81,7 +81,7 @@ celery_app.conf.update(
         #         }
         #     }
         # }
-    }
+    # }
 )
 
 # Rate limiting settings

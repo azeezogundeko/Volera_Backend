@@ -1,20 +1,4 @@
 services:
-  tor_proxy:
-    image: dperson/torproxy
-    container_name: tor_proxy
-    expose:
-      - 9050
-    networks:
-      - dokploy-network
-    restart: unless-stopped
-    environment:
-      - TZ=UTC
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9050"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   qdrant:
     image: qdrant/qdrant:latest
     restart: always
@@ -53,8 +37,6 @@ services:
     env_file:
       - .env
     environment:
-      - TOR_PROXY_HOST=tor_proxy
-      - TOR_PROXY_PORT=9050
       - DOCKER_CONTAINER=1
       - CHROME_STORAGE_PATH=/app/craw4ai_config/state.json
     volumes:
@@ -66,7 +48,6 @@ services:
       - redis
       - celery_worker
       - qdrant
-      - tor_proxy
     networks:
       - dokploy-network
     labels:
@@ -140,29 +121,7 @@ services:
       retries: 3
       start_period: 40s
 
-  celery_beat:
-    build: .
-    command: celery -A utils.celery_tasks.celery_app beat --loglevel=info
-    volumes:
-      - data:/app/data
-      - ./logs:/app/logs
-      - chrome_storage:/app/craw4ai_config
-    env_file:
-      - .env
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - C_FORCE_ROOT=true
-      - CELERY_BROKER_CONNECTION_RETRY=true
-      - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=true
-      - CELERY_BROKER_CONNECTION_MAX_RETRIES=10
-      - CELERY_BROKER_CONNECTION_TIMEOUT=30
-      - CHROME_STORAGE_PATH=/app/craw4ai_config/state.json
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - dokploy-network
-
+  
   flower:
     build: .
     command: celery -A utils.celery_tasks.celery_app flower --port=5555 --persistent=True --state_save_interval=10000 --broker_api=redis://redis:6379/0
