@@ -4,9 +4,9 @@ from asyncio import create_task
 from config import PORT, DB_PATH, SENTRY_API_KEY, PRODUCTION_MODE
 from _websockets import websocket_router
 from db.cache.dict import DiskCacheDB, VectorStore
-from db._appwrite.db_register import prepare_database, WaitList
-from api.auth.services import hash_email
+from db._appwrite.db_register import prepare_database
 from api.product.deep_search import initialize_list_tools
+from utils.backup_manager import BackupManager
 
 from api import (
     chat_router, 
@@ -24,19 +24,15 @@ from utils.middleware import AuthenticationMiddleware
 from utils._craw4ai import CrawlerManager
 from utils.background import background_task
 from utils.request_session import http_client
-# from utils.emails import send_waitlist_email
 from utils.exceptions import PaymentRequiredError
 from utils.exceptions_handlers import validation_exception_handler, payment_exception_handler
-# from utils.flare_bypasser import flare_bypasser
 
 import uvicorn
 import sentry_sdk
-from fastapi import FastAPI, Request, Body
-from fastapi.background import BackgroundTasks
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-# from fastapi.middleware.authentication import AuthenticationMiddleware
 
 # Global database manager instance
 # db_manager: ProductDBManager = None
@@ -55,6 +51,17 @@ async def lifespan(app: FastAPI):
         logger.info("Preparing database...")
         await prepare_database()
         logger.info("Database preparation completed.")
+        
+        if PRODUCTION_MODE:
+            # Initialize backup manager
+            logger.info("Initializing backup manager...")
+            backup_manager = BackupManager()
+            # Schedule weekly backup for Monday at 2 AM
+            backup_manager.schedule_weekly_backup(day_of_week=0, hour=2, minute=0)
+            # Create an immediate test backup
+            await backup_manager.create_backup()
+            logger.info("Backup manager initialized and test backup created.")
+
         logger.info("Initializing database manager...")
 
         # Initialize list_tools for deep search
@@ -156,21 +163,22 @@ async def validation_exception(request: Request, exc: RequestValidationError):
 async def payment_exception(request: Request, exc: PaymentRequiredError):
     return await payment_exception_handler(request, exc)
 
-# sentry_sdk.init(
-#     dsn=SENTRY_API_KEY,
-#     # Add data like request headers and IP for users,
-#     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-#     send_default_pii=True,
-#     # Set traces_sample_rate to 1.0 to capture 100%
-#     # of transactions for tracing.
-#     traces_sample_rate=1.0,
-#     _experiments={
-#         # Set continuous_profiling_auto_start to True
-#         # to automatically start the profiler on when
-#         # possible.
-#         "continuous_profiling_auto_start": True,
-#     },
-# )
+if PRODUCTION_MODE:
+    sentry_sdk.init(
+        dsn=SENTRY_API_KEY,
+        # Add data like request headers and IP for users,
+        # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+        send_default_pii=True,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        _experiments={
+            # Set continuous_profiling_auto_start to True
+            # to automatically start the profiler on when
+            # possible.
+            "continuous_profiling_auto_start": True,
+        },
+    )
 
 if __name__ == "__main__":
     # from installer import ensure_playwright_installed
