@@ -13,6 +13,7 @@ from .schema_in import ProfileSchema, UserCreate
 
 from api.admin.services import system_log
 from .model import Referral, UserCredits
+from .email import send_formal_welcome_email
 
 from utils.emails import send_new_user_email
 from utils.logging import logger
@@ -162,6 +163,9 @@ async def create_new_user(payload: UserCreate, background_tasks: BackgroundTasks
         )
         await asyncio.to_thread(user_db.update_status, user_id, True)
         await asyncio.to_thread(user_db.update_email_verification, user_id, True)
+
+        # send_welcome_email(email, name)
+        background_tasks.add_task(send_formal_welcome_email, user.email,  payload.first_name)
         
     else:
         # For email users, we need to hash the password
@@ -262,8 +266,8 @@ async def create_user_profile(
     }
     
     # Send formal welcome email using Celery
-    from .email import send_formal_welcome_email
-    send_formal_welcome_email(user.email, user_data)
+    # from .email import send_formal_welcome_email
+    
 
     return {
             "user": user,

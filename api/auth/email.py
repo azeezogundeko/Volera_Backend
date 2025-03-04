@@ -45,7 +45,7 @@ def send_new_user_email(verification_code: str, email: str):
         queue='high_priority'
     )
 
-def send_formal_welcome_email(email: str, user_data: dict):
+def send_formal_welcome_email(email: str, name: str):
     """
     Send a formal welcome email after profile creation using Celery task.
     
@@ -55,68 +55,188 @@ def send_formal_welcome_email(email: str, user_data: dict):
     """
     # Create a personalized welcome message with brand styling
     content = f"""
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; color: #1a1a1a;">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #1a1a1a; font-size: 28px; margin-bottom: 10px;">Welcome to Volera!</h1>
-                <div style="display: inline-block; padding: 8px 16px; background: rgba(16, 185, 129, 0.1); border-radius: 20px; margin-bottom: 20px;">
-                    <span style="color: #10b981; font-size: 14px;">AI-Powered Shopping Assistant</span>
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }}
+                    .header {{
+                        background-color: #059669;
+                        color: white;
+                        padding: 30px;
+                        text-align: center;
+                        border-radius: 8px 8px 0 0;
+                    }}
+                    .content {{
+                        padding: 30px;
+                        background-color: #ffffff;
+                        border: 1px solid #e5e7eb;
+                    }}
+                    .features {{
+                        background-color: #f3f4f6;
+                        padding: 20px;
+                        margin: 20px 0;
+                        border-radius: 8px;
+                    }}
+                    .feature-item {{
+                        margin: 10px 0;
+                        color: #374151;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        background-color: #059669;
+                        color: white;
+                        padding: 12px 25px;
+                        text-decoration: none;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                    }}
+                    .footer {{
+                        background: linear-gradient(to right, #059669, #047857);
+                        color: white;
+                        padding: 30px;
+                        text-align: center;
+                        border-radius: 0 0 8px 8px;
+                    }}
+                    .footer-content {{
+                        max-width: 500px;
+                        margin: 0 auto;
+                    }}
+                    .social-links {{
+                        margin: 25px auto;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        gap: 15px;
+                        flex-wrap: wrap;
+                        max-width: 400px;
+                    }}
+                    .social-links a {{
+                        color: white;
+                        text-decoration: none;
+                        background-color: rgba(255, 255, 255, 0.1);
+                        padding: 12px 20px;
+                        border-radius: 5px;
+                        transition: all 0.3s ease;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        min-width: 120px;
+                        text-align: center;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    }}
+                    .social-links a:hover {{
+                        background-color: rgba(255, 255, 255, 0.2);
+                        transform: translateY(-2px);
+                        border-color: rgba(255, 255, 255, 0.4);
+                    }}
+                    .social-icon {{
+                        width: 20px;
+                        height: 20px;
+                        display: inline-block;
+                        vertical-align: middle;
+                    }}
+                    .footer-divider {{
+                        border-top: 1px solid rgba(255, 255, 255, 0.2);
+                        margin: 20px 0;
+                    }}
+                    .footer-text {{
+                        color: rgba(255, 255, 255, 0.9);
+                        font-size: 14px;
+                        margin: 10px 0;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Welcome to Volera!</h1>
+                    </div>
+                    
+                    <div class="content">
+                        <p>Dear {name},</p>
+                        
+                        <p>We're thrilled to welcome you to Volera, your ultimate shopping companion</p>
+                        
+                        <p>At Volera, we're revolutionizing how you shop online by bringing you the best deals across multiple platforms.</p>
+                        
+                        <div class="features">
+                            <h2>What You Can Do with Volera:</h2>
+                            <div class="feature-item">✓ Track prices across platforms in real-time</div>
+                            <div class="feature-item">✓ Get personalized product recommendations</div>
+                            <div class="feature-item">✓ Search products across Jumia, Jiji, and Konga in one place</div>
+                            <div class="feature-item">✓ Save money with price alerts and comparisons</div>
+                        </div>
+                        
+                        <p>Ready to start your smart shopping journey?</p>
+                        
+                        <center>
+                            <a href="https://www.volera.app/login" class="button">Login to Your Account</a>
+                        </center>
+                        
+                        <div class="signature">
+                            <p>Best regards,</p>
+                            <p><strong>Ogundeko Abdulazeez</strong><br>
+                            CEO/Founder of Volera</p>
+                        </div>
+                    </div>
+                    
+                    <div class="footer">
+                        <div class="footer-content">
+                            <h3 style="margin: 0; font-size: 20px; color: white;">Connect with Volera</h3>
+                            <p class="footer-text" style="color: rgba(255, 255, 255, 0.9);">Join our community and stay updated with the latest features and deals</p>
+                            
+                            <div class="social-links">
+                                <a href="https://x.com/volera4727" style="flex: 1;">
+                                    <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                    </svg>
+                                    X (Twitter)
+                                </a>
+                                <a href="https://www.youtube.com/@volera1-v4i" style="flex: 1;">
+                                    <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                    </svg>
+                                    YouTube
+                                </a>
+                                <a href="https://www.linkedin.com/company/volera" style="flex: 1;">
+                                    <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                    </svg>
+                                    LinkedIn
+                                </a>
+                            </div>
+                            
+                            <div class="footer-divider"></div>
+                            
+                            <p class="footer-text" style="margin-bottom: 0;">© 2025 Volera. All rights reserved.</p>
+                            <p class="footer-text" style="font-size: 12px; margin-top: 5px;">
+                                Shop with Artificial Intelligience
+                            </p>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </body>
+            </html>
+            """
+    
+    # manager.choose_account('azeez_volera')
+    # manager.send_email(
+    #     email, "Welcom to Volera", content
+    # )
 
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; margin-bottom: 30px;">
-                <p style="color: #1a1a1a; font-size: 16px; margin-bottom: 20px;">Dear {user_data.get('first_name', '')},</p>
-                
-                <p style="color: #4b5563; line-height: 1.6; margin-bottom: 20px;">
-                    Welcome to the future of e-commerce! We're thrilled to have you join our community of smart shoppers.
-                </p>
-
-                <div style="margin-bottom: 25px;">
-                    <h3 style="color: #10b981; font-size: 18px; margin-bottom: 15px;">Experience the Power of AI Shopping:</h3>
-                    <ul style="color: #4b5563; list-style: none; padding: 0; margin: 0;">
-                        <li style="margin-bottom: 12px; padding-left: 24px; position: relative;">
-                            <span style="color: #10b981; position: absolute; left: 0;">✓</span>
-                            Smart Product Search
-                        </li>
-                        <li style="margin-bottom: 12px; padding-left: 24px; position: relative;">
-                            <span style="color: #10b981; position: absolute; left: 0;">✓</span>
-                            Real-time Price Analysis
-                        </li>
-                        <li style="margin-bottom: 12px; padding-left: 24px; position: relative;">
-                            <span style="color: #10b981; position: absolute; left: 0;">✓</span>
-                            Personalized Recommendations
-                        </li>
-                        <li style="margin-bottom: 12px; padding-left: 24px; position: relative;">
-                            <span style="color: #10b981; position: absolute; left: 0;">✓</span>
-                            Market Intelligence
-                        </li>
-                    </ul>
-                </div>
-
-                <p style="color: #4b5563; text-align: right; font-style: italic; margin-top: 20px;">
-                    - Team Volera
-                </p>
-            </div>
-
-            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                <p style="color: #6b7280; font-size: 14px; margin-bottom: 10px;">Need help? Contact our support team</p>
-                <div style="margin-top: 15px; margin-bottom: 20px;">
-                    <a href="https://volera.app" style="color: #10b981; text-decoration: none; margin: 0 10px;">Website</a>
-                    <a href="https://volera.app/contact" style="color: #10b981; text-decoration: none; margin: 0 10px;">Support</a>
-                    <a href="https://volera.app/faq" style="color: #10b981; text-decoration: none; margin: 0 10px;">FAQ</a>
-                </div>
-                <div style="margin-top: 15px;">
-                    <a href="https://x.com/volera4727" style="display: inline-block; margin: 0 10px;">
-                        <img src="https://about.twitter.com/content/dam/about-twitter/x/brand-toolkit/logo-black.png.twimg.1920.png" alt="X (Twitter)" style="width: 24px; height: 24px;">
-                    </a>
-                    <a href="https://www.linkedin.com/company/volera/" style="display: inline-block; margin: 0 10px;">
-                        <img src="https://static.licdn.com/aero-v1/sc/h/al2o9zrvru7aqj8e1x2rzsrca" alt="LinkedIn" style="width: 24px; height: 24px;">
-                    </a>
-                </div>
-            </div>
-        </div>
-    """
-
-    # Send formal welcome email with high priority using Celery and support account
+    # # Send formal welcome email with high priority using Celery and support account
     send_email.apply_async(
         args=[
             email,  # to_email
@@ -124,9 +244,9 @@ def send_formal_welcome_email(email: str, user_data: dict):
             content,  # html_content
         ],
         kwargs={
-            'account_key': "support",  # Using support account
+            'account_key': "azeez_volera",  # Using support account
             'priority': 'high',
-            'from_name': "Support Team"  # Adding a personal touch
+            'from_name': "Azeez from Volera"  # Adding a personal touch
         },
         queue='high_priority'
     )

@@ -5,7 +5,7 @@ from utils.request_session import http_client
 from db import user_db
 from . import services
 from .model import UserPreferences, UserProfile, Referral
-from .email import send_forgot_password_email
+from .email import send_forgot_password_email, send_formal_welcome_email
 from .schema import UserIn, UserPublic, UserPreferenceSchemaOut, ReferralSchemaOut
 from .schema_in import UserCreate, LoginSchema, ProfileSchema, Profile
 from config import (
@@ -175,10 +175,13 @@ async def check_email_availablity(email: str = Body()):
 
 @router.post("/verify_account")
 async def verify_account(
+    background: BackgroundTasks,
     email: str = Body(),
-    code: int =  Body()):
+    code: int =  Body(),
+    ):
 
     user = await services.get_user_by_email(email)
+    name = services.split_name(user.name)
     if user is None:
         raise HTTPException(400, "User not found")
 
@@ -187,6 +190,7 @@ async def verify_account(
     if code == valid_code:
         await asyncio.to_thread(user_db.update_status, user.id, True)
         await asyncio.to_thread(user_db.update_email_verification, user.id, True)
+        background.add_task(send_formal_welcome_email, email, name[0])
         return {"message": "success"}
     raise HTTPException(status_code=400, detail="Invalid verification code")
 
