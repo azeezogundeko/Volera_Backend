@@ -95,14 +95,16 @@ class AppwriteSessionManager:
         # print(message_logs)
         document_id = Message.get_unique_id()
         products = message_logs.pop("original_products")
+        
 
-        print(products)
+        # print(products)
         tasks = []
-        for product in products:
-            tasks.append(self.save_products(product))
+        if products is not None:
+            for product in products:
+                tasks.append(self.save_products(product))
+        # print(results)
         tasks.append(Message.create(document_id, message_logs))
         results = await gather(*tasks, return_exceptions=True)
-        print(results)
 
     async def save_products(self, product: Dict[str, Any]):
         specification = product.get('specification', [])

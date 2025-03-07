@@ -74,6 +74,7 @@ async def handle_request(raw_data: dict, websocket, user_id, history):
         new_history = await manager.compare_mode(raw_data, websocket, user_id, history)
 
     elif request_type == "message":
+        print(raw_data)
         data = WebSocketMessage(**raw_data)
         await manager.handle_message(data, websocket, user_id)
     else:

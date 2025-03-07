@@ -10,7 +10,7 @@ from utils.websocket import ImageMetadata, SourceMetadata
 from utils.logging import logger
 
 from langgraph.types import Command
-from pydantic_ai.result import RunResult
+from pydantic_ai.result import ResultDataT
 
 
 class WebWriterAgent(WriterAgent):
@@ -18,7 +18,10 @@ class WebWriterAgent(WriterAgent):
         super().__init__(system_prompt=system_prompt,*args, **kwargs)
 
     @extract_agent_results(agent_manager.writer_agent)
-    async def run(self,state: State, user_input: str = None) -> RunResult:
+    async def run(self,state: State, user_input: str = None) -> ResultDataT:
+        user_id = state.get("user_id")
+        if not user_id:
+            raise ValueError("User ID not found in state")
         search_result = state["agent_results"][agent_manager.search_tool]
         search = search_result["search"]
 
@@ -34,7 +37,7 @@ class WebWriterAgent(WriterAgent):
         state["previous_node"] = agent_manager.writer_agent
         state["next_node"] = agent_manager.web_query_agent
 
-        response = await self.llm.run(str(prompt))
+        response = await self.call_llm(user_id=user_id, type='text', user_prompt=str(prompt))
         state["message_history"] = previous_messages + response.new_messages()
         return response
 
@@ -76,7 +79,7 @@ class WebWriterAgent(WriterAgent):
         return Command(goto=agent_manager.human_node, update=state)
 
 
-    def extract_results(self, state: State) -> RunResult:
+    def extract_results(self, state: State) -> ResultDataT:
         images = []
         sources = []
 

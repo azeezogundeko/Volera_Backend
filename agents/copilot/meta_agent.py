@@ -13,7 +13,7 @@ from utils.decorator import async_retry
 
 from fastapi import WebSocket
 from langgraph.types import Command
-from pydantic_ai.result import RunResult
+from pydantic_ai.result import ResultDataT
 
 
 class MetaAgent(BaseAgent):
@@ -36,7 +36,7 @@ class MetaAgent(BaseAgent):
 
     @async_retry(retries=2, delay=0.1)
     @extract_agent_results(agent_manager.meta_agent)
-    async def run(self, state: State, user_input)-> RunResult:
+    async def run(self, state: State, user_input)-> ResultDataT:
         
         previous_messages = state.get("message_history", [])
         if user_input is None:

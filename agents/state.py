@@ -46,3 +46,6 @@ class State(TypedDict):
     message_history: List[ModelMessage] = []
     message_data: MessageLog = None
     user_id: str = ""
+    model: str
+    max_depth: int = 5
+    current_depth: int = 0

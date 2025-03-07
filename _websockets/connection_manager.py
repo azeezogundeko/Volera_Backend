@@ -4,6 +4,7 @@ from agents import (
     copilot_agent_graph,
     web_agent_graph, 
     insights_agent_graph,
+    ultra_search_agent_graph,
     filter_agent,
     response_agent,
     comparison_agent,
@@ -29,21 +30,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.connection_count: int = 0
 
-    def __config(self, ws_message, new_content, session_id, websocket_id, optimization_mode): 
-        return {
-            "agent_results": {},
-            "ws_message": ws_message,
-            "human_response": new_content,
-            "ai_response": "",
-            "optimization_mode": optimization_mode,
-            "session_id": session_id,
-            "ws_id": websocket_id,
-            "chat_count": 0,
-            "chat_finished": False,
-            "chat_limit": 5,
-            "ai_files": [],
-            "message_data": None,
-            }
+    
 
 
     async def connect(self, user_id: str, websocket: WebSocket) -> None:
@@ -69,7 +56,7 @@ class ConnectionManager:
         title = self.generate_title_from_content(data.data.content)
         metadata = {
             "focus_mode": data.focus_mode,
-            "optimization_mode": data.optimization_mode,
+            "model": data.model,
             "title": title,
             "chat_id": data.data.chat_id,
             "file_ids": data.file_ids
@@ -131,6 +118,23 @@ class ConnectionManager:
                 "type": "error",
                 "message": "Internal server error"
             })
+
+    async def ultra_search_mode(self, processing_config , state, websocket: WebSocket):
+        try:
+  
+            await ultra_search_agent_graph.ainvoke(
+                state,
+                processing_config,
+            )
+            self.websocket_manager.remove_connection(state["ws_id"])
+
+        except Exception as e:
+            self.websocket_manager.remove_connection(state["ws_id"])
+            await websocket.send_json({
+                "type": "error",
+                "message": "Internal server error"
+            })
+        
         
 
     async def handle_message(
@@ -152,7 +156,6 @@ class ConnectionManager:
             "ws_message": ws_message.model_dump(),
             "human_response": new_content,
             "ai_response": "",
-            "optimization_mode": data.optimization_mode,
             "session_id": session_id,
             "ws_id": websocket_id,
             "chat_count": 0,
@@ -161,6 +164,7 @@ class ConnectionManager:
             "ai_files": [],
             "message_logs": [],
             "user_id": user_id,
+            "model": data.model,
             }
 
         processing_config = {
@@ -175,6 +179,8 @@ class ConnectionManager:
             await self.insights_mode(processing_config, state, websocket)
         elif data.focus_mode == "all":
             await self.QA_mode(processing_config, state, websocket)
+        elif data.focus_mode == "ultrasearch":
+            await self.ultra_search_mode(processing_config, state, websocket)
 
 
     async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str, history) -> List[Dict[str, Any]]:

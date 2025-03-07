@@ -34,3 +34,31 @@ class GeminiDependencies(BaseDependencies):
 @dataclass
 class GroqDependencies(BaseDependencies):
     api_key: str = ApiKeyConfig.GROQ_API_KEY
+
+@dataclass
+class OpenRouterDependencies(BaseDependencies):
+    api_key: str = ApiKeyConfig.OPEN_ROUTER_API_KEY
+
+
+def get_dependencies(model_name: str) -> BaseDependencies:
+    """
+    Get the appropriate dependency class based on the model name.
+    The function extracts the base model name from variations (e.g. gemini-pro, gemini-flash both return GeminiDependencies)
+    
+    Args:
+        model_name (str): The name of the model (e.g. "gemini-pro", "groq-mixtral", etc.)
+        
+    Returns:
+        BaseDependencies: The appropriate dependency class for the model
+        
+    Raises:
+        ValueError: If no matching dependency is found for the model
+    """
+    model_name = model_name.lower()
+    
+    if "gemini" in model_name:
+        return GeminiDependencies
+    elif "deepseek" in model_name:
+        return None
+    else:
+        return GeminiDependencies

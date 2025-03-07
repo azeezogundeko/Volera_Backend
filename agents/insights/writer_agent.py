@@ -1,7 +1,7 @@
 from ..web.writer_agent import WebWriterAgent
 from utils.websocket import SourceMetadata, ImageMetadata
 
-from pydantic_ai.result import RunResult
+from pydantic_ai.result import ResultDataT
 from .prompts.writer_prompt import writer_response_prompt
 from ..state import State
 from schema import extract_agent_results
@@ -14,7 +14,7 @@ class InsightsWriterAgent(WebWriterAgent):
 
 
     @extract_agent_results(agent_manager.writer_agent)
-    async def run(self,state: State, user_input: str = None) -> RunResult:
+    async def run(self,state: State, user_input: str = None) -> ResultDataT:
         search_result = state["agent_results"][agent_manager.search_tool]
     
 

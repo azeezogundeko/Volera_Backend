@@ -15,14 +15,14 @@ from schema.dataclass.dependencies import GeminiDependencies
 from utils.exceptions import AgentProcessingError
 
 from langgraph.types import Command
-from pydantic_ai.result import RunResult
+from pydantic_ai.result import ResultDataT
 
 
 class WriterAgent(BaseAgent):
     def __init__(
         self, 
         timeout=10,
-        model = "gemini-2.0-flash-exp",
+        model = "google-gla:gemini-2.0-flash-exp",
         deps_type = GeminiDependencies,
         result_type = ReviewerSchema,
         system_prompt = writer_agent_prompt,
@@ -42,7 +42,7 @@ class WriterAgent(BaseAgent):
 
     # Secure wrapper to handle agent responses safely
     @extract_agent_results(agent_manager.writer_agent)
-    async def run(self,state: State) -> RunResult:
+    async def run(self,state: State) -> ResultDataT:
         search_result = state["agent_results"][agent_manager.search_tool]
         instructions = state["agent_results"][agent_manager.planner_agent]["content"]["writer_instructions"]
         

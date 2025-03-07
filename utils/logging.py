@@ -69,8 +69,8 @@ file_handler = create_file_handler('application.log', logging.INFO)
 error_file_handler = create_file_handler('error.log', logging.ERROR, backup_count=3)
 
 # Add handlers to the logger
+# logger.addHandler(file_handler)
 logger.addHandler(console_handler)
-logger.addHandler(file_handler)
 logger.addHandler(error_file_handler)
 
 # Prevent log messages from propagating to parent loggers

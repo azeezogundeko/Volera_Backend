@@ -198,7 +198,7 @@ class KongaIntegration(GraphQLIntegration):
             ]
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(proxy=self.proxy_url) as session:
             try:
                 async with session.post(
                     self.graphql_url,

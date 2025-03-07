@@ -151,7 +151,7 @@ async def queue_worker(priority_level: int):
                 request_queues[priority_level].task_done()
 
 
-# @credit_required(2)
+@credit_required(2)
 @router.get("/detail/{product_id}", response_model=ProductDetail)
 async def get_product_detail(
     request: Request,

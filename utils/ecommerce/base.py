@@ -9,6 +9,7 @@ from ..entity_recognition import extract_brands, extract_categories
 
 from utils.logging import logger
 
+import os
 
 
 class IntegrationType(Enum):
@@ -33,10 +34,24 @@ class EcommerceIntegration(ABC):
         self.base_url = base_url
         self.url_patterns = url_patterns
         self.integration_type = integration_type
+        self.proxy_url = self.get_proxy_url()
 
         # # Initialize entity recognition once
         # if not hasattr(self, 'entity_recognition'):
         #     self.entity_recognition = prepare_entity_recognition()
+
+    def get_proxy_url(self):
+        """Get proxy URL from environment variables"""
+        proxy_host = os.getenv('PROXY_HOST')
+        proxy_port = os.getenv('PROXY_PORT')
+        proxy_auth = os.getenv('PROXY_AUTH')
+        
+        if not all([proxy_host, proxy_port, proxy_auth]):
+            raise ValueError("Missing proxy configuration in .env file")
+        
+        proxy_url = f"http://{proxy_auth}@{proxy_host}:{proxy_port}"
+        # print(proxy_url)
+        return proxy_url
 
     def extract_brands(self, doc):
         return extract_brands(doc)
@@ -80,7 +95,16 @@ class ScrapingIntegration(EcommerceIntegration):
         self.detail_schema = detail_schema
         self.client = http_client
 
-    async def get_product_list(self, url: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> List[Dict[str, Any]]:
+    async def get_product_list(
+            self, 
+            url: str, 
+            custom_headers: dict = {}, 
+            use_flare_bypasser: bool = False, 
+            use_proxy: bool = False, 
+            proxy_url: str = None,
+            **kwargs
+        ) -> List[Dict[str, Any]]:
+
         from utils._craw4ai import extract_data_with_css
         products = await extract_data_with_css(
             url=url,
@@ -89,36 +113,42 @@ class ScrapingIntegration(EcommerceIntegration):
             custom_headers=custom_headers,
             page_timeout=kwargs.pop('page_timeout', 30000),
             use_flare_bypasser=use_flare_bypasser,
+            use_proxy=use_proxy,
+            proxy_url=proxy_url,
             **kwargs
         )
         return products if isinstance(products, list) else [products] if products else []
 
-    async def get_product_detail(self, url: str, product_id: str, custom_headers: dict = {}, use_flare_bypasser: bool = False, **kwargs) -> Dict[str, Any]:
+    async def get_product_detail(
+            self, 
+            url: str, 
+            product_id: str, 
+            custom_headers: dict = {}, 
+            use_flare_bypasser: bool = False, 
+            use_proxy: bool = False, 
+            proxy_url: str = None,
+            **kwargs
+        ) -> Dict[str, Any]:
         from utils._craw4ai import extract_data_with_css
         
     
         try:
-            print('==========================================================')
             product = await extract_data_with_css(
             url=url,
             schema=self.detail_schema,
             bypass_cache=kwargs.pop('bypass_cache', False),
             custom_headers=custom_headers,
+            use_proxy=use_proxy,
+            proxy_url=proxy_url,
             **kwargs
             )
-            print('==========================================================')
             
             # Handle different return types safely
             if not product:
                 return {}
             
             if isinstance(product, list):
-                print('==========================================================')
-                return product[0] if product else {}
-            
-            print('3')
-            print(product)
-                
+                return product[0] if product else {}                
             return product
             
         except Exception as e:

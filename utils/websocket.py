@@ -86,7 +86,8 @@ class WebSocketManager:
         self, 
         ws_id: int, 
         status: str, 
-        searched_items: int
+        searched_items: int = 0,
+        comment: List[str] = []
         ) -> WebSocket:
         if status == "searching":
             data = {
@@ -96,7 +97,6 @@ class WebSocketManager:
                     "searched": searched_items
                 }
             }
-            return await self.get_websocket(ws_id).send_json(data)
         elif status == "scraping":
             data = {
                 "type": "progress",
@@ -105,7 +105,24 @@ class WebSocketManager:
                     "scraped": searched_items
                 }
             }
-            return await self.get_websocket(ws_id).send_json(data)
+        elif status == 'compiling':
+            data = {
+                "type": "progress",
+                "progress": {
+                    "status": status,
+                    "searched": searched_items
+                }
+            }
+        
+        elif status == 'comment':
+            data = {
+                "type": "progress",
+                "progress": {
+                    "thinking": comment
+                }
+            }
+
+        return await self.get_websocket(ws_id).send_json(data)
 
 
     async def send_search_complete(

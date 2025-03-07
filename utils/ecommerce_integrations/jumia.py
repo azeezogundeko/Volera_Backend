@@ -3,6 +3,8 @@ from urllib.parse import urlparse, parse_qs
 from ..ecommerce.base import ScrapingIntegration
 from db.cache.dict import DiskCacheDB
 
+# from ..request_session import http_client
+
 from ..logging import logger
 # from utils import db_manager
 
@@ -266,6 +268,24 @@ class JumiaIntegration(ScrapingIntegration):
             follow_redirects=True,
             timeout=30.0
         )
+        
+    async def search_via_query(self, product_name: str, country='ng'):
+        try:
+            search_url = f"https://www.jumia.{country}/catalog/?q={product_name.replace(' ', '+')}"
+            result = await self.session.get(search_url)
+            return result.text
+        except Exception as e:
+            logger.error(str(e))
+            return None
+        
+    async def search_via_sku(self, sku: str, country='ng'):
+        try:
+            search_url =  f"https://www.jumia.{country}/catalog/productspecifications/sku/{sku}"
+            result = await self.session.get(search_url)
+            return result.text
+        except Exception as e:
+            logger.error(str(e))
+            return None
 
     async def __aenter__(self):
         return self
@@ -504,25 +524,25 @@ class JumiaIntegration(ScrapingIntegration):
 
         return product_detail
 
-    async def get_product_list(self, url: str, **kwargs) -> List[Dict[str, Any]]:
+    async def get_product_list(self, url: str, query, **kwargs) -> List[Dict[str, Any]]:
         """Get product list by scraping."""
-        products = await self.extract_list_data(url, **kwargs)
+        products = await self.extract_list_data(url,query=query, **kwargs)
         return products
         # return await self._transform_product_list(products)
 
 
     async def get_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Get product detail by scraping."""
+        # try:
+        #     product = await self.extract_product_detail(url, product_id, **kwargs)
+        # except Exception as e:
+        #     logger.warning(f"Direct extraction failed for {url}, falling back to base scraper: {str(e)}")
         try:
-            product = await self.extract_product_detail(url, product_id, **kwargs)
+            product = await super().get_product_detail(url, product_id, custom_headers=self.headers, **kwargs)
+            product = await self._transform_product_detail(product, product_id, url)
         except Exception as e:
-            logger.warning(f"Direct extraction failed for {url}, falling back to base scraper: {str(e)}")
-            try:
-                product = await super().get_product_detail(url, product_id, custom_headers=self.headers, **kwargs)
-                product = await self._transform_product_detail(product, product_id, url)
-            except Exception as e:
-                logger.error(f"Base scraper also failed for {url}: {str(e)}")
-                product = None
+            logger.error(f"Base scraper also failed for {url}: {str(e)}")
+            product = None
 
         # If both extraction methods fail, try to get basic info from list cache
         if not product and self.db_manager:
@@ -539,16 +559,33 @@ class JumiaIntegration(ScrapingIntegration):
 
     async def extract_product_detail(self, url: str, product_id: str, **kwargs) -> Dict[str, Any]:
         """Extract product detail using the window.__STORE__ data."""
-        try:
-            # First check URL accessibility with HEAD request
-            if not await self._check_url_accessibility(url):
-                raise Exception("URL not accessible")
-                
-            # If HEAD request successful, proceed with GET
-            response = await self.session.get(url)
-            html_content = response.text
-        except Exception as e:
-            raise Exception(f"Failed to fetch product detail: {str(e)}")
+        html_content = None
+
+        # Try to get cached product first
+        if self.db_manager:
+            product = await self.db_manager.get(product_id, 'list')
+            if product and product.get('sku'):
+                # First attempt: Try getting details via SKU
+                html_content = await self.search_via_sku(product['sku'])
+                if html_content is not None:
+                    logger.info(f"Successfully fetched product details via SKU for {product_id}")
+
+        # Second attempt: Try direct URL if SKU lookup failed or wasn't possible
+        if not html_content:
+            try:
+                # Check URL accessibility first
+                if await self._check_url_accessibility(url):
+                    response = await self.session.get(url)
+                    html_content = response.text
+                    logger.info(f"Successfully fetched product details via URL for {product_id}")
+                else:
+                    logger.warning(f"URL not accessible for product {product_id}: {url}")
+            except Exception as e:
+                logger.error(f"Failed to fetch product detail via URL for {product_id}: {str(e)}")
+                raise Exception(f"Failed to fetch product detail: {str(e)}")
+
+        if not html_content:
+            raise Exception("Could not fetch product details via SKU or URL")
 
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -563,74 +600,85 @@ class JumiaIntegration(ScrapingIntegration):
         script_content = script_tag.string
         json_data = script_content.split('window.__STORE__=', 1)[-1].strip(';')
         
-        # Parse the JSON data
-        data = json.loads(json_data)
-        
-        # Extract product information
-        product = data.get('product', {})
-        if not product:
-            raise Exception("No product data found in store")
+        try:
+            # Parse the JSON data
+            data = json.loads(json_data)
+            
+            # Extract product information
+            product = data.get('product', {})
+            if not product:
+                raise Exception("No product data found in store")
 
-        # Extract specifications
-        specs = []
-        for spec_group in product.get('specifications', []):
-            for spec in spec_group.get('values', []):
-                specs.append({
-                    "label": spec_group.get('name', ''),
-                    "value": spec
+            # Extract specifications
+            specs = []
+            for spec_group in product.get('specifications', []):
+                for spec in spec_group.get('values', []):
+                    specs.append({
+                        "label": spec_group.get('name', ''),
+                        "value": spec
+                    })
+
+            # Extract reviews
+            reviews = []
+            for review in product.get('reviews', {}).get('items', []):
+                reviews.append({
+                    "rating": self._clean_rating(review.get('rating', 0)),
+                    "title": review.get('title', ''),
+                    "comment": review.get('comment', ''),
+                    "date": review.get('created_at', ''),
+                    "author": review.get('reviewer_name', ''),
+                    "verified": review.get('is_verified_purchase', False)
                 })
 
-        # Extract reviews
-        reviews = []
-        for review in product.get('reviews', {}).get('items', []):
-            reviews.append({
-                "rating": self._clean_rating(review.get('rating', 0)),
-                "title": review.get('title', ''),
-                "comment": review.get('comment', ''),
-                "date": review.get('created_at', ''),
-                "author": review.get('reviewer_name', ''),
-                "verified": review.get('is_verified_purchase', False)
-            })
-
-        # Build the product detail object
-        product_detail = {
-            "product_id": product_id,
-            "name": product.get('name', ''),
-            "brand": product.get('brand', {}).get('name', ''),
-            "category": product.get('category', {}).get('name', ''),
-            "description": product.get('description', ''),
-            "current_price": float(product.get('price', {}).get('amount', 0)),
-            "original_price": self._clean_price(product.get('price', {}).get('old_amount', '')),
-            "discount": self._clean_discount(product.get('price', {}).get('discount', '')),
-            "url": url,
-            "image": product.get('image', {}).get('url', ''),
-            "images": [img.get('url', '') for img in product.get('images', [])],
-            "source": self.name,
-            "rating": self._clean_rating(product.get('rating', {}).get('average', 0)),
-            "rating_count": self._clean_rating_count(product.get('rating', {}).get('count', 0)),
-            "specifications": specs,
-            "reviews": reviews,
-            "seller": {
-                "name": product.get('seller', {}).get('name', ''),
-                "rating": self._clean_rating(product.get('seller', {}).get('rating', {}).get('average', 0))
+            # Build the product detail object
+            product_detail = {
+                "product_id": product_id,
+                "name": product.get('name', ''),
+                "brand": product.get('brand', {}).get('name', ''),
+                "category": product.get('category', {}).get('name', ''),
+                "description": product.get('description', ''),
+                "current_price": float(product.get('price', {}).get('amount', 0)),
+                "original_price": self._clean_price(product.get('price', {}).get('old_amount', '')),
+                "discount": self._clean_discount(product.get('price', {}).get('discount', '')),
+                "url": url,
+                "image": product.get('image', {}).get('url', ''),
+                "images": [img.get('url', '') for img in product.get('images', [])],
+                "source": self.name,
+                "rating": self._clean_rating(product.get('rating', {}).get('average', 0)),
+                "rating_count": self._clean_rating_count(product.get('rating', {}).get('count', 0)),
+                "specifications": specs,
+                "reviews": reviews,
+                "seller": {
+                    "name": product.get('seller', {}).get('name', ''),
+                    "rating": self._clean_rating(product.get('seller', {}).get('rating', {}).get('average', 0))
+                }
             }
-        }
 
-        return product_detail
+            return product_detail
 
-    async def extract_list_data(self, url: str, **kwargs) -> List[Dict[str, Any]]:
-        try:
-            # First check URL accessibility with HEAD request
-            if not await self._check_url_accessibility(url):
-                raise Exception("URL not accessible")
-                
-            # If HEAD request successful, proceed with GET
-            response = await self.session.get(url)
-            html_content = response.text
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse product JSON for {product_id}: {str(e)}")
+            raise Exception("Failed to parse product data")
         except Exception as e:
-            print(f"URL failed {url} through {str(e)}")
-            products = await super().get_product_list(url, custom_headers=self.headers, **kwargs)
-            return await self._transform_product_list(products)
+            logger.error(f"Error processing product detail for {product_id}: {str(e)}")
+            raise
+
+    async def extract_list_data(self, url: str, query, **kwargs) -> List[Dict[str, Any]]:
+        html_content = await self.search_via_query(query)
+
+        if html_content is None:
+            try:
+                # First check URL accessibility with HEAD request
+                if not await self._check_url_accessibility(url):
+                    raise Exception("URL not accessible")
+                    
+                # If HEAD request successful, proceed with GET
+                response = await self.session.get(url)
+                html_content = response.text
+            except Exception as e:
+                print(f"URL failed {url} through {str(e)}")
+                products = await super().get_product_list(url, custom_headers=self.headers, **kwargs)
+                return await self._transform_product_list(products)
 
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -656,6 +704,7 @@ class JumiaIntegration(ScrapingIntegration):
                 url = f"{self.base_url}{product.get('url', '')}"
                 product_id = self.generate_url_id(url)
                 product_info = {
+                    "sku": product.get("sku", None),
                     "product_id": product_id,
                     'category': product.get('categories', '')[0],
                     'name': product.get('displayName', ''),

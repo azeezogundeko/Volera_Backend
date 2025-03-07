@@ -12,7 +12,7 @@ from schema.dataclass.dependencies import GeminiDependencies
 
 from fastapi import WebSocket
 from langgraph.types import Command
-from pydantic_ai.result import RunResult
+from pydantic_ai.result import ResultDataT
 
 
 class FollowUpAgent(BaseAgent):
@@ -35,7 +35,7 @@ class FollowUpAgent(BaseAgent):
 
     
     @extract_agent_results(agent_manager.followup)
-    async def run(self, state: State, user_input)-> RunResult:
+    async def run(self, state: State, user_input)-> ResultDataT:
         
         previous_messages = state.get("message_history", [])
         searched_results = state["agent_results"][agent_manager.search_tool]

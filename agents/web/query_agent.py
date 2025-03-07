@@ -1,7 +1,7 @@
 import asyncio
 from typing import Literal
 
-from fastapi import WebSocket, WebSocketDisconnect
+# from fastapi import WebSocket, WebSocketDisconnect
 
 from ..legacy.base import BaseAgent
 from ..tools.search import search_tool
@@ -22,7 +22,7 @@ from langgraph.types import Command
 class WebQueryAgent(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(
-            model="gemini-2.0-flash-exp",
+            model="google-gla:gemini-2.0-flash-exp",
             name=agent_manager.web_query_agent,
             system_prompt=web_query_retrieval_prompt,
             result_type=WebQueryAgentSchema,
@@ -34,7 +34,7 @@ class WebQueryAgent(BaseAgent):
     
     async def search(self, result: WebQueryAgentSchema, query: str, user_id: str):
         # Check credits before search operation
-        has_credits, balance = await check_credits(user_id, "text")
+        has_credits, balance = await check_credits(user_id, "amount", 10)
         if not has_credits:
             raise ValueError(f"Insufficient credits. Available: {balance}")
 
@@ -69,9 +69,9 @@ class WebQueryAgent(BaseAgent):
             raise ValueError("User ID not found in state")
 
         # Check credits before LLM call
-        has_credits, balance = await check_credits(user_id, "text")
-        if not has_credits:
-            raise ValueError(f"Insufficient credits. Available: {balance}")
+        # has_credits, balance = await check_credits(user_id, "text")
+        # if not has_credits:
+        #     raise ValueError(f"Insufficient credits. Available: {balance}")
 
         previous_messages = state.get("message_history", [])
         if user_input is None:
@@ -79,20 +79,14 @@ class WebQueryAgent(BaseAgent):
             
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(
-            self.llm.run(user_input, message_history=previous_messages),
-             timeout=20)
-
-        # Track credit usage for LLM call
-        cost = response.cost()
-        await track_llm_call(
-            user_id, 
-            "text", 
-            {
-                "input_tokens": cost.request_tokens,
-                "output_tokens": cost.response_tokens,
-                "total_tokens": cost.total_tokens
-            }
-        )
+            self.call_llm(
+                user_id=user_id,
+                user_prompt=user_input,
+                type='text',
+                message_history=previous_messages
+                ),
+            timeout=20
+            )
 
         state["message_history"] = previous_messages + response.new_messages()
         logger.info("Web Query Agent executed successfully.")
@@ -150,6 +144,8 @@ class WebQueryAgent(BaseAgent):
                 }
             )
             return Command(goto=agent_manager.end, update=state)
+
+    
 
 
 web_query_agent_node = WebQueryAgent()

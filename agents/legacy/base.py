@@ -1,32 +1,40 @@
 # from abc import ABC
 from datetime import datetime, timezone
 from typing import Literal, TypeVar, Optional, List
+from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from ..config import agent_manager
-from prompts import (
-    search_agent_prompt, 
-    policy_assistant_prompt, 
-    planner_agent_prompt
-    )
-from schema.dataclass.dependencies import GroqDependencies, GeminiDependencies, BaseDependencies
-from schema.validations.agents_schemas import( 
-    FeedbackResponseSchema,
-    PlannerAgentSchema, 
-    SearchAgentSchema, 
-    ComparisonSchema,
-    MetaAgentSchema,
-    InsightsSchema,
-    ReviewerSchema,
-    PolicySchema,
-    HumanSchema,
-    WebSchema,
-    )
+from config import ApiKeyConfig
+from asyncio import sleep, Semaphore
+from datetime import datetime, timedelta
+# from prompts import (
+#     search_agent_prompt, 
+#     policy_assistant_prompt, 
+#     planner_agent_prompt
+#     )
+from schema.dataclass.dependencies import get_dependencies, BaseDependencies
+# from schema.validations.agents_schemas import( 
+#     FeedbackResponseSchema,
+#     PlannerAgentSchema, 
+#     SearchAgentSchema, 
+#     ComparisonSchema,
+#     MetaAgentSchema,
+#     InsightsSchema,
+#     ReviewerSchema,
+#     PolicySchema,
+#     HumanSchema,
+#     WebSchema,
+#     )
 
 from .llm import check_credits, track_llm_call
 from ..state import State
 from config import DB_PATH
 from utils.websocket import WebSocketManager, ImageMetadata, ProductSchema, SourceMetadata
 from utils.background import background_task
+from utils.url_shortener import URLShortener
+from utils.rerank import ReRanker
+from utils._craw4ai import CrawlerManager
 from utils.ecommerce_manager import EcommerceManager
 from schema.dataclass.decourator import extract_agent_results
 # from utils.db_manager import ProductDBManager
@@ -36,10 +44,11 @@ from schema.validations.agents_schemas import BaseSchema
 from pydantic_ai import Agent
 from langgraph.types import Command
 
-from pydantic_ai.result import RunResult
-from pydantic_ai.tools import AgentDeps
+from pydantic_ai.result import ResultDataT
+from pydantic_ai.tools import AgentDepsT
 from pydantic_ai import models, messages as _messages
 from pydantic_ai.settings import ModelSettings
+from ..tools.search import search_tool
 
 BaseSchemaType = TypeVar('BaseSchemaType', bound=BaseSchema)
 
@@ -49,8 +58,9 @@ class BaseAgent:
         name: str,
         model: str,
         system_prompt: str,
-        result_type: BaseSchemaType,
-        deps_type: BaseDependencies,
+        use_open_router=False,
+        result_type: BaseSchemaType = None,
+        deps_type: BaseDependencies=None,
         timeout:int = 30,
         retries: int = 3,
     ):
@@ -58,16 +68,87 @@ class BaseAgent:
         self.agent_name = name
         self.model = model
         self.background_task = background_task
+        self.search_tool = search_tool
+        self.semaphore = Semaphore(3)
+        self.rerank = ReRanker()
+        self.url_shoterner = URLShortener()
         
         self.websocket_manager = WebSocketManager()
-        self.llm = Agent(
-            name=name,
-            model=model,
-            system_prompt=system_prompt,
-            deps_type=deps_type,
-            result_type=result_type,
-            retries=retries
-        )
+        if use_open_router:
+            open_router_model = self.use_open_router(model)
+            self.llm = Agent(
+                model=open_router_model,
+                name=name,
+                system_prompt=system_prompt,
+                result_type=result_type,
+                retries=retries
+
+            )
+        else:
+            self.llm = Agent(
+                name=name,
+                model=model,
+                system_prompt=system_prompt,
+                deps_type=deps_type,
+                result_type=result_type,
+                retries=retries
+            )
+
+    def get_model_config(self, new_model:str):
+        if new_model == "deepseek":
+            return {
+                "model": self.use_open_router(),
+                "deps": None
+            }
+        # elif new_model == "gemini":
+        return {
+            "model": "google-gla:gemini-2.0-flash-exp",
+            "deps": get_dependencies('gemini')
+        }
+    
+    async def get_crawler(self):
+        return await CrawlerManager.get_crawler()
+    
+    async def _wait_for_rate_limit(self):
+        """
+        Implements a sliding window rate limit of 3 requests per minute.
+        """
+        now = datetime.now()
+        minute_ago = now - timedelta(minutes=1)
+        
+        # Remove timestamps older than 1 minute
+        self._last_crawl_times = [t for t in self._last_crawl_times if t > minute_ago]
+        
+        # If we've made 3 or more requests in the last minute, wait until we can make another
+        if len(self._last_crawl_times) >= 3:
+            wait_time = (self._last_crawl_times[0] - minute_ago).total_seconds()
+            if wait_time > 0:
+                await sleep(wait_time)
+            self._last_crawl_times.pop(0)
+        
+        # Add current timestamp
+        self._last_crawl_times.append(now)
+        
+
+
+    def update_dependencies(self, new_model):        
+        deps = get_dependencies(new_model)
+
+
+    def use_open_router(self, new_model: str = 'deepseek/deepseek-chat:free'):
+        """Update the model used by this agent during runtime.
+            format groq/model_name gemin/model_name
+        
+        Args:
+            new_model (str): The name of the new model to use
+        """
+        model = OpenAIModel(
+                new_model,
+                provider=OpenAIProvider(
+                    base_url='https://openrouter.ai/api/v1', api_key=ApiKeyConfig.OPEN_ROUTER_API_KEY
+                ),
+            )
+        return model
 
     async def list_product(
         self, 
@@ -174,6 +255,11 @@ class BaseAgent:
         )
         state["message_data"] = message_data
 
+    async def go_to_user_node(self, state: State, ai_response: str, go_back_to_node: str):
+        state["ai_response"] = ai_response
+        await self.send_signals(state, ai_response)
+        state["next_node"] = go_back_to_node
+
     async def call_llm(
         self, 
         user_id: str, 
@@ -181,15 +267,14 @@ class BaseAgent:
         type: str,
         message_history: list[_messages.ModelMessage] | None = None,
         model: models.Model | models.KnownModelName | None = None,
-        deps: AgentDeps = None,
+        deps: AgentDepsT = None,
         model_settings: ModelSettings | None = None,
-        infer_name: bool = True) -> RunResult:
+        infer_name: bool = True) -> ResultDataT:
             
-        if check_credits(user_id, type) is False:
-            raise 
-            
-        tokens = {}
-            
+        has_credits, balance = await check_credits(user_id, type)
+        if not has_credits:
+            raise ValueError(f"Insufficient credits. Available: {balance}")
+                       
         result =  await self.llm.run(
             user_prompt=user_prompt,
             message_history=message_history,
@@ -199,12 +284,18 @@ class BaseAgent:
             model_settings=model_settings        
         )
 
-        cost = result.cost()
-        tokens["input_tokens"] = cost.request_tokens
-        tokens["output_tokens"] = cost.response_tokens
-        tokens["total_tokens"] = cost.total_tokens
+        print(result)
 
-        await track_llm_call(user_id, self.model, type, tokens)
+        # cost = result.cost()
+        await track_llm_call(
+            user_id, 
+            "text", 
+            # {
+            #     "input_tokens": cost.request_tokens,
+            #     "output_tokens": cost.response_tokens,
+            #     "total_tokens": cost.total_tokens
+            # }
+        )
 
         return result
 
@@ -213,7 +304,7 @@ class BaseAgent:
 
 
     @extract_agent_results
-    async def run(self) -> RunResult:
+    async def run(self) -> ResultDataT:
         raise NotImplementedError
 
     async def __call__(self, state: State, config: dict = {}) -> BaseSchemaType:

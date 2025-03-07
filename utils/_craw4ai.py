@@ -15,8 +15,10 @@ import os
 # from fastembed import FastEmbed
 import logging
 from config import USER_AGENT
-from config import PRODUCTION_MODE
+from config import PRODUCTION_MODE, proxy_url
 # from utils.flare_bypasser import flare_bypasser
+import re
+from urllib.parse import urlparse
 
 from utils.logging import logger
 
@@ -91,7 +93,10 @@ class CrawlerManager:
                     os.environ['HTTP_PROXY'] = proxy_settings
                 
                 # Create crawler instance
-                config = BrowserConfig(headless=True, storage_state=CHROME_STORAGE_PATH)
+                proxy_config = None
+                if PRODUCTION_MODE:
+                    proxy_config = proxy_url
+                config = BrowserConfig(headless=True, storage_state=CHROME_STORAGE_PATH, proxy_config=proxy_config)
                 cls._crawler = AsyncWebCrawler(
                     verbose=True,
                     proxy=proxy_settings,
@@ -320,6 +325,31 @@ async def filter_webpage_content(
         "html": result.cleaned_html
     }
 
+def create_safe_filename(url: str) -> str:
+    """Create a safe filename from URL
+    Args:
+        url: URL to convert to filename
+    Returns:
+        Safe filename string
+    """
+    # Parse the URL and get the path
+    parsed = urlparse(url)
+    path = parsed.path
+    if parsed.query:
+        path += f"_{parsed.query}"
+    
+    # Remove invalid filename characters and replace with underscore
+    safe_name = re.sub(r'[<>:"/\\|?*]', '_', path)
+    # Remove leading/trailing dots and spaces
+    safe_name = safe_name.strip('. ')
+    # Replace multiple underscores with single one
+    safe_name = re.sub(r'_+', '_', safe_name)
+    # Ensure the filename isn't too long
+    if len(safe_name) > 200:
+        safe_name = safe_name[:200]
+    
+    return f"{safe_name}.html"
+
 async def extract_data_with_css(
     url: str,
     schema: dict,
@@ -328,6 +358,8 @@ async def extract_data_with_css(
     custom_user_agent: str = USER_AGENT,
     page_timeout: int = 30000,
     use_flare_bypasser: bool = False,
+    use_proxy: bool = False,
+    proxy_url: str = None,
     **kwargs
 ) -> List[Dict[str, Any]]:
     """
@@ -345,59 +377,41 @@ async def extract_data_with_css(
         List of extracted data items matching the schema
     """
     crawler = await CrawlerManager.get_crawler()
-    crawler.crawler_strategy.set_custom_headers(custom_headers)
-    crawler.crawler_strategy.update_user_agent(custom_user_agent)
+    # crawler.crawler_strategy.set_custom_headers(custom_headers)
+    # crawler.crawler_strategy.update_user_agent(custom_user_agent)
     
     strategy = JsonCssExtractionStrategy(schema, verbose=True)
-    # config = CrawlerRunConfig(magic=True, **kwargs)
+    config = CrawlerRunConfig(
+        magic=True, 
+        extraction_strategy=strategy,
+        bypass_cache=True,
+        page_timeout=page_timeout,
+        simulate_user=True
+        )
+    # if PRODUCTION_MODE:
+    # if use_proxy:
+    #     config =config.clone(proxy_config={'server': proxy_url})
+        # print(config)
 
     result = await crawler.arun(
             url=url,
-            extraction_strategy=strategy,
-            bypass_cache=bypass_cache,
-            user_agent=USER_AGENT,
-            magic=True,
-            page_timeout=page_timeout,
-            **kwargs
+            config=config
     )
 
     extracted_data = []
     if result.success:
+        html = result.cleaned_html
+        print(html)
         try:
+            # Create data directory if it doesn't exist
             extracted_data = json.loads(result.extracted_content)
-        except (json.JSONDecodeError, AttributeError):
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.error(f"Error parsing extracted content: {str(e)}")
             extracted_data = []
+        except Exception as e:
+            logger.error(f"Error saving HTML content: {str(e)}")
+            # Continue with extraction even if saving HTML fails
 
-    # # Try flare bypass if result is empty or if use_flare_bypasser is True
-    # if (not extracted_data or use_flare_bypasser) and PRODUCTION_MODE:
-    #     try:
-    #         # Use flare bypasser to get the page content
-    #         solution = await flare_bypasser.get_page(url, max_timeout=page_timeout)
-            
-    #         if solution["status"] == "ok":
-    #             html_result = solution["solution"]["response"]
-                
-    #             result = await crawler.aprocess_html(
-    #                 url=url,
-    #                 html=html_result,
-    #                 extracted_content=None,
-    #                 extraction_strategy=strategy,
-    #                 config=config,
-    #                 verbose=True,
-    #                 bypass_cache=bypass_cache,
-    #                 pdf_data=False,
-    #                 screenshot=False
-    #             )
-
-    #             print(result)
-                
-    #             if result.success:
-    #                 try:
-    #                     extracted_data = json.loads(result.extracted_content)
-    #                 except (json.JSONDecodeError, AttributeError):
-    #                     pass
-                        
-    #     except Exception as e:
-    #         logger.error(f"Flare bypass failed for {url}: {str(e)}")
-            
+    logger.debug(f"Extracted data: {extracted_data}")
+    
     return extracted_data

@@ -77,8 +77,9 @@ class EcommerceManager:
     async def process_url(
         self,
         url: str,
+        query,
         ttl: Optional[int] = 3600,
-        bypass_cache: bool = False
+        bypass_cache: bool = False,
     ) -> List[Dict[str, Any]]:
         """Process a single URL and return extracted products."""
         try:
@@ -100,10 +101,15 @@ class EcommerceManager:
                 return []
             
             # Get product list
-            products = await integration.get_product_list(
-                url=processed_url,
-                bypass_cache=bypass_cache
-            )
+            try:
+                products = await integration.get_product_list(
+                    url=processed_url,
+                    bypass_cache=bypass_cache,
+                    query=query
+                )
+            except Exception as e:
+                logger.error(f"Error getting product list for {processed_url}: {str(e)}", exc_info=True)
+                return []
             
             # if products:
             #     await self.db_manager.set(

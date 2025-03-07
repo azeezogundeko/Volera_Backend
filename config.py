@@ -3,9 +3,11 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 load_dotenv()
+# PRODUCTION_MODE = 'true'
 
 PRODUCTION_MODE = os.getenv("PRODUCTION_MODE", "false").lower() == "true"
-# print(PRODUCTION_MODE)
+print(PRODUCTION_MODE)
+PRODUCTION_MODE = False
 if PRODUCTION_MODE:
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
@@ -66,6 +68,12 @@ class ApiKeyConfig:
     GEMINI_API_KEY_2 = str(os.getenv("GEMINI_API_KEY_2"))
     GEMINI_API_KEY = str(os.getenv("GEMINI_API_KEY"))
     GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY"))
+    OPEN_ROUTER_API_KEY = str(os.getenv("OPEN_ROUTER_API_KEY"))
 
 # Flare Bypasser Configuration
 FLARE_BYPASSER_URL = os.getenv("FLARE_BYPASSER_URL", "http://flare-bypasser:20080") if PRODUCTION_MODE else None 
+
+proxy_host = os.getenv('PROXY_HOST')
+proxy_port = os.getenv('PROXY_PORT')
+proxy_auth = os.getenv('PROXY_AUTH')
+proxy_url = f"http://{proxy_auth}@{proxy_host}:{proxy_port}"

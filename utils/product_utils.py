@@ -97,7 +97,8 @@ async def search_and_process_products(
                                     ecommerce_manager.process_url(
                                         url=result["link"],
                                         bypass_cache=bypass_cache,
-                                        ttl=3600
+                                        ttl=3600,
+                                        query=query
                                     )
                                 )
                                 url_integration_map[integration.name] = url_integration_map.get(integration.name, 0) + 1
