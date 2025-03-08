@@ -1,5 +1,5 @@
 import asyncio
-from typing import Literal, List, Dict, Any
+from typing import Literal, List, Dict, Any, Optional, Union
 
 # from fastapi import WebSocket, WebSocketDisconnect
 
@@ -15,7 +15,7 @@ from utils.logging import logger
 from ..legacy.llm import check_credits, track_llm_call
 
 from langgraph.types import Command
-from crawl4ai import CrawlerRunConfig, BM25ContentFilter, DefaultMarkdownGenerator
+from crawl4ai import CrawlerRunConfig, BM25ContentFilter, DefaultMarkdownGenerator, MarkdownGenerationResult
 
 
 class ResearchAgent(BaseAgent):
@@ -44,131 +44,179 @@ class ResearchAgent(BaseAgent):
     
     def get_search_query(self, state: State):
         planner_agent_results = state["agent_results"][agent_manager.planner_agent]
+        print(planner_agent_results)
         research_agent_result = state["agent_results"].get(agent_manager.research_agent, None)
 
         if research_agent_result is None:
             research_agent_result = self.get_agent_results(state)
 
+        # Get the list of already searched queries (each a dict with 'site' and 'query')
         searched_queries = research_agent_result.get("searched_queries", [])
-        
-        query_to_search = None
-        print(planner_agent_results)
+        # Build a set of (site, query) tuples for fast lookup
+        searched_set = {(item.get('site'), item.get('query')) for item in searched_queries}
+        print(searched_set)
+
+        # 'queries_to_search' is a list of dicts with keys 'site' and 'query'
         queries_to_search = planner_agent_results['content']['search_queries']
 
-        for query in queries_to_search:
-            if query not in searched_queries:
-                query_to_search = query
-                break  # Stop at the first unsued query
+        query_to_search = None
+        # Find the first query item that hasn't been searched (comparing both site and query)
+        for query_item in queries_to_search:
+            key = (query_item.get('site'), query_item.get('query'))
+            if key not in searched_set:
+                query_to_search = query_item
+                break
 
-        # if query_to_search is None:
-        #     # No more items to search - raise an appropriate exception
-        #     raise Exception("No more queries available for search.")
+        if query_to_search is None:
+            # No more queries available; you can decide to either return None or raise an exception
+            return None
 
+        # Append the current search query (the whole dict) to the list of searched queries
         searched_queries.append(query_to_search)
         state["agent_results"][agent_manager.research_agent]['searched_queries'] = searched_queries
 
         return query_to_search
 
-    async def run(self, state: State, config: dict = {}):
 
-        logger.info("Reached Research Agent")
-        search_query = self.get_search_query(state)
-            
-        logger.info(f"Search Query: {search_query}")
-        model_config = self.get_model_config(state['model'])
 
-        agent_results = state['agent_results'][agent_manager.research_agent]
-        n_scraped = agent_results['n_scraped_items']
-        n_searched = agent_results['n_searched_items']
-        if search_query is None:
-            raise ValueError("No more queries available for search.")
-            # maybe tell the user we could not find relevant products or go back to planner agent
-        
-        search_results = await self.search_tool.search_products(search_query)
-
+    async def process_search_result(self, search_result, search_config, model_config, state, llm_semaphore):
+        url = search_result['link']
         try:
-            products = state['agent_results'][agent_manager.research_agent]['all_products']
-            current_products = []
+            # Notify the frontend that we are starting to process this URL.
+            await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=f"Processing URL: {url}")
+
+            crawler = await self.get_crawler()
+            results = await crawler.arun(url, config=self.crawler_config)
             
-
-            for search_result in search_results:
-                url = search_result['link']
-
-                crawler = await self.get_crawler()
-                results = await crawler.arun(url, config=self.crawler_config)
-
-                n_scraped += 1
-                await self.websocket_manager.send_progress(state['ws_id'], status="scraping", searched_items=n_scraped)
-
-                if not results.success:
-                    continue
-
-
-                markdown = results.markdown_v2
-                if markdown is None:
-                    continue
-
-                markdown = {
-                    "Page URL": results.url,
-                    "Page Markdown": markdown
-                }
-
-                logger.info("Calling LLM")
-                try:
-                    llm_response = await self.call_llm(
-                        user_id=state['user_id'],
-                        user_prompt=str(markdown),
-                        type='text',
-                        model=model_config['model'],
-                        deps=model_config['deps']
-                    )
-                except Exception as e:
-                    logger.error(e, exc_info=True)
-                    continue
-
-                await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=llm_response.data.comment)
-                if len(llm_response.data.products) == 0:
-                    continue
-                
-                logger.info('Preprocessing the results')
-                original_products: List[ProductDetail]= llm_response.data.products
-                original_products = [product.model_dump() for product in original_products]
-                original_products = await self.rerank.rerank(search_query, original_products)
-                original_products = original_products[:30]
-                logger.info('Finished preprocessing the results')
-
-                products_dict = []
-                for product in original_products:
-                    product['product_id'] = self.url_shoterner.shorten_url(url)
-                    products_dict.append(product)
+            # Increment scraped count and send progress update
+            state['agent_results'][agent_manager.research_agent]['n_scraped_items'] += 1
+            await self.websocket_manager.send_progress(
+                state['ws_id'], 
+                status="scraping", 
+                searched_items=state['agent_results'][agent_manager.research_agent]['n_scraped_items'],
+                # comment=f"Scraped URL: {url}"
+            )
+            
+            markdown = self.get_markdown_content(results.markdown)
+            if markdown is None:
+                return None
 
 
-                products.extend(products_dict)
+            page_content = {
+                "Page URL": results.url,
+                "Page Markdown": markdown
+            }
 
-                try:
-                    logger.info('Converting all prices to naira')
-                    products = await self.preprocess_currencies(products)
-                except Exception as e:
-                    logger.error(e, exc_info=True)
+            logger.info("Calling LLM")
+            async with llm_semaphore:
+                llm_response = await asyncio.wait_for(self.call_llm(
+                    user_id=state['user_id'],
+                    user_prompt=str(page_content),
+                    type='text',
+                    model="google-gla:gemini-2.0-flash-exp",
+                    deps=model_config['deps']
+                ),
+                timeout=300
+                )
+            await self.websocket_manager.send_progress(
+                state['ws_id'], 
+                status="comment", 
+                comment=llm_response.data.comment
+            )
 
-                current_products.extend(products_dict)
-                print('Searched products: ', products_dict)
-                # await asyncio.sleep(3)
-                # crawl and extract the markdown
-                # pass markdown to llm if successfully crawled
-                # route to reviewer agent to analyse the results
-                # if all conditions are met results are returned to user else back to research agent to get more results
+            print(llm_response.data.products)
+            if not llm_response.data.products:
+                return None
 
-            logger.info('Storing the results')
-            state['agent_results'][agent_manager.research_agent]['n_scraped_items'] = n_scraped
-            state['agent_results'][agent_manager.research_agent]['all_products'] = products
-            state['agent_results'][agent_manager.research_agent]['current_products'] = current_products
+            logger.info('Preprocessing the results')
+            await self.websocket_manager.send_progress(
+                state['ws_id'], 
+                status="comment", 
+                comment=f"Preprocessing products for URL: {url}"
+            )
+            original_products = [product.model_dump() for product in llm_response.data.products]
+            original_products = await self.rerank.rerank(search_config['query'], original_products)
+            original_products = original_products[:10]
+            logger.info('Finished preprocessing the results')
 
-            # Go to Reviewer agent to see if all conditions have been met
-            logger.info('Navigating to Reviewer Agent')
-            return Command(goto=agent_manager.reviewer_agent, update=state)
+            products_dict = []
+            for product in original_products:
+                product['product_id'] = self.url_shoterner.shorten_url(url)
+                products_dict.append(product)
+            
+            # # Notify completion of processing for this URL.
+            await self.websocket_manager.send_progress(
+                state['ws_id'], 
+                status="comment", 
+                comment=f"Finished processing URL: {url}"
+            )
+            return products_dict
+
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self.websocket_manager.send_progress(
+                state['ws_id'], 
+                status="comment", 
+                comment=f"Error processing URL: {url}"
+            )
+            return None
+
+    async def run(self, state: State, config: dict = {}):
+        logger.info("Reached Research Agent")
+        search_config = self.get_search_query(state)
+        logger.info(f"Search Query: {search_config}")
+
+        model_config = self.get_model_config(state['model'])
+        agent_results = state['agent_results'][agent_manager.research_agent]
+        if search_config is None:
+            raise ValueError("No more queries available for search.")
+
+        await self.websocket_manager.send_progress(
+            state['ws_id'], 
+            status="comment", 
+            comment=f"Searching products for query: {search_config}"
+        )
+
+        search_results = await self.search_tool.search_products(query=search_config['query'], site=search_config['site'], num_results=3)
+        print(search_results)
+        await self.websocket_manager.send_progress(
+            state['ws_id'], 
+            status="searching", 
+            searched_items=len(search_results)
+        )
+        products = agent_results.get('all_products', [])
+        current_products = []
+
+        # Create a semaphore to limit the number of concurrent LLM calls (e.g., 5 at a time)
+        llm_semaphore = asyncio.Semaphore(3)
+
+        # Create tasks for processing each search result concurrently
+        tasks = [
+            self.process_search_result(search_result, search_config, model_config, state, llm_semaphore)
+            for search_result in search_results
+        ]
+        # Gather results concurrently
+        results = await asyncio.gather(*tasks)
+
+        # Filter out None results and combine all product dictionaries
+        for product_dicts in results:
+            if product_dicts:
+                products.extend(product_dicts)
+                current_products.extend(product_dicts)
+
+        # try:
+        #     products = await self.preprocess_currencies(products)
+        # except Exception as e:
+        #     logger.error(e, exc_info=True)
+
+        # Update state with results and notify final progress
+        agent_results['all_products'] = products
+        agent_results['current_products'] = current_products
+        logger.info(f'Total number of searched products are {len(products)}')
+        logger.info(f'Total number of current searched products are {len(current_products)}')
+        logger.info('Navigating to Reviewer Agent')
+        return Command(goto=agent_manager.reviewer_agent, update=state)
+
 
 
     async def __call__(self, state: State, config={}) -> Command[
@@ -178,6 +226,11 @@ class ResearchAgent(BaseAgent):
         except ValueError as e:
             if "No more queries" in str(e):
                 state['human_response'] = "No searched products, can you try a new plan"
+                await self.websocket_manager.send_progress(
+                    state['ws_id'], 
+                    status="comment", 
+                    comment="No results for Query, Creating a new plan"
+                )
                 logger.info("Going back to planner agent")
                 return Command(goto=agent_manager.planner_agent, update=state)
 
@@ -189,10 +242,10 @@ class ResearchAgent(BaseAgent):
             user_query="price name features product details",  # tailored query
             bm25_threshold=1.2  # higher value for stricter, more relevant matches
         )
-        md_generator = DefaultMarkdownGenerator(content_filter=bm25_filter)
+        md_generator = DefaultMarkdownGenerator()
         
         config = CrawlerRunConfig(
-            word_count_threshold=3,  # allow even short text blocks typical of product info
+            # word_count_threshold=3,  # allow even short text blocks typical of product info
             excluded_tags=["nav", "footer", "header", "script", "style"],  # remove boilerplate
             exclude_external_links=True,
             markdown_generator=md_generator,
@@ -222,6 +275,13 @@ class ResearchAgent(BaseAgent):
                 product['converted_currency'] = 'ngn'
         
         return products
+    
+    def get_markdown_content(self, content: Optional[Union[str, MarkdownGenerationResult]]) -> Optional[str]:
+        if content is None:
+            return None
+        if isinstance(content, MarkdownGenerationResult):
+            return content.markdown
+        return content
 
 
 

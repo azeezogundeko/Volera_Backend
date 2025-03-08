@@ -30,6 +30,18 @@ class PlannerAgent(BaseAgent):
         if user_input is None:
             user_input = state['ws_message']['message']['content']
 
+        research_agent_result = state["agent_results"].get(agent_manager.research_agent, None)
+
+        previous_search_queries = []
+        if research_agent_result is not None:
+            previous_search_queries = research_agent_result['searched_queries']
+
+            
+        user_prompt = {
+            "USER_INPUT": user_input,
+            "PREVIOUS_SEARCH_QUERIES": previous_search_queries
+        }
+
         user_id = state['user_id']
         previous_messages = state.get("message_history", [])
 
@@ -39,7 +51,7 @@ class PlannerAgent(BaseAgent):
         response = await asyncio.wait_for(
             self.call_llm(
                 user_id=user_id,
-                user_prompt=user_input,
+                user_prompt=str(user_prompt),
                 type='text',
                 message_history=previous_messages,
                 model=model_config['model'],

@@ -10,7 +10,8 @@ from .schema import ReviewerSchema
 from .prompt import reviewer_system_prompt
 
 from utils.logging import logger
-from ..legacy.llm import check_credits, track_llm_call
+# from ..legacy.llm import check_credits, track_llm_call
+
 from schema import extract_agent_results
 
 from langgraph.types import Command
@@ -42,16 +43,19 @@ class ReviewerAgent(BaseAgent):
         user_prompt = {
             'Instructions': instructions,
             'filter criteria': filter_criteria, 
-            'Products': current_products,
+            'Curremt Products': current_products,
             "User Query": user_query,
+            # "Already ":..., 
         }
 
-        response = await self.call_llm(
+        response = await asyncio.wait_for(self.call_llm(
             user_id=state['user_id'],
             user_prompt=str(user_prompt),
             type='text',
             model=model_config['model'],
             deps=model_config['deps']
+        ),
+        timeout=30      
         )
         logger.info('Called the Reviewer agent')
         # logger.info('Status: ', response.data.status)
@@ -61,36 +65,61 @@ class ReviewerAgent(BaseAgent):
     async def __call__(self, state: State, config: dict = {})-> Command[
         Literal[agent_manager.human_node, agent_manager.research_agent]
         ]:
-
-        agent_response = await self.run(state, config)
-        result: ReviewerSchema = agent_response.data
-
-        await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=result.comment)
-
-        if result.status == '__failed__':
-            logger.info("Products failed to meet requirements, Goining back to new Research Agents")
-            return Command(goto=agent_manager.research_agent, update=state)
-        
         try:
+            research_agent_results = state['agent_results'][agent_manager.research_agent]
+            planner_agent_results = state['agent_results'][agent_manager.planner_agent]['content']
+            all_products = research_agent_results['all_products']
+
+            agent_response = await self.run(state, config)
+        
+
+            result: ReviewerSchema = agent_response.data
+            
+
+            await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=result.comment)
+
+            if state['current_depth'] > state['max_depth']:
+                await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment='Max depth reached for research, gathering all searched items')
+                logger.info('Max depth reached for ultra search')
+
+                if all_products:
+                    all_products = all_products[:25]
+                    all_products.sort(key=lambda product: product.get('relevance_score', 0), reverse=True)
+                    await self.send_signals(state, content="Ultra Search Results", products=all_products)
+                else:
+                    await self.send_signals(state, content="I'm sorry, but I couldn't find any products that match your query. Please try a different search query.")
+
+                return Command(goto=agent_manager.human_node, update=state)
+
+            state['current_depth'] += 1
+
+            logger.info(f'Current Depth {state['current_depth']}')
+            logger.info(f'Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}')
+
+            if result.status == '__failed__':
+                logger.info("Products failed to meet requirements, Goining back to new Research Agents")
+                return Command(goto=agent_manager.research_agent, update=state)
+            
             # Ensure the key exists before modifying the list
             reviewed_products = state['agent_results'].setdefault(agent_manager.research_agent, {}).setdefault('reviewed_products_ids', [])
 
             # Extend the reviewed products list
-            reviewed_products.extend(result.product_ids)
+            state['agent_results'][agent_manager.research_agent]["reviewed_products_ids"].extend(result.product_ids)
+            logger.info(f'Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}')
+
 
             # Check if we need to continue reviewing or proceed to sending the final response
-            if len(reviewed_products) < 25:
+            if len(reviewed_products) < planner_agent_results['no_of_results']:
+                logger.info("Products are passed but insufficients numbers, searching more...")
                 return Command(goto=agent_manager.research_agent, update=state)
 
             # Filter the products that match the reviewed product IDs
-            filtered_products = self.filter_products(state, result.product_ids)
-
-            # Log before sending response
+            filtered_products = self.filter_products(state, result.product_ids)            # Log before sending response
             logger.info("Sending final response to user")
 
             # Send the final signal with error handling
             try:
-                await self.send_signals(state, products=filtered_products)
+                await self.send_signals(state, content="Ultra Search Results", products=filtered_products)
             except Exception as e:
                 logger.error(f"Failed to send signals: {e}")
 
@@ -101,11 +130,18 @@ class ReviewerAgent(BaseAgent):
 
         
         
-    def filter_products(state, product_ids: List[str]):
+    def filter_products(self, state, product_ids: List[str]):
         research_agent_results = state.get('agent_results', {}).get(agent_manager.research_agent, {})
         all_products = research_agent_results.get("all_products", [])
 
-        return [product for product in all_products if product.get('product_id') in product_ids]
+        # Filter products based on product_ids
+        products = [product for product in all_products if product.get('product_id') in product_ids]
+
+        # Sort products by relevance_score in descending order
+        products.sort(key=lambda product: product.get('relevance_score', 0), reverse=True)
+
+        return products
+
 
 
         

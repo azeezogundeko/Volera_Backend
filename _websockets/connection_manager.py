@@ -20,6 +20,7 @@ from api.chat.model import File
 
 from utils.logging import logger
 from fastapi import WebSocket
+from fastapi import WebSocketDisconnect
 
 
 class ConnectionManager:
@@ -165,6 +166,8 @@ class ConnectionManager:
             "message_logs": [],
             "user_id": user_id,
             "model": data.model,
+            "max_depth": 3,
+            "current_depth": 0
             }
 
         processing_config = {
@@ -173,14 +176,17 @@ class ConnectionManager:
                 }
             }
 
-        if data.focus_mode == "copilot":
-            await self.copilot_mode(processing_config, state, websocket)
-        elif data.focus_mode == "insights":
-            await self.insights_mode(processing_config, state, websocket)
-        elif data.focus_mode == "all":
-            await self.QA_mode(processing_config, state, websocket)
-        elif data.focus_mode == "ultrasearch":
-            await self.ultra_search_mode(processing_config, state, websocket)
+        try:
+            if data.focus_mode == "copilot":
+                await self.copilot_mode(processing_config, state, websocket)
+            elif data.focus_mode == "insights":
+                await self.insights_mode(processing_config, state, websocket)
+            elif data.focus_mode == "all":
+                await self.QA_mode(processing_config, state, websocket)
+            elif data.focus_mode == "ultrasearch":
+                await self.ultra_search_mode(processing_config, state, websocket)
+        except WebSocketDisconnect:
+            logger.warning(f"WebSocket disconnected for user {user_id} during message handling.")
 
 
     async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str, history) -> List[Dict[str, Any]]:

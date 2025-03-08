@@ -122,6 +122,14 @@ class WebSocketManager:
                 }
             }
 
+        elif status == 'error':
+            data = {
+                "type": "progress",
+                "progress": {
+                    "status": "error"
+                }
+            }
+
         return await self.get_websocket(ws_id).send_json(data)
 
 

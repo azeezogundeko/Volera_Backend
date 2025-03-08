@@ -3,13 +3,18 @@ from typing import List
 from schema.validations.agents_schemas import BaseSchema
 
 
+class Query(BaseSchema):
+    site: str = Field(description='site to perform search on')
+    query: str = Field(description='reviewed search query format <BRAND> <NAME> <REGION>')
+
+
 class PlannerSchema(BaseSchema):
     no_of_results: int = 0
     action: str = Field(description='action to take __user__, __research__, user of asking question and research to start research')
     researcher_agent_instructions: List[str] = []
     filter_criteria: str = ''
     content: str = Field(default='', description="your response to the user")
-    search_queries: List[str] = Field(default=[], description='reviewed search queries format <BRAND> <NAME> <REGION>')
+    search_queries: List[Query] = Field(default=[])
     comment: str = Field(default=[], description='Summary of to take')
 
 class ReviewerSchema(BaseSchema):
@@ -29,9 +34,9 @@ class ProductDetail(BaseModel):
     description: str = Field(description="Detailed description of the product")
     current_price: float = Field(description="Current selling price of the product")
     original_price: float = Field('', description="Original price before any discount")
-    discount: str = Field('', description="Discount amount applied to the product")
+    discount: float = Field(0.0, description="Discount amount applied to the product")
     url: str = Field(description="Direct URL to the product page")
-    image: str = Field('', description="URL of the product image")
+    image: str = Field(description="URL of the product image")
     source: str = Field(description="The source of the product, e.g., Amazon, Jumia, Konga, etc.")
     rating: float = Field(0.0, description="Average user rating of the product")
     rating_count: int = Field(0, description="Total number of ratings received")

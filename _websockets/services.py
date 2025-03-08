@@ -91,7 +91,7 @@ async def handle_websocket_messages(websocket: WebSocket, user_id):
     while True:
         try:
             # Wait for a message with a 300 second timeout.
-            raw_data = await asyncio.wait_for(websocket.receive_json(), timeout=500.0)
+            raw_data = await asyncio.wait_for(websocket.receive_json(), timeout=5000.0)
             if raw_data is None:
                 continue
             new_history = await handle_request(raw_data, websocket, user_id, history)

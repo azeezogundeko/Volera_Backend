@@ -271,9 +271,9 @@ class BaseAgent:
         model_settings: ModelSettings | None = None,
         infer_name: bool = True) -> ResultDataT:
             
-        has_credits, balance = await check_credits(user_id, type)
-        if not has_credits:
-            raise ValueError(f"Insufficient credits. Available: {balance}")
+        # has_credits, balance = await check_credits(user_id, type)
+        # if not has_credits:
+        #     raise ValueError(f"Insufficient credits. Available: {balance}")
                        
         result =  await self.llm.run(
             user_prompt=user_prompt,
@@ -284,18 +284,18 @@ class BaseAgent:
             model_settings=model_settings        
         )
 
-        print(result)
+        # print(result)
 
         # cost = result.cost()
-        await track_llm_call(
-            user_id, 
-            "text", 
-            # {
-            #     "input_tokens": cost.request_tokens,
-            #     "output_tokens": cost.response_tokens,
-            #     "total_tokens": cost.total_tokens
-            # }
-        )
+        # await track_llm_call(
+        #     user_id, 
+        #     "text", 
+        #     # {
+        #     #     "input_tokens": cost.request_tokens,
+        #     #     "output_tokens": cost.response_tokens,
+        #     #     "total_tokens": cost.total_tokens
+        #     # }
+        # )
 
         return result
 

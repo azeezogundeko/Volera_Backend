@@ -91,20 +91,19 @@ class AppwriteSessionManager:
             raise
 
     async def log_messages(self, message_logs: Dict[str, Any]):
-        # tasks = []
+        tasks = []
         # print(message_logs)
         document_id = Message.get_unique_id()
-        products = message_logs.pop("original_products")
+        products = message_logs.get("products", None)
         
-
-        # print(products)
-        tasks = []
         if products is not None:
-            for product in products:
+            original_products = message_logs.pop("original_products")
+            for product in original_products:
                 tasks.append(self.save_products(product))
-        # print(results)
+            # print(results)
         tasks.append(Message.create(document_id, message_logs))
         results = await gather(*tasks, return_exceptions=True)
+        print(results)
 
     async def save_products(self, product: Dict[str, Any]):
         specification = product.get('specification', [])
