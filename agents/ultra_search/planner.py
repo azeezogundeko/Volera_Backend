@@ -28,7 +28,7 @@ class PlannerAgent(BaseAgent):
     async def run(self, state: State, config: dict = {}) -> ResultDataT:
         user_input = state["human_response"] if "human_response" in state else None
         if user_input is None:
-            user_input = state['ws_message']['message']['content']
+            user_input = state['ws_message']['content']
 
         research_agent_result = state["agent_results"].get(agent_manager.research_agent, None)
 
@@ -71,9 +71,9 @@ class PlannerAgent(BaseAgent):
 
         if data.action == '__user__':
 
-            await self.go_to_user_node(state, data.content, agent_manager.planner_agent)
             logger.info("Routing to Human Node")
-            return Command(goto=agent_manager.human_node, update=state)
+            return await self.go_to_user_node(state, ai_response=data.content, go_back_to_node=agent_manager.planner_agent)
+
         try:
             await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=data.comment)
         except Exception as e:

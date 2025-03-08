@@ -25,9 +25,6 @@ class ReviewerAgent(BaseAgent):
             system_prompt=reviewer_system_prompt, 
             name=agent_manager.reviewer_agent)
         
-    async def price_converter(value, currency: str): ...
-        
-
 
     @extract_agent_results(agent_manager.reviewer_agent)
     async def run(self, state: State, config: dict={}):
@@ -36,14 +33,14 @@ class ReviewerAgent(BaseAgent):
         # print(planner_agent_results)
         instructions = planner_agent_results['researcher_agent_instructions']
         filter_criteria = planner_agent_results['filter_criteria']
-        user_query = research_agent_results['user_query']
+        user_query = state['ws_message']['content']
         current_products = research_agent_results['current_products']
         model_config = self.get_model_config(state['model'])
 
         user_prompt = {
             'Instructions': instructions,
             'filter criteria': filter_criteria, 
-            'Curremt Products': current_products,
+            'Current Products': current_products,
             "User Query": user_query,
             # "Already ":..., 
         }
@@ -63,12 +60,12 @@ class ReviewerAgent(BaseAgent):
     
 
     async def __call__(self, state: State, config: dict = {})-> Command[
-        Literal[agent_manager.human_node, agent_manager.research_agent]
+        Literal[agent_manager.human_node, agent_manager.research_agent, agent_manager.summary_agent]
         ]:
         try:
             research_agent_results = state['agent_results'][agent_manager.research_agent]
             planner_agent_results = state['agent_results'][agent_manager.planner_agent]['content']
-            all_products = research_agent_results['all_products']
+            # all_products = research_agent_results['all_products']
 
             agent_response = await self.run(state, config)
         
@@ -81,21 +78,11 @@ class ReviewerAgent(BaseAgent):
             if state['current_depth'] > state['max_depth']:
                 await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment='Max depth reached for research, gathering all searched items')
                 logger.info('Max depth reached for ultra search')
-
-                if all_products:
-                    all_products = all_products[:25]
-                    all_products.sort(key=lambda product: product.get('relevance_score', 0), reverse=True)
-                    await self.send_signals(state, content="Ultra Search Results", products=all_products)
-                else:
-                    await self.send_signals(state, content="I'm sorry, but I couldn't find any products that match your query. Please try a different search query.")
-
-                return Command(goto=agent_manager.human_node, update=state)
+                return Command(goto=agent_manager.summary_agent, update=state)
 
             state['current_depth'] += 1
 
             logger.info(f'Current Depth {state['current_depth']}')
-            logger.info(f'Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}')
-
             if result.status == '__failed__':
                 logger.info("Products failed to meet requirements, Goining back to new Research Agents")
                 return Command(goto=agent_manager.research_agent, update=state)
@@ -105,28 +92,29 @@ class ReviewerAgent(BaseAgent):
 
             # Extend the reviewed products list
             state['agent_results'][agent_manager.research_agent]["reviewed_products_ids"].extend(result.product_ids)
+            await self.websocket_manager.send_progress(
+                    state['ws_id'], 
+                    status="comment", 
+                    comment=f"Reviewer Agent: Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}"
+                )
             logger.info(f'Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}')
 
 
             # Check if we need to continue reviewing or proceed to sending the final response
             if len(reviewed_products) < planner_agent_results['no_of_results']:
+                await self.websocket_manager.send_progress(
+                    state['ws_id'], 
+                    status="comment", 
+                    comment=f"Reviewer Agent: Products are passed but insufficients numbers, searching more..."
+                )
                 logger.info("Products are passed but insufficients numbers, searching more...")
                 return Command(goto=agent_manager.research_agent, update=state)
 
-            # Filter the products that match the reviewed product IDs
-            filtered_products = self.filter_products(state, result.product_ids)            # Log before sending response
-            logger.info("Sending final response to user")
-
-            # Send the final signal with error handling
-            try:
-                await self.send_signals(state, content="Ultra Search Results", products=filtered_products)
-            except Exception as e:
-                logger.error(f"Failed to send signals: {e}")
+            return Command(goto=agent_manager.summary_agent, update=state)
 
         except Exception as e:
             logger.error(e, exc_info=True)
 
-        return Command(goto=agent_manager.human_node, update=state)
 
         
         

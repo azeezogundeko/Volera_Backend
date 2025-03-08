@@ -75,7 +75,7 @@ class WebQueryAgent(BaseAgent):
 
         previous_messages = state.get("message_history", [])
         if user_input is None:
-            user_input = state['ws_message']['message']['content']
+            user_input = state['ws_message']['data']['content']
             
         # Call LLM with timeout to avoid hanging
         response = await asyncio.wait_for(

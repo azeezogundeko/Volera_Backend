@@ -95,13 +95,25 @@ class AppwriteSessionManager:
         # print(message_logs)
         document_id = Message.get_unique_id()
         products = message_logs.get("products", None)
-        
+        # original_products = message_logs.get("original_products", None)
+            
         if products is not None:
-            original_products = message_logs.pop("original_products")
+            original_products = message_logs.get("original_products", [])
+            
             for product in original_products:
                 tasks.append(self.save_products(product))
             # print(results)
-        tasks.append(Message.create(document_id, message_logs))
+        data = {
+            "role": message_logs["role"],
+            "chat_id": message_logs['chat_id'],
+            "products": message_logs['products'],
+            "sources": message_logs["sources"],
+            "content": message_logs["content"],
+            "images": message_logs["images"],
+            "type": message_logs["type"]
+        }
+
+        tasks.append(Message.create(document_id, data))
         results = await gather(*tasks, return_exceptions=True)
         print(results)
 

@@ -9,7 +9,7 @@ class Query(BaseSchema):
 
 
 class PlannerSchema(BaseSchema):
-    no_of_results: int = 0
+    no_of_results: int = 10
     action: str = Field(description='action to take __user__, __research__, user of asking question and research to start research')
     researcher_agent_instructions: List[str] = []
     filter_criteria: str = ''
@@ -21,6 +21,13 @@ class ReviewerSchema(BaseSchema):
     status: str = Field(description="__failed__ if all products did not meet the requirements else __passed__ if any met")
     product_ids: List[str] = Field(description="list of passed product ids")
     comment: str = Field(description='A summary of your decision process and why your final decision')
+
+
+class ResponseSchema(BaseSchema):
+    comment: str = Field(description='A summary of your decision process and why your final decision')
+    product_ids: List[str] = []
+    response: str = Field(description="Your advice, recommendations to the user based on the returned products")
+
 
 class Specification(BaseModel):
     label: str 

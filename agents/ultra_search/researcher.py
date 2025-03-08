@@ -12,7 +12,7 @@ from .prompt import product_extractor_prompt
 from ..tools.rate_converter import CURRENCY_SYMBOLS, convert_currency, normalize_currency
 
 from utils.logging import logger
-from ..legacy.llm import check_credits, track_llm_call
+# from ..legacy.llm import check_credits, track_llm_call
 
 from langgraph.types import Command
 from crawl4ai import CrawlerRunConfig, BM25ContentFilter, DefaultMarkdownGenerator, MarkdownGenerationResult
@@ -118,13 +118,14 @@ class ResearchAgent(BaseAgent):
                 ),
                 timeout=300
                 )
+            comment = "Research Agent: " + llm_response.data.comment
             await self.websocket_manager.send_progress(
                 state['ws_id'], 
                 status="comment", 
-                comment=llm_response.data.comment
+                comment=comment
             )
 
-            print(llm_response.data.products)
+            # print(llm_response.data.products)
             if not llm_response.data.products:
                 return None
 
@@ -132,11 +133,11 @@ class ResearchAgent(BaseAgent):
             await self.websocket_manager.send_progress(
                 state['ws_id'], 
                 status="comment", 
-                comment=f"Preprocessing products for URL: {url}"
+                comment=f"Research Agent: Preprocessing products for URL: {url}"
             )
             original_products = [product.model_dump() for product in llm_response.data.products]
             original_products = await self.rerank.rerank(search_config['query'], original_products)
-            original_products = original_products[:10]
+            # original_products = original_products[:10]
             logger.info('Finished preprocessing the results')
 
             products_dict = []
@@ -148,7 +149,7 @@ class ResearchAgent(BaseAgent):
             await self.websocket_manager.send_progress(
                 state['ws_id'], 
                 status="comment", 
-                comment=f"Finished processing URL: {url}"
+                comment=f"Research Agent: Finished processing URL: {url}"
             )
             return products_dict
 
@@ -157,7 +158,7 @@ class ResearchAgent(BaseAgent):
             await self.websocket_manager.send_progress(
                 state['ws_id'], 
                 status="comment", 
-                comment=f"Error processing URL: {url}"
+                comment=f"Research Agent: Error processing URL: {url}"
             )
             return None
 
@@ -174,11 +175,11 @@ class ResearchAgent(BaseAgent):
         await self.websocket_manager.send_progress(
             state['ws_id'], 
             status="comment", 
-            comment=f"Searching products for query: {search_config}"
+            comment=f"Research Agent: Searching products for query: {search_config}"
         )
 
         search_results = await self.search_tool.search_products(query=search_config['query'], site=search_config['site'], num_results=3)
-        print(search_results)
+        # print(search_results)
         await self.websocket_manager.send_progress(
             state['ws_id'], 
             status="searching", 
@@ -210,8 +211,8 @@ class ResearchAgent(BaseAgent):
         #     logger.error(e, exc_info=True)
 
         # Update state with results and notify final progress
-        agent_results['all_products'] = products
-        agent_results['current_products'] = current_products
+        state['agent_results'][agent_manager.research_agent]["all_products"] = products
+        state['agent_results'][agent_manager.research_agent]["current_products"] = current_products
         logger.info(f'Total number of searched products are {len(products)}')
         logger.info(f'Total number of current searched products are {len(current_products)}')
         logger.info('Navigating to Reviewer Agent')

@@ -2,6 +2,7 @@ from .planner import planner_agent
 from .researcher import researcher_agent
 from .reviewer import reviewer_agent
 from .human_node import ultra_search_human_node
+from .response import response_agent
 
 from ..config import agent_manager
 from ..state import State
@@ -16,6 +17,7 @@ nodes = {
     agent_manager.planner_agent: planner_agent,
     agent_manager.research_agent: researcher_agent,
     agent_manager.human_node: ultra_search_human_node,
+    agent_manager.summary_agent: response_agent,
 }
 
 for node_name, node_func in nodes.items():

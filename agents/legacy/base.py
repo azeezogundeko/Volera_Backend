@@ -255,10 +255,25 @@ class BaseAgent:
         )
         state["message_data"] = message_data
 
-    async def go_to_user_node(self, state: State, ai_response: str, go_back_to_node: str):
+    async def go_to_user_node(
+            self, 
+            state: State, 
+            ai_response: str, 
+            go_back_to_node: str, 
+            images=None,
+            sources=None,
+            products=None
+            ):
         state["ai_response"] = ai_response
-        await self.send_signals(state, ai_response)
+        await self.send_signals(
+            state, 
+            ai_response,
+            images=images,
+            sources=sources,
+            products=products
+            )
         state["next_node"] = go_back_to_node
+        return Command(goto=agent_manager.human_node, update=state)
 
     async def call_llm(
         self, 
