@@ -49,3 +49,4 @@ class State(TypedDict):
     model: str
     max_depth: int = 5
     current_depth: int = 0
+    namespace: tuple = ()

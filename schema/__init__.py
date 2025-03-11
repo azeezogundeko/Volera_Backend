@@ -31,7 +31,7 @@ from .validations.agents_schemas import (
     )
 from .validations.websocket import WebSocketSchema
 from .dataclass.decourator import extract_agent_results
-from .dataclass.dependencies import GeminiDependencies, GroqDependencies
+from .dataclass.dependencies import GeminiDependencies, GroqDependencies, ScrapingDependencies
 
 __all__ = [
     "WSMessage",
@@ -61,6 +61,7 @@ __all__ = [
     "GroqDependencies",
     "SearchAgentSchema",
     "ComparisonSchema",
+    "ScrapingDependencies",
     "InsightsSchema",
     "ReviewerSchema",
     "PolicySchema",

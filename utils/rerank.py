@@ -6,6 +6,7 @@ import logging
 from config import ApiKeyConfig
 from dataclasses import dataclass
 from typing import List
+# from langgraph.store.memory import InMemoryStore
 
 
 # from .prompt import information_extractor_prompt
@@ -27,6 +28,9 @@ from langchain.docstore.document import Document
 from langchain_community.document_compressors.flashrank_rerank import FlashrankRerank
 
 logger = logging.getLogger(__name__)
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 
 
 
@@ -85,6 +89,13 @@ class ReRanker:
         self.ranker = Ranker(max_length=128)
         self.embedding_model: str = "models/embedding-001"
         self.embeddings = self._load_embeddings()
+        self.text_splitter = RecursiveCharacterTextSplitter(
+                        # Set a really small chunk size, just to show.
+                        chunk_size=1000,
+                        chunk_overlap=100,
+                        length_function=len,
+                        is_separator_regex=False,
+                    )
 
         self.llm = Agent(
             result_type=ResultSchema,
@@ -211,3 +222,25 @@ class ReRanker:
                 continue
 
         return results
+    
+    def chunk_text(self, texts: List[str], metadatas: List[dict] = []):
+        docs = self.text_splitter.create_documents(texts, metadatas)
+    
+        return [
+            Docs(
+                id=id, text=document.page_content, metadata=document.metadata
+            ) for id, document in enumerate(docs)
+        ]
+
+    def chunk_rerank(self, query, texts, metadatas: dict = {}):
+        chunked_text = self.chunk_text([texts], metadatas)
+        rerankrequest = RerankRequest(query=query, passages=chunked_text)
+        reranked = self.ranker.rerank(rerankrequest)
+        print(reranked)
+        return reranked
+
+
+
+    
+
+

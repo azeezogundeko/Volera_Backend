@@ -39,7 +39,7 @@ class ResponseAgent(BaseAgent):
         reviewed_products_ids = research_agent_results["reviewed_products_ids"]
 
         prompt = {
-            "User Query": user_input,
+            # "User Query": user_input,
             "Final Number of Results Outputs Wanted": n_results,
             "Passed/Reviewed Products ID":  reviewed_products_ids,
             "Searched Product Database": all_products,
@@ -58,7 +58,8 @@ class ResponseAgent(BaseAgent):
 
         return response
 
-    async def __call__(self, state: State, config: Dict[str, Any] = {}) -> Command[Literal[agent_manager.human_node]]:
+    async def __call__(self, state: State, config: Dict[str, Any] = {}) -> Command[
+        Literal[agent_manager.human_node, agent_manager.end]]:
         try:
             response = await self.run(state, config)
 
@@ -75,12 +76,15 @@ class ResponseAgent(BaseAgent):
             if product_ids:
                 filtered_products = self.filter_products(state, product_ids)
 
-            return await self.go_to_user_node(
-                state, 
-                ai_response=result.response, 
-                products=filtered_products, 
-                go_back_to_node=agent_manager.planner_agent
-                )
+
+            await self.send_signals(state, content=result.response, products=filtered_products)
+            return Command(goto=agent_manager.end, update=state)
+            # return await self.go_to_user_node(
+            #     state, 
+            #     ai_response=result.response, 
+            #     products=filtered_products, 
+            #     go_back_to_node=agent_manager.end
+            #     )
         except Exception as e:
             logger.error(e, exc_info=True)
     

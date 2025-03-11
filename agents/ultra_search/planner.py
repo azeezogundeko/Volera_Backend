@@ -8,11 +8,16 @@ from ..config import agent_manager
 from ..state import State
 from .schema import PlannerSchema
 from schema import extract_agent_results
+# from utils.memory import store
+from ..memory import mem_agent
+from ..tools.schema import extract_dataclass_messages
 
 from utils.logging import logger
 
 from pydantic_ai.result import ResultDataT
 from langgraph.types import Command
+from langgraph.store.base import BaseStore
+from appwrite.id import ID
 
 
 class PlannerAgent(BaseAgent):
@@ -25,7 +30,7 @@ class PlannerAgent(BaseAgent):
 
 
     @extract_agent_results(agent_manager.planner_agent)
-    async def run(self, state: State, config: dict = {}) -> ResultDataT:
+    async def run(self, state: State, config, store: BaseStore) -> ResultDataT:
         user_input = state["human_response"] if "human_response" in state else None
         if user_input is None:
             user_input = state['ws_message']['content']
@@ -36,10 +41,21 @@ class PlannerAgent(BaseAgent):
         if research_agent_result is not None:
             previous_search_queries = research_agent_result['searched_queries']
 
+        
+        # search memeory
+
+        memory = store.search(
+            state["namespace"],
+            query=user_input,
+            limit=3
+        )
+        print(memory)
+
             
         user_prompt = {
             "USER_INPUT": user_input,
-            "PREVIOUS_SEARCH_QUERIES": previous_search_queries
+            "PREVIOUS_SEARCH_QUERIES": previous_search_queries,
+            "MEMORIES FROM PREVIOUS CONVERSATIONS": memory
         }
 
         user_id = state['user_id']
@@ -57,27 +73,24 @@ class PlannerAgent(BaseAgent):
                 model=model_config['model'],
                 deps=model_config['deps']
                 ),
-            timeout=20
+            timeout=60
             )
-        state["message_history"] = previous_messages + response.new_messages()
         logger.info("Planner agent executed successfully.")
+
+        state["message_history"] = previous_messages + response.new_messages()
         return response
     
-    async def __call__(self, state: State, config: dict = {})-> Command[
+    async def __call__(self, state: State, config: dict = {}, *, store: BaseStore)-> Command[
         Literal[agent_manager.research_agent, agent_manager.human_node]]:
 
-        response = await self.run(state, config)
+        response = await self.run(state, config, store)
         data = response.data
 
         if data.action == '__user__':
-
             logger.info("Routing to Human Node")
             return await self.go_to_user_node(state, ai_response=data.content, go_back_to_node=agent_manager.planner_agent)
 
-        try:
-            await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=data.comment)
-        except Exception as e:
-            logger.error(e, exc_info=True)
+        await self.websocket_manager.send_progress(state['ws_id'], status="comment", comment=data.comment)
         logger.info("Routing to Research Agent")
         return Command(goto=agent_manager.research_agent, update=state)
         

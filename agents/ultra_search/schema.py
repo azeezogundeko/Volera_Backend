@@ -6,6 +6,7 @@ from schema.validations.agents_schemas import BaseSchema
 class Query(BaseSchema):
     site: str = Field(description='site to perform search on')
     query: str = Field(description='reviewed search query format <BRAND> <NAME> <REGION>')
+    source: str = Field(description='source for the website to search eg jumia, jiji')
 
 
 class PlannerSchema(BaseSchema):

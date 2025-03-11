@@ -1,3 +1,4 @@
+from appwrite.id import ID
 from typing import List, Dict, Any
 
 from agents import (
@@ -10,11 +11,15 @@ from agents import (
     comparison_agent,
     product_agent,
     )
+from agents.memory import mem_agent
+from agents.tools.schema import extract_dataclass_messages
+
 from _websockets.schema import WebSocketMessage, RequestWebsockets
 # from api.product.services import filter_products
 from db._appwrite.session import appwrite_session_manager
 from utils.websocket import WebSocketManager
 from utils.search_cache import search_cache_manager
+from utils.memory import store
 from api.chat.model import File
 # from .message_handler import handle_message
 
@@ -68,76 +73,35 @@ class ConnectionManager:
 
     async def QA_mode(
         self, processing_config, state, websocket: WebSocket):
-        try:  
             
-            await web_agent_graph.ainvoke(
-                state,
-                processing_config,
-            )
-            self.websocket_manager.remove_connection(state["ws_id"])
-
-        except Exception as e:
-            self.websocket_manager.remove_connection(state["ws_id"])
-            import traceback
-            print(traceback.format_exc())
-            await websocket.send_json({
-                "type": "error",
-                "message": "Internal server error"
-            })
-
+        return await web_agent_graph.ainvoke(
+            state,
+            processing_config,
+        )
 
     async def copilot_mode(
         self, processing_config , state, websocket: WebSocket) -> None:
-        try:
-  
-            await copilot_agent_graph.ainvoke(
-                state,
-                processing_config,
-            )
-            self.websocket_manager.remove_connection(state["ws_id"])
+    
 
-        except Exception as e:
-            self.websocket_manager.remove_connection(state["ws_id"])
-            await websocket.send_json({
-                "type": "error",
-                "message": "Internal server error"
-            })
-        
+        return await copilot_agent_graph.ainvoke(
+            state,
+            processing_config,
+        )        
 
     async def insights_mode(self, processing_config, state, websocket: WebSocket) -> None:
-        try:
-            
-            await insights_agent_graph.ainvoke(
-                state,
-                processing_config,
-            )
-            self.websocket_manager.remove_connection(state["ws_id"])
-
-        except Exception as e:
-            self.websocket_manager.remove_connection(state["ws_id"])
-            await websocket.send_json({
-                "type": "error",
-                "message": "Internal server error"
-            })
+        return await insights_agent_graph.ainvoke(
+            state,
+            processing_config,
+        )
+                    
 
     async def ultra_search_mode(self, processing_config , state, websocket: WebSocket):
-        try:
-  
-            await ultra_search_agent_graph.ainvoke(
-                state,
-                processing_config,
-            )
-            self.websocket_manager.remove_connection(state["ws_id"])
-
-        except Exception as e:
-            self.websocket_manager.remove_connection(state["ws_id"])
-            await websocket.send_json({
-                "type": "error",
-                "message": "Internal server error"
-            })
+        return await ultra_search_agent_graph.ainvoke(
+            state,
+            processing_config,
+        )
+       
         
-        
-
     async def handle_message(
         self, 
         data: WebSocketMessage, 
@@ -165,6 +129,7 @@ class ConnectionManager:
             "ai_files": [],
             "message_logs": [],
             "user_id": user_id,
+            "namespace": (user_id, "memories"),
             "model": data.model,
             "max_depth": 3,
             "current_depth": 0
@@ -178,15 +143,35 @@ class ConnectionManager:
 
         try:
             if data.focus_mode == "copilot":
-                await self.copilot_mode(processing_config, state, websocket)
+                final_state = await self.copilot_mode(processing_config, state, websocket)
             elif data.focus_mode == "insights":
-                await self.insights_mode(processing_config, state, websocket)
+                final_state = await self.insights_mode(processing_config, state, websocket)
             elif data.focus_mode == "all":
-                await self.QA_mode(processing_config, state, websocket)
+                final_state = await self.QA_mode(processing_config, state, websocket)
             elif data.focus_mode == "ultrasearch":
-                await self.ultra_search_mode(processing_config, state, websocket)
+                final_state = await self.ultra_search_mode(processing_config, state, websocket)
+
+
+            # update a new memory
+            # user_prompt = extract_dataclass_messages(final_state['message_history'])
+            mem_agent_response = await mem_agent.run(user_prompt=str(final_state['message_history']))
+            result_data = mem_agent_response.data
+            print(result_data)
+            store.put((user_id, "memories"), ID.unique(), {"text": result_data.content})
+
         except WebSocketDisconnect:
             logger.warning(f"WebSocket disconnected for user {user_id} during message handling.")
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            self.websocket_manager.remove_connection(state["ws_id"])
+            await websocket.send_json({
+                "type": "progress",
+                "progress": {
+                    "status": "error"
+                },
+                "message": "Internal server error"
+            })
 
 
     async def filter_mode(self, data: RequestWebsockets, websocket: WebSocket, user_id:str, history) -> List[Dict[str, Any]]:

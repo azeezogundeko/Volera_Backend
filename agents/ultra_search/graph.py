@@ -3,6 +3,7 @@ from .researcher import researcher_agent
 from .reviewer import reviewer_agent
 from .human_node import ultra_search_human_node
 from .response import response_agent
+from utils.memory import store
 
 from ..config import agent_manager
 from ..state import State
@@ -27,9 +28,10 @@ for node_name, node_func in nodes.items():
 builder.set_entry_point(agent_manager.planner_agent)
 
 
+
 # # Compile the graph
 checkpointer = MemorySaver()
-ultra_search_agent_graph = builder.compile(checkpointer=checkpointer)
+ultra_search_agent_graph = builder.compile(checkpointer=checkpointer, store=store)
 
 # async def build_copilot_agent_graph():
 #     checkpointer = AsyncMongoDBSaver(async_mongodb_client)

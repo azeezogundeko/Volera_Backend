@@ -35,14 +35,13 @@ class ReviewerAgent(BaseAgent):
         filter_criteria = planner_agent_results['filter_criteria']
         user_query = state['ws_message']['content']
         current_products = research_agent_results['current_products']
+        print(len(current_products))
         model_config = self.get_model_config(state['model'])
 
         user_prompt = {
             'Instructions': instructions,
             'filter criteria': filter_criteria, 
             'Current Products': current_products,
-            "User Query": user_query,
-            # "Already ":..., 
         }
 
         response = await asyncio.wait_for(self.call_llm(
@@ -52,7 +51,7 @@ class ReviewerAgent(BaseAgent):
             model=model_config['model'],
             deps=model_config['deps']
         ),
-        timeout=30      
+        timeout=60      
         )
         logger.info('Called the Reviewer agent')
         # logger.info('Status: ', response.data.status)
@@ -84,8 +83,9 @@ class ReviewerAgent(BaseAgent):
 
             logger.info(f'Current Depth {state['current_depth']}')
             if result.status == '__failed__':
+                state['human_response'] = "The Current plan failed to pass, can you try a new plan"
                 logger.info("Products failed to meet requirements, Goining back to new Research Agents")
-                return Command(goto=agent_manager.research_agent, update=state)
+                return Command(goto=agent_manager.planner_agent, update=state)
             
             # Ensure the key exists before modifying the list
             reviewed_products = state['agent_results'].setdefault(agent_manager.research_agent, {}).setdefault('reviewed_products_ids', [])
@@ -98,8 +98,6 @@ class ReviewerAgent(BaseAgent):
                     comment=f"Reviewer Agent: Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}"
                 )
             logger.info(f'Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}')
-
-
             # Check if we need to continue reviewing or proceed to sending the final response
             if len(reviewed_products) < planner_agent_results['no_of_results']:
                 await self.websocket_manager.send_progress(
@@ -107,8 +105,9 @@ class ReviewerAgent(BaseAgent):
                     status="comment", 
                     comment=f"Reviewer Agent: Products are passed but insufficients numbers, searching more..."
                 )
+                state['human_response'] = "I need more results, Can you try a new plan to provide more results"
                 logger.info("Products are passed but insufficients numbers, searching more...")
-                return Command(goto=agent_manager.research_agent, update=state)
+                return Command(goto=agent_manager.planner_agent, update=state)
 
             return Command(goto=agent_manager.summary_agent, update=state)
 

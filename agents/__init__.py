@@ -9,6 +9,7 @@ from .search.replier import response_agent
 from .search.product import product_agent
 from .ultra_search.graph import ultra_search_agent_graph
 
+
 __all__ = [
     "agent_manager",
     "State",

@@ -59,6 +59,8 @@ URL_CACHE_DIR = Path("data/url_cache")
 URL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 SEARCH_CACHE_DIR = Path("data/search_cache")
 SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+MEMORY_CACHE_DIR = Path("data/memory_cache")
+MEMORY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT= str(os.getenv("USER_AGENT"))
 
@@ -66,9 +68,12 @@ class ApiKeyConfig:
     APPWRITE_API_KEY: str = os.getenv("APPWRITE_API_KEY") if PRODUCTION_MODE else os.getenv("APPWRITE_API_KEY_TEST")
     GROQ_API_KEY = str(os.getenv("GROQ_API_KEY"))
     GEMINI_API_KEY_2 = str(os.getenv("GEMINI_API_KEY_2"))
+    GEMINI_API_KEY_3 = str(os.getenv("GEMINI_API_KEY_3"))
+    GEMINI_API_KEY_4 = str(os.getenv("GEMINI_API_KEY_4"))
     GEMINI_API_KEY = str(os.getenv("GEMINI_API_KEY"))
     GOOGLE_SEARCH_API_KEY = str(os.getenv("GOOGLE_SERP_KEY"))
     OPEN_ROUTER_API_KEY = str(os.getenv("OPEN_ROUTER_API_KEY"))
+    DEEPSEEK_API_KEY = str(os.getenv("DEEPSEEK_API_KEY"))
 
 # Flare Bypasser Configuration
 FLARE_BYPASSER_URL = os.getenv("FLARE_BYPASSER_URL", "http://flare-bypasser:20080") if PRODUCTION_MODE else None 

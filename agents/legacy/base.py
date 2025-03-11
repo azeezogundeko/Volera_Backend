@@ -8,6 +8,8 @@ from ..config import agent_manager
 from config import ApiKeyConfig
 from asyncio import sleep, Semaphore
 from datetime import datetime, timedelta
+
+from pydantic_ai import Agent, RunContext
 # from prompts import (
 #     search_agent_prompt, 
 #     policy_assistant_prompt, 
@@ -74,31 +76,37 @@ class BaseAgent:
         self.url_shoterner = URLShortener()
         
         self.websocket_manager = WebSocketManager()
-        if use_open_router:
-            open_router_model = self.use_open_router(model)
-            self.llm = Agent(
-                model=open_router_model,
-                name=name,
-                system_prompt=system_prompt,
-                result_type=result_type,
-                retries=retries
+        # if use_open_router:
+        #     open_router_model = self.use_open_router(model)
+        #     self.llm = Agent(
+        #         model=open_router_model,
+        #         name=name,
+        #         system_prompt=system_prompt,
+        #         result_type=result_type,
+        #         retries=retries
 
-            )
-        else:
-            self.llm = Agent(
-                name=name,
-                model=model,
-                system_prompt=system_prompt,
-                deps_type=deps_type,
-                result_type=result_type,
-                retries=retries
-            )
+        #     )
+        # else:
+        self.llm = Agent(
+            name=name,
+            model=model,
+            system_prompt=system_prompt,
+            deps_type=deps_type,
+            result_type=result_type,
+            retries=retries
+        )
 
     def get_model_config(self, new_model:str):
         if new_model == "deepseek":
             return {
-                "model": self.use_open_router(),
-                "deps": None
+                "model": 'deepseek:deepseek-chat',
+                "deps": get_dependencies(new_model)
+            }
+        elif new_model == "deepseek-reasoner":
+            return {
+
+                "model": "deepseek:deepseek-reasoner",
+                "deps": get_dependencies(new_model)
             }
         # elif new_model == "gemini":
         return {

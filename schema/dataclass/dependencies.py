@@ -6,9 +6,12 @@ from itertools import cycle
 
 GEMINI_API_KEY_2 = ApiKeyConfig.GEMINI_API_KEY_2
 GEMINI_API_KEY = ApiKeyConfig.GEMINI_API_KEY
+GEMINI_API_KEY_4 = ApiKeyConfig.GEMINI_API_KEY_4
+GEMINI_API_KEY_3 = ApiKeyConfig.GEMINI_API_KEY_3
 
 # Create a cycle iterator for the API keys
 _api_key_cycle = cycle([GEMINI_API_KEY, GEMINI_API_KEY_2])
+_serp_api_key_cycle = cycle([GEMINI_API_KEY_3, GEMINI_API_KEY_4])
 
 def get_next_gemini_api_key() -> str:
     """
@@ -20,6 +23,16 @@ def get_next_gemini_api_key() -> str:
     """
     return next(_api_key_cycle)
 
+def get_next_serp_api_key() -> str:
+    """
+    Returns the next Gemini API key in the rotation.
+    This function alternates between the two available API keys.
+    
+    Returns:
+        str: The next API key to use
+    """
+    return next(_serp_api_key_cycle)
+
 
 @dataclass
 class BaseDependencies:
@@ -30,6 +43,10 @@ class BaseDependencies:
 class GeminiDependencies(BaseDependencies):
     api_key: str = get_next_gemini_api_key()
 
+@dataclass
+class ScrapingDependencies(BaseDependencies):
+    api_key: str = get_next_serp_api_key()
+
 
 @dataclass
 class GroqDependencies(BaseDependencies):
@@ -38,6 +55,10 @@ class GroqDependencies(BaseDependencies):
 @dataclass
 class OpenRouterDependencies(BaseDependencies):
     api_key: str = ApiKeyConfig.OPEN_ROUTER_API_KEY
+
+@dataclass
+class DeepSeekDependencies(BaseDependencies):
+    api_key: str = ApiKeyConfig.DEEPSEEK_API_KEY
 
 
 def get_dependencies(model_name: str) -> BaseDependencies:
@@ -59,6 +80,6 @@ def get_dependencies(model_name: str) -> BaseDependencies:
     if "gemini" in model_name:
         return GeminiDependencies
     elif "deepseek" in model_name:
-        return None
+        return DeepSeekDependencies
     else:
         return GeminiDependencies

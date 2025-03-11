@@ -75,6 +75,7 @@ Your responsibilities are as follows:
             {{
                 "site": <site to perform search on eg jiji.ng, jumia.com.ng, konga.com, amazon.com, shopinverse.com,
                 "query": <SEO-friendly search queries in the format: <BRAND> <NAME> <REGION>>
+                "source": <source for the website to search eg jumia, jiji>
             }}
                 ],
     "content": "<Your response to the user if __user__ else null>",
@@ -109,19 +110,23 @@ Your responsibilities are as follows:
     "search_quries": [
             {{
                 "site":"amazon.com",
-                "query: "lenovo laptop"
+                "query: "lenovo laptop",
+                "sorce": "amazon"
             }},
             {{
                 "site":"temu.com",
-                "query: "lenovo laptop"
+                "query: "lenovo laptop",
+                "source": "temu"
             }},
             {{
                 "site":"jiji.ng",
-                "query: "lenovo laptop"
+                "query: "lenovo laptop",
+                "source": "jiji"
             }},
             {{
                 "site":"jumia.com.ng",
-                "query: "lenovo laptop"
+                "query: "lenovo laptop",
+                "souce": "jumia"
             }},
     ],
     "content": null,

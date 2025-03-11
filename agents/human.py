@@ -75,7 +75,7 @@ async def human_node(
         
         # Receive user input with retries
         max_retries = 3
-        retry_delay = 300
+        retry_delay = 3
         response_text = None
         
         update_history(state, state["human_response"], state["ai_response"])
