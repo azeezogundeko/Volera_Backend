@@ -1,4 +1,6 @@
 from .email_manager import manager
+from config import PRODUCTION_MODE
+from utils.celery_tasks import send_email
 
 
 def send_new_user_email(verification_code, email):
@@ -7,119 +9,137 @@ def send_new_user_email(verification_code, email):
     year = datetime.now().year
     subject = "Verify Your Email - Volera"
     html_content = new_users_template(verification_code, year)
-    manager.send_email(email, subject, html_content)
+    
+    if PRODUCTION_MODE:
+        send_email.apply_async(
+            args=[
+                email,  # to_email
+                subject,  # subject
+                html_content,  # html_content
+            ],
+            kwargs={
+                'account_key': "no-reply",
+                'priority': 'high'
+            },
+            queue='high_priority'
+        )
+    else:
+        manager.send_email(email, subject, html_content)
+
+
 
 def new_users_template(verification_code, year):
     return f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Your Email - Volera</title>
-    <style>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Verify Your Email - Volera</title>
+      <style>
         body {{
-        font-family: 'Arial', sans-serif;
-        background-color: #f4f4f7;
-        color: #51545e;
-        margin: 0;
-        padding: 0;
+          font-family: 'Arial', sans-serif;
+          background-color: #f4f4f7;
+          color: #51545e;
+          margin: 0;
+          padding: 0;
         }}
         .email-wrapper {{
-        width: 100%;
-        background-color: #f4f4f7;
-        padding: 20px 0;
+          width: 100%;
+          background-color: #f4f4f7;
+          padding: 20px 0;
         }}
         .email-content {{
-        max-width: 600px;
-        margin: 0 auto;
-        background-color: #ffffff;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: #ffffff;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }}
         .email-header {{
-        background-color: #007bff;
-        color: #ffffff;
-        text-align: center;
-        padding: 20px;
+          background-color: #50C878; /* Emerald green */
+          color: #ffffff;
+          text-align: center;
+          padding: 20px;
         }}
         .email-header h1 {{
-        margin: 0;
-        font-size: 24px;
+          margin: 0;
+          font-size: 24px;
         }}
         .email-body {{
-        padding: 20px;
-        text-align: center;
+          padding: 20px;
+          text-align: center;
         }}
         .email-body h2 {{
-        color: #333333;
-        font-size: 20px;
-        margin-bottom: 10px;
+          color: #333333;
+          font-size: 20px;
+          margin-bottom: 10px;
         }}
         .email-body p {{
-        font-size: 16px;
-        margin: 0 0 20px;
-        line-height: 1.6;
-        color: #51545e;
+          font-size: 16px;
+          margin: 0 0 20px;
+          line-height: 1.6;
+          color: #51545e;
         }}
         .verification-code {{
-        font-size: 24px;
-        font-weight: bold;
-        color: #007bff;
-        background-color: #f0f8ff;
-        padding: 10px 20px;
-        border-radius: 4px;
-        display: inline-block;
-        letter-spacing: 2px;
-        margin: 20px 0;
+          font-size: 24px;
+          font-weight: bold;
+          color: #50C878; /* Emerald green */
+          background-color: #e6f7ee;
+          padding: 10px 20px;
+          border-radius: 4px;
+          display: inline-block;
+          letter-spacing: 2px;
+          margin: 20px 0;
         }}
         .email-footer {{
-        text-align: center;
-        font-size: 12px;
-        color: #999999;
-        padding: 20px;
-        background-color: #f4f4f7;
+          text-align: center;
+          font-size: 12px;
+          color: #999999;
+          padding: 20px;
+          background-color: #f4f4f7;
         }}
         .email-footer a {{
-        color: #007bff;
-        text-decoration: none;
+          color: #50C878;
+          text-decoration: none;
         }}
         @media only screen and (max-width: 600px) {{
-        .email-content {{
-            margin: 0 10px;
+          .email-content {{
+              margin: 0 10px;
+          }}
         }}
-        }}
-    </style>
+      </style>
     </head>
     <body>
-    <div class="email-wrapper">
+      <div class="email-wrapper">
         <div class="email-content">
-        <!-- Header -->
-        <div class="email-header">
+          <!-- Header -->
+          <div class="email-header">
             <h1>Volera</h1>
-        </div>
-        <!-- Body -->
-        <div class="email-body">
+          </div>
+          <!-- Body -->
+          <div class="email-body">
             <h2>Verify Your Email Address</h2>
             <p>Thank you for signing up for Volera! To complete your registration, please use the verification code below:</p>
             <div class="verification-code">{verification_code}</div>
             <p>Enter this code in the Volera app to verify your email address.</p>
             <p>If you didn’t request this, you can safely ignore this email.</p>
-        </div>
-        <!-- Footer -->
-        <div class="email-footer">
-            <p> {year} Volera. All rights reserved.</p>
+          </div>
+          <!-- Footer -->
+          <div class="email-footer">
+            <p>{year} Volera. All rights reserved.</p>
             <p>
-            <a href="https://volera.app/terms">Terms of Service</a> | 
-            <a href="https://volera.app/privacy">Privacy Policy</a>
+              <a href="https://volera.app/terms">Terms of Service</a> | 
+              <a href="https://volera.app/privacy">Privacy Policy</a>
             </p>
+          </div>
         </div>
-        </div>
-    </div>
+      </div>
     </body>
     </html>
     """
+
 
 def waitlist_template(user_email, privacy_link):
     return f"""

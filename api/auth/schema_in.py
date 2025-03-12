@@ -45,6 +45,7 @@ class UserCreate(BaseModel):
     referral_code: Optional[str] = Field(alias="referralCode", default=None)
     timezone: Optional[str] = "UTC"
     auth_type: Optional[Literal["email", "google"]] = "email"
+    code: Optional[str] = None
     # country: str
 
     @field_validator('password')

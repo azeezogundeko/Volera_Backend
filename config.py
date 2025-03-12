@@ -6,8 +6,8 @@ load_dotenv()
 # PRODUCTION_MODE = 'true'
 
 PRODUCTION_MODE = os.getenv("PRODUCTION_MODE", "false").lower() == "true"
-print(PRODUCTION_MODE)
-PRODUCTION_MODE = False
+# print(PRODUCTION_MODE)
+# PRODUCTION_MODE = False
 if PRODUCTION_MODE:
     APPWRITE_PROJECT_ID: str = os.getenv("APPWRITE_PROJECT_ID")
     APPWRITE_BUCKET_ID: str = os.getenv("APPWRITE_BUCKET_ID")
@@ -61,6 +61,8 @@ SEARCH_CACHE_DIR = Path("data/search_cache")
 SEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 MEMORY_CACHE_DIR = Path("data/memory_cache")
 MEMORY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+EMAIL_CACHE_DIR = Path("data/email_val")
+EMAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 USER_AGENT= str(os.getenv("USER_AGENT"))
 

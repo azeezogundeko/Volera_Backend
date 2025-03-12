@@ -18,6 +18,7 @@ from config import (
 
 from utils.decorator import auth_required
 from utils.logging import logger
+from .cache import email_validation_manager
 
 from appwrite import query
 from fastapi import Request, Query
@@ -154,21 +155,18 @@ async def google_callback(request: Request, background_tasks: BackgroundTasks, c
         }
 
 
-@router.post("/register", response_model=UserPublic)
-async def register_user(payload: UserCreate, background_tasks: BackgroundTasks):
-    try:
-        print(payload)
-        return await services.create_new_user(payload, background_tasks)
-    except Exception as e:
-        print(e)
-        logger.error(f'Error {str(e)}', exc_info=True)
-        raise HTTPException(status_code=400, detail="Internal server error")
+@router.post("/register")
+async def register_user(background: BackgroundTasks, email: str = Body()):
+    validation_code = email_validation_manager.generate_code(email)
+    background.add_task(services.send_new_user_email, validation_code, email)
+    return {"success": True}
 
 
 @router.post('/check-email')
 async def check_email_availablity(email: str = Body()):
     user = await services.get_user_by_email(email)
     if user is None:
+        # save validation code to cache with ttl of 15 mins
         return {"message": "success"}
     
     raise HTTPException(400, "Email already exists")
@@ -193,6 +191,29 @@ async def verify_account(
         background.add_task(send_formal_welcome_email, email, name[0])
         return {"message": "success"}
     raise HTTPException(status_code=400, detail="Invalid verification code")
+
+
+@router.post("/verify_and_register")
+async def verify_account(
+    background: BackgroundTasks,
+    payload: UserCreate 
+
+    ):
+
+    is_verified = email_validation_manager.validate_code(payload.email, payload.code)
+    if not is_verified:
+        raise HTTPException(status_code=400, detail="Invalid code or code has expired")
+    
+    user_dict = await services.create_new_user(payload, background)
+
+    user = user_dict['user']
+    
+    await asyncio.to_thread(user_db.update_status, user["user_id"], True)
+    await asyncio.to_thread(user_db.update_email_verification, user["user_id"], True)
+    background.add_task(send_formal_welcome_email, payload.email, user["first_name"])
+
+    return user_dict
+            
 
 
 @router.post("/forgot_password")
