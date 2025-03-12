@@ -154,7 +154,6 @@ class ConnectionManager:
             # user_prompt = extract_dataclass_messages(final_state['message_history'])
             mem_agent_response = await mem_agent.run(user_prompt=str(final_state['message_history']))
             result_data = mem_agent_response.data
-            print(result_data)
             store.put((user_id, "memories"), ID.unique(), {"text": result_data.summary})
 
         except WebSocketDisconnect:

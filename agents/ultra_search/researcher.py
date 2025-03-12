@@ -168,7 +168,9 @@ class ResearchAgent(BaseAgent):
                 comment=f"Research Agent: Searching products for query: {search_config}"
             )
 
-            search_results = await self.search_tool.search_products(query=search_config['query'], site=search_config['site'], num_results=2)
+            search_query = f"{search_config['query']} {search_config['site']}"
+
+            search_results = await self.search_tool.search_products(query=search_query, num_results=2)
             # print(search_results)
             await self.websocket_manager.send_progress(
                 state['ws_id'], 
