@@ -22,7 +22,7 @@ class FileMessage(BaseModel):
 class WebSocketMessage(BaseModel):
     type: str | None = "message"
     data: MessageData
-    focus_mode: str = Field(alias="focusMode", default="ultrasearch")
+    focus_mode: str = Field(alias="focusMode", default="all")
     parent_message_id: str = Field(alias="parentMessageId",default=None)
     model: str = Field(default="fast", alias="model")
     file_ids: Optional[List[str]]  = []
