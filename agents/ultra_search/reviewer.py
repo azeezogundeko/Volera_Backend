@@ -81,7 +81,7 @@ class ReviewerAgent(BaseAgent):
 
             state['current_depth'] += 1
 
-            logger.info(f'Current Depth {state['current_depth']}')
+            logger.info(f"Current Depth {state['current_depth']}")
             if result.status == '__failed__':
                 state['human_response'] = "The Current plan failed to pass, can you try a new plan"
                 logger.info("Products failed to meet requirements, Goining back to new Research Agents")
@@ -97,7 +97,7 @@ class ReviewerAgent(BaseAgent):
                     status="comment", 
                     comment=f"Reviewer Agent: Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}"
                 )
-            logger.info(f'Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}')
+            logger.info(f"Total numbers of reviewed Items {len(research_agent_results['reviewed_products_ids'])}")
             # Check if we need to continue reviewing or proceed to sending the final response
             if len(reviewed_products) < planner_agent_results['no_of_results']:
                 await self.websocket_manager.send_progress(
