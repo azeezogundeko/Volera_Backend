@@ -95,7 +95,7 @@ class ReviewerAgent(BaseAgent):
             await self.websocket_manager.send_progress(
                     state['ws_id'], 
                     status="comment", 
-                    comment=f"Reviewer Agent: Total numbers of reviewed Items {len(research_agent_results["reviewed_products_ids"])}"
+                    comment=f"Reviewer Agent: Total numbers of reviewed Items {len(research_agent_results['reviewed_products_ids'])}"
                 )
             logger.info(f"Total numbers of reviewed Items {len(research_agent_results['reviewed_products_ids'])}")
             # Check if we need to continue reviewing or proceed to sending the final response
