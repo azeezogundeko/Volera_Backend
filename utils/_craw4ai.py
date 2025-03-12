@@ -95,7 +95,8 @@ class CrawlerManager:
                 # Create crawler instance
                 proxy_config = None
                 if PRODUCTION_MODE:
-                    proxy_config = proxy_url
+                    proxy_config = {'server': proxy_url}
+                    
                 config = BrowserConfig(headless=True, storage_state=CHROME_STORAGE_PATH, proxy_config=proxy_config)
                 cls._crawler = AsyncWebCrawler(
                     verbose=True,
