@@ -324,9 +324,9 @@ class ResearchAgent(BaseAgent):
         if content is None:
             return None
         # if isinstance(content, MarkdownGenerationResult):
-        else:
-            return content.markdown
-        # return content
+        # else:
+        #     return content.markdown
+        return content
 
 
 
