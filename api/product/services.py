@@ -12,7 +12,7 @@ from utils.ecommerce_manager import EcommerceManager
 from utils.rerank import ReRanker
 from utils.logging import logger
 from utils.product_utils import search_and_process_products
-from .deep_search import run_deep_search_agent
+# from .deep_search import run_deep_search_agent
 
 # Initialize shared instances
 # google_search = GoogleSearchTool()
@@ -117,7 +117,7 @@ async def list_products(
                 logger.info(f"Cache hit for query: {query}")
                 results = await reranker.rerank(query, cache_results)
                 if site != "all":
-                    results = [p for p in results if ecommerce_manager._integrations[p.get("source", "")].matches_url(site)]
+                    results = [p for p in results if ecommerce_manager._integrations[p.get("source".lower(), "")].matches_url(site)]
                 if len(results) > 0:  # Only return cached results if we found matches
                     return await post_process_results(user_id, query, page, limit, deep_search, results, sort, filters)
                 else:

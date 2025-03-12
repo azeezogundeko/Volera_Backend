@@ -68,7 +68,7 @@ async def search_and_process_products(
         if scraping_integrations:
             # Parallel search across all scraping sites
             search_tasks = [
-                search_tool.search_products(query, site="|".join(integration.url_patterns))
+                search_tool.search_products(query, site="|".join(integration.url_patterns), num_results=2)
                 for integration in scraping_integrations
             ]
             search_results = await asyncio.gather(*search_tasks, return_exceptions=True)

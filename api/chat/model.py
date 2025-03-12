@@ -14,6 +14,7 @@ class Chat(AppwriteModelBase):
     title: str = AppwriteField(size=255, required=False)
     start_time: datetime = AppwriteField(required=False, type="datetime")
     focus_mode: str = AppwriteField(required=False, size=50)
+    is_created: bool = AppwriteField(required=False, type=bool, default=False)
     file_ids: List[str] = AppwriteField(required=False, type="array", default=[])
     index = AppwriteField(type="index", index_type="key", index_attr=["user_id"])
     title_index = AppwriteField(type="index", index_type="fulltext", index_attr=["title"])

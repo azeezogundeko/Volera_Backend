@@ -55,7 +55,7 @@ class PlannerAgent(BaseAgent):
         user_prompt = {
             "USER_INPUT": user_input,
             "PREVIOUS_SEARCH_QUERIES": previous_search_queries,
-            "MEMORIES FROM PREVIOUS CONVERSATIONS": memory
+            "PAST CONVERSATION SUMMARIES": memory
         }
 
         user_id = state['user_id']
@@ -86,7 +86,7 @@ class PlannerAgent(BaseAgent):
         response = await self.run(state, config, store)
         data = response.data
 
-        if data.action == '__user__':
+        if "user" in data.action:
             logger.info("Routing to Human Node")
             return await self.go_to_user_node(state, ai_response=data.content, go_back_to_node=agent_manager.planner_agent)
 

@@ -77,14 +77,18 @@ class AppwriteSessionManager:
                 "title": title,
                 "focus_mode": focus_mode,
                 "file_ids": file_ids,
-                # "user_id": user_id,
+                "is_created": True,
                 "start_time": datetime.now().isoformat(),
             }
+
+            chat = await Chat.read(session_id)
+            if chat.is_created:
+                return session_id, chat.focus_mode
 
             await Chat.update(session_id, payload)
             # await create_message(chat_payload)
             logger.info(f"Created session for user {user_id}: {session_id}")
-            return session_id
+            return session_id, focus_mode
 
         except Exception as e:
             logger.error(f"Failed to create session: {str(e)}")

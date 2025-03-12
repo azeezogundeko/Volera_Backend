@@ -37,6 +37,7 @@ class EcommerceManager:
         from .ecommerce_integrations.jumia import JumiaIntegration
         from .ecommerce_integrations.jiji import JijiIntegration
         from .ecommerce_integrations.konga import KongaIntegration
+        from .ecommerce_integrations.llm import integrations
         # from .ecommerce_integrations.amazon import AmazonIntegration
 
 
@@ -47,6 +48,12 @@ class EcommerceManager:
             JumiaIntegration(db_manager=self.db_manager),
             JijiIntegration(db_manager=self.db_manager),
             KongaIntegration(db_manager=self.db_manager),
+            integrations.ShopInverseIntegration(db_manager=self.db_manager),
+            integrations.KaraIntegration(db_manager=self.db_manager),
+            integrations.ParkwayIntegration(db_manager=self.db_manager),
+            integrations.SuperMartIntegration(db_manager=self.db_manager),
+            integrations.SlotIntegration(db_manager=self.db_manager),
+            # integrations.KongaIntegration(db_manager=self.db_manager),
             # AmazonIntegration(db_manager=self.db_manager)
         ]
         

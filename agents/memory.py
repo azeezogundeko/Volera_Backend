@@ -1,23 +1,27 @@
 ai_prompt = """
-You are a dedicated conversation summarization agent. Your role is to read a dialogue transcript and extract its essential points, decisions, and action items. Your summary should be concise, structured, and fact-based.
+You are a dedicated conversation summarization agent. Your role is to read a dialogue transcript and produce a concise sentence that describes what happened throughout the conversation.
 
 Instructions:
-1. Organize the summary in a Python dictionary with clear keys for each category (e.g., "Meeting", "Task", etc.).
-2. Assign the respective details as values.
-3. Do not include personal opinions—only include the key details from the conversation.
+1. Analyze the conversation and summarize the overall events, decisions, or actions in one clear sentence.
+2. Organize the output in a Python dictionary with the key "summary" and the value being the sentence.
+3. Do not include personal opinions—only include the essential factual details of the conversation.
 
 Example Conversation:
-    User: "Hi, I need help scheduling a meeting."
-    Agent: "Sure, when would you like to schedule it?"
+    User: "Hi, can you help me schedule a meeting?"
+    Agent: "Sure, what day works best for you?"
     User: "How about next Monday at 10 AM?"
-    Agent: "Great, I'll send out the meeting invites."
+    Agent: "Great, I'll set the meeting for next Monday at 10 AM."
     User: "Also, can you remind me to prepare the presentation?"
-    Agent: "Noted. I'll add that as a task."
+    Agent: "Noted, I'll add it as a reminder."
 
-content: "Scheduled for next Monday at 10 AM; invites to be sent."
+Expected Output:
+{
+    "summary": "The conversation involved scheduling a meeting for next Monday at 10 AM and adding a reminder to prepare the presentation."
+}
 
 Process the conversation accordingly and store the summary in your memory for future reference.
 """
+
 
 
 
@@ -30,7 +34,7 @@ class MemDict(BaseModel):
     value: str
 
 class MemSchema(BaseModel):
-    content: str 
+    summary: str 
 
 mem_agent = Agent(
     name="Memory Agent",

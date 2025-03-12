@@ -474,7 +474,7 @@ class DiskCacheDB:
             if isinstance(product_dict, dict):
                 return product_dict  # Return the dictionary
 
-            elif  isinstance(product_dict, list):
+            elif isinstance(product_dict, list):
                 return product_dict
 
             else:

@@ -36,9 +36,6 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         self.connection_count: int = 0
 
-    
-
-
     async def connect(self, user_id: str, websocket: WebSocket) -> None:
         if user_id in self.active_connections:
             await self.disconnect(user_id)
@@ -68,8 +65,8 @@ class ConnectionManager:
             "file_ids": data.file_ids
         }
         search_cache_manager.add_search_query(title)
-        session_id = await appwrite_session_manager.start_session(user_id, metadata)
-        return session_id
+        session_id, focus_mode = await appwrite_session_manager.start_session(user_id, metadata)
+        return session_id, focus_mode
 
     async def QA_mode(
         self, processing_config, state, websocket: WebSocket):
@@ -111,7 +108,7 @@ class ConnectionManager:
         websocket_id = self.websocket_manager.add_connection(websocket)
 
         ws_message = data.data
-        session_id = await self.start_session(user_id, data)
+        session_id, focus_mode = await self.start_session(user_id, data)
 
         new_content = await self.process_content(data.file_ids, session_id, ws_message.content)
         await appwrite_session_manager.log_message(ws_message.content, session_id, 'human')
@@ -119,6 +116,7 @@ class ConnectionManager:
         state = {
             "agent_results": {},
             "ws_message": ws_message.model_dump(),
+            # "focus_mode": focus_mode,
             "human_response": new_content,
             "ai_response": "",
             "session_id": session_id,
@@ -142,13 +140,13 @@ class ConnectionManager:
             }
 
         try:
-            if data.focus_mode == "copilot":
+            if focus_mode == "copilot":
                 final_state = await self.copilot_mode(processing_config, state, websocket)
-            elif data.focus_mode == "insights":
+            elif focus_mode == "insights":
                 final_state = await self.insights_mode(processing_config, state, websocket)
-            elif data.focus_mode == "all":
+            elif focus_mode == "all":
                 final_state = await self.QA_mode(processing_config, state, websocket)
-            elif data.focus_mode == "ultrasearch":
+            elif focus_mode == "ultrasearch":
                 final_state = await self.ultra_search_mode(processing_config, state, websocket)
 
 
@@ -157,7 +155,7 @@ class ConnectionManager:
             mem_agent_response = await mem_agent.run(user_prompt=str(final_state['message_history']))
             result_data = mem_agent_response.data
             print(result_data)
-            store.put((user_id, "memories"), ID.unique(), {"text": result_data.content})
+            store.put((user_id, "memories"), ID.unique(), {"text": result_data.summary})
 
         except WebSocketDisconnect:
             logger.warning(f"WebSocket disconnected for user {user_id} during message handling.")
@@ -185,7 +183,6 @@ class ConnectionManager:
             )
 
         
-
     async def detail_mode(self, data: dict, websocket: WebSocket, user_id: str, history):
         websocket_id = self.websocket_manager.add_connection(websocket)
         data = data["data"]

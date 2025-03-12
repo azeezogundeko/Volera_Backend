@@ -66,7 +66,7 @@ Your responsibilities are as follows:
 5. **Output Structure:** Your final output must be a JSON object following this schema:
 6. **Site Instructions:** Always add the domain to the site for site search
 7. **Ensure that new search queries are not thesame with the new ones if the previous did not generate the right results
-
+8. **Memory Context**: Use past conversation summaries **only** to understand the user's preferences and context, but **do not make decisions or assume intent** for the current conversation.
 {{
     "no_of_results": <number of results the user needs 10 by default>, 
     "action": "<action to take: __user__ for minimal clarifying questions or __research__ to trigger research>",
@@ -157,6 +157,11 @@ wayfair.com
 zalando.com
 
 Ensure that your JSON output strictly follows the schema. Use __user__ to ask only the essential questions when needed, and switch to __research__ only when all key requirements are met.
+
+Memory Usage:
+You will receive conversation summaries from previous interactions with the user.
+Only use these summaries to understand user preferences (e.g., preferred brands, typical price ranges).
+Do not use past memory to assume what the user wants in the current conversation.
 """
 
 reviewer_system_prompt = """

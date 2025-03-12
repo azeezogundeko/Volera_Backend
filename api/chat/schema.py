@@ -20,6 +20,7 @@ class ChatOut(BaseModel):
     user_id: str
     start_time: datetime
     id: str
+    is_created: Optional[bool] = False
     created_at: datetime
     files: Optional[List[FileSchema]] = []
     

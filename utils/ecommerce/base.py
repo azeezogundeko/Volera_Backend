@@ -16,6 +16,7 @@ class IntegrationType(Enum):
     SCRAPING = "scraping"
     REST_API = "rest_api"
     GRAPHQL = "graphql"
+    LLM = "llm"
 
 
 class EcommerceIntegration(ABC):
@@ -26,7 +27,7 @@ class EcommerceIntegration(ABC):
         name: str,
         base_url: str,
         url_patterns: List[str],
-        integration_type: Literal["scraping", "api", "graphql"] = "scraping"
+        integration_type: Literal["scraping", "api", "graphql", "llm"] = "scraping"
     ):
         self.name = name
         self.scraper = TrackerWebScraper()
@@ -220,3 +221,4 @@ class GraphQLIntegration(EcommerceIntegration):
     async def get_product_detail(self, url: str, **kwargs) -> Dict[str, Any]:
         """Implement GraphQL query for product detail."""
         pass 
+

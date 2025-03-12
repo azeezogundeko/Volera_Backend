@@ -11,6 +11,7 @@ from utils.logging import logger
 
 from langgraph.types import Command
 from pydantic_ai.result import ResultDataT
+from langgraph.store.base import BaseStore
 
 
 class WebWriterAgent(WriterAgent):
@@ -18,7 +19,7 @@ class WebWriterAgent(WriterAgent):
         super().__init__(system_prompt=system_prompt,*args, **kwargs)
 
     @extract_agent_results(agent_manager.writer_agent)
-    async def run(self,state: State, user_input: str = None) -> ResultDataT:
+    async def run(self,state: State, user_input: str | None = None) -> ResultDataT:
         user_id = state.get("user_id")
         if not user_id:
             raise ValueError("User ID not found in state")
@@ -30,18 +31,28 @@ class WebWriterAgent(WriterAgent):
         if user_input is None:
             user_input = state["ws_message"]["message"]["content"]
 
+
         prompt = {
             "User Input": user_input,
-            "Search Results": search
+            "Search Results": search,
+            # "Memory from past Conversation": memories
         }
         state["previous_node"] = agent_manager.writer_agent
         state["next_node"] = agent_manager.web_query_agent
 
-        response = await self.call_llm(user_id=user_id, type='text', user_prompt=str(prompt))
+        model_config = self.get_model_config(state["model"])
+
+        response = await self.call_llm(
+            user_id=user_id, 
+            type='text', 
+            user_prompt=str(prompt),
+            deps=model_config["deps"],
+            model=model_config["model"]
+            )
         state["message_history"] = previous_messages + response.new_messages()
         return response
 
-    async def __call__(self, state: State, config={}) -> Command[
+    async def __call__(self, state: State, config={}, * store: BaseStore) -> Command[
         Literal[agent_manager.end, agent_manager.human_node]]:
             
         user_input = state["human_response"] if "human_response" in state else None
@@ -49,34 +60,18 @@ class WebWriterAgent(WriterAgent):
         content = convert_to_markdown(response.data.content)
         ws_id = state["ws_id"]
         sources, images = self.extract_results(state)
-
-        task_id = state["task_id"]
-        product_data = None
-
-        try:
-            value = self.background_task.is_task_done(task_id)
-            if value is False:
-                await self.websocket_manager.send_progress(ws_id, "searching", 0)
-                results = await self.background_task.wait_for_completion(task_id)
-                product_data = results
-
-            else:
-                product_data = self.background_task.get_result(task_id)
-                    
-        except ValueError as e:
-            logger.error(f"Error Retrieving Task {task_id}: {e}")
-        
+       
         await self.send_signals(
             state,
             content=content,
             images=images,
             sources=sources,
-            products=product_data
+            # products=product_data
         )
 
-        await self.evaluate_chat_limit(state)
+        # await self.evaluate_chat_limit(state)
         logger.info("Continuing conversation for follow-up questions")
-        return Command(goto=agent_manager.human_node, update=state)
+        return Command(goto=agent_manager.end, update=state)
 
 
     def extract_results(self, state: State) -> ResultDataT:

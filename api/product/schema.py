@@ -114,7 +114,17 @@ class ProductResponse(BaseModel):
 class SearchRequest:
     query: str = Form()
     images: List[UploadFile] = File(None)
-    site: Literal["all", "jumia.com.ng", "jiji.ng", "konga.com"] = Form("all")
+    site: Literal[
+        "all", 
+        "jumia.com.ng", 
+        "jiji.ng", 
+        "konga.com", 
+        "kara.com.ng",
+        "shopinverse.com",
+        "parkwaynigeria.com",
+        "supermart.ng",
+        "slot.ng",       
+        ] = Form("all")
     max_results: int = Form(5)
     bypass_cache: bool = Form(False)
     page: int = Form(1)

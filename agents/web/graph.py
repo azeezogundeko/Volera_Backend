@@ -4,6 +4,8 @@ from .human_node import web_human_node
 from ..config import agent_manager
 from ..state import State
 
+from utils.memory import store
+
 from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -24,7 +26,7 @@ builder.set_entry_point(agent_manager.web_query_agent)
 
 # # Compile the graph
 checkpointer = MemorySaver()
-web_agent_graph = builder.compile(checkpointer=checkpointer)
+web_agent_graph = builder.compile(checkpointer=checkpointer, store=store)
 
 # async def build_copilot_agent_graph():
 #     checkpointer = AsyncMongoDBSaver(async_mongodb_client)
