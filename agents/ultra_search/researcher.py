@@ -16,7 +16,7 @@ from utils.logging import logger
 # from ..legacy.llm import check_credits, track_llm_call
 
 from langgraph.types import Command
-from crawl4ai import CrawlerRunConfig, BM25ContentFilter, DefaultMarkdownGenerator, MarkdownGenerationResult
+from crawl4ai import CrawlerRunConfig, BM25ContentFilter, DefaultMarkdownGenerator
 
 
 class ResearchAgent(BaseAgent):
@@ -320,12 +320,13 @@ class ResearchAgent(BaseAgent):
         
         return products
     
-    def get_markdown_content(self, content: Optional[Union[str, MarkdownGenerationResult]]) -> Optional[str]:
+    def get_markdown_content(self, content) -> Optional[str]:
         if content is None:
             return None
-        if isinstance(content, MarkdownGenerationResult):
+        # if isinstance(content, MarkdownGenerationResult):
+        else:
             return content.markdown
-        return content
+        # return content
 
 
 

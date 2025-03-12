@@ -1,7 +1,5 @@
-import os
 import json
 import asyncio
-
 
 from pydantic import BaseModel, Field
 from typing import List, List
@@ -56,6 +54,7 @@ class ProductExtractor:
     def _create_crawl_config(self):
         return CrawlerRunConfig(
             excluded_tags=["nav", "footer", "header", "script", "style"],
+            magic=True,
             extraction_strategy=LLMExtractionStrategy(
                 provider=self.llm_provider,
                 api_token=self.api_key,

@@ -185,9 +185,6 @@ async def get_product_detail(
             except Exception as e:
                 logger.error(str(e), exc_info=True)
                 raise HTTPException(404, "Failed to Search")
-
-    # print(product)
-
     return product
 
 @router.get("/trending-products", response_model=List[ProductResponse])
@@ -207,7 +204,7 @@ async def get_trending_products(
         ecommerce_manager=manager,
         page=page,
         limit=limit,
-        max_results=max_results
+        max_results=1
     )
     
 
