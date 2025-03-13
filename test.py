@@ -117,25 +117,23 @@ def get_html_content(name: str):
     <body>
         <div class="container">
             <div class="header">
-                <h1>Welcome to Volera!</h1>
+                <h1>Discover the New Volera Experience!</h1>
             </div>
             
             <div class="content">
                 <p>Dear {name},</p>
                 
-                <p>We're thrilled to welcome you to Volera, your ultimate shopping companion</p>
-                
-                <p>At Volera, we're revolutionizing how you shop online by bringing you the best deals across multiple platforms.</p>
+                <p>We're excited to announce our latest features at Volera designed to make your shopping experience smarter and more dynamic than ever before!</p>
                 
                 <div class="features">
-                    <h2>What You Can Do with Volera:</h2>
-                    <div class="feature-item">✓ Track prices across platforms in real-time</div>
-                    <div class="feature-item">✓ Get personalized product recommendations</div>
-                    <div class="feature-item">✓ Search products across Jumia, Jiji, and Konga in one place</div>
-                    <div class="feature-item">✓ Save money with price alerts and comparisons</div>
+                    <h2>Discover What's New:</h2>
+                    <div class="feature-item">✓ Choose your chat model: <strong>Deepseek</strong> or <strong>Google Gemini</strong> for personalized assistance</div>
+                    <div class="feature-item">✓ Experience <strong>Ultra Search</strong>: our AI-powered deep search scours the entire internet for detailed product descriptions</div>
+                    <div class="feature-item">✓ Expanded eCommerce network: now search across <strong>Shopinverse, Kara, Supermart, Parkway, and Slot</strong></div>
+                    <div class="feature-item">✓ Enjoy smart shopping with real-time price tracking and tailored recommendations</div>
                 </div>
                 
-                <p>Ready to start your smart shopping journey?</p>
+                <p>Ready to explore these powerful new tools?</p>
                 
                 <center>
                     <a href="https://www.volera.app/login" class="button">Login to Your Account</a>
@@ -151,7 +149,7 @@ def get_html_content(name: str):
             <div class="footer">
                 <div class="footer-content">
                     <h3 style="margin: 0; font-size: 20px; color: white;">Connect with Volera</h3>
-                    <p class="footer-text" style="color: rgba(255, 255, 255, 0.9);">Join our community and stay updated with the latest features and deals</p>
+                    <p class="footer-text" style="color: rgba(255, 255, 255, 0.9);">Join our community and stay updated with the latest features and exclusive deals</p>
                     
                     <div class="social-links">
                         <a href="https://x.com/volera4727" style="flex: 1;">
@@ -178,7 +176,7 @@ def get_html_content(name: str):
                     
                     <p class="footer-text" style="margin-bottom: 0;">© 2025 Volera. All rights reserved.</p>
                     <p class="footer-text" style="font-size: 12px; margin-top: 5px;">
-                        Shop with Artificial Intelligience
+                        Shop with Artificial Intelligence
                     </p>
                 </div>
             </div>
@@ -187,16 +185,17 @@ def get_html_content(name: str):
     </html>
     """
 
+
 def get_all_users():
     all_users = user_db.list([Query.limit(100)])
 
     users = all_users['users']
-    print(len(users))
+    # print(len(users))
     result = [{
         'email': user['email'],
         'name': user['name'].split('_')[0]
     } for user in users]
-    return result
+    return result[3:]
     # return [
     #     {
     #         'email': 'azeezogundeko@volera.app',
@@ -212,7 +211,7 @@ def send_email():
         try:
             manager.send_email(
                 user['email'],
-                subject='Welcome to Volera',
+                subject='Volera Unveils Next-Level Features: Enhanced Chat and Deep Internet Search',
                 html_content=get_html_content(user['name'])
             )
 

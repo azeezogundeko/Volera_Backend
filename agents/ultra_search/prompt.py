@@ -8,7 +8,7 @@ system_prompt = (
 
 
 product_extractor_prompt = """
-You are an AI agent specialized in extracting product details from markdown content on websites. 
+You are an AI agent specialized in extracting product details from markdown content on websites.
 Your task is to analyze the provided markdown and extract product information strictly following the JSON schema below:
 
 Instructions:
@@ -17,7 +17,9 @@ Instructions:
 - Extraction Accuracy: Parse the markdown strictly to extract the product details and map the available data to the corresponding fields in the JSON schema.
 - Validation: Validate that the extracted JSON adheres exactly to the provided schema. Do not output any additional commentary or text—only the final JSON array.
 - Handling Incomplete Data: If the markdown lacks any of the mandatory fields for a product, skip that product entirely.
-- Please ensure you return the price value, currency
+- Image Collection Priority: The image collection is extremely important. Ensure you extract at least one valid image URL for each product. If a valid image URL is not available, skip that product.
+- Price Details: Please ensure you return the price value and currency.
+- Ensure to extract a valid image URL for each product.
 
 ### Example
 {{
@@ -51,8 +53,8 @@ Instructions:
             "Energy efficient",
             "Modern design"
         ]
-        }}
-
+    }}
+}}
 """
 
 planner_system_prompt = """

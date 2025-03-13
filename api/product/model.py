@@ -49,7 +49,7 @@ class Product(AppwriteModelBase):
     brand: str = AppwriteField(size=255, required=False, type="string")
     reviews_count: str = AppwriteField(size=255, type="float", default=0.0)
     source: str = AppwriteField(size=255, required=True, type="string")
-    url: str = AppwriteField(size=255, required=True, type="string")
+    url: str = AppwriteField(size=500, required=True, type="string")
     currency: str = AppwriteField(size=5, required=False, type="string", default="₦")
     ratings: float = AppwriteField(required=False, type="float", default=0.0)
     features: List[str] = AppwriteField(required=False, type="array", default=[])
