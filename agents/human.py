@@ -70,7 +70,6 @@ async def human_node(
         ws_id = state["ws_id"]
 
         # if "ai_response" in state:
-        await appwrite_session_manager.log_messages(state["message_data"])
         # state["message_data"] = None
         
         # Receive user input with retries
@@ -78,7 +77,7 @@ async def human_node(
         retry_delay = 3
         response_text = None
         
-        update_history(state, state["human_response"], state["ai_response"])
+        # update_history(state, state["human_response"], state["ai_response"])
         # response_text = await websocket_manager.receive_json(ws_id)
 
         for attempt in range(max_retries):

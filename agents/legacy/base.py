@@ -8,6 +8,7 @@ from ..config import agent_manager
 from config import ApiKeyConfig
 from asyncio import sleep, Semaphore
 from datetime import datetime, timedelta
+from db._appwrite.session import appwrite_session_manager
 
 from pydantic_ai import Agent, RunContext
 # from prompts import (
@@ -37,6 +38,7 @@ from utils.background import background_task
 from utils.url_shortener import URLShortener
 from utils.rerank import ReRanker
 from utils._craw4ai import CrawlerManager
+from utils.helper_state import update_history
 from utils.ecommerce_manager import EcommerceManager
 from schema.dataclass.decourator import extract_agent_results
 # from utils.db_manager import ProductDBManager
@@ -261,7 +263,9 @@ class BaseAgent:
              original_products=products
             #  product_ids=[product['product_id'] for product in products]
         )
+        update_history(state, state["human_response"], state["ai_response"])
         state["message_data"] = message_data
+        await appwrite_session_manager.log_messages(state["message_data"])
 
     async def go_to_user_node(
             self, 

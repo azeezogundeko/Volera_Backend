@@ -152,7 +152,9 @@ class ConnectionManager:
 
             # update a new memory
             # user_prompt = extract_dataclass_messages(final_state['message_history'])
-            mem_agent_response = await mem_agent.run(user_prompt=str(final_state['message_history']))
+            history = final_state['ws_message']['history']
+            print(history)
+            mem_agent_response = await mem_agent.run(user_prompt=str(history))
             result_data = mem_agent_response.data
             store.put((user_id, "memories"), ID.unique(), {"text": result_data.summary})
 

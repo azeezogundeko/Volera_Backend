@@ -40,20 +40,20 @@ class LLMIntegration(EcommerceIntegration):
         return products
 
     async def get_product_detail(self, url: str, product_id: str, bypass_cache) -> Dict[str, Any]:
-        product = await self.db_manager.get(product_id, tag='list')
+        # product = await self.db_manager.get(product_id, tag='list')
 
-        if product is None:
-            products = await extractor.extract_products([url])
-            products = products[url]
+        products = await extractor.extract_products([url])
+        products = products[url]
 
-            if "error" in products:
-                return {}
+        if "error" in products:
+            return {}
+        
+        for product in products:
+            product["product_id"] = product_id
+            product["source"] = self.name
+
+        return products[0]
+        # if product is None:
             
-            for product in products:
-                product["product_id"] = product_id
-                product["source"] = self.name
 
-            return products[0]
-            
-
-        return product
+        # return product
