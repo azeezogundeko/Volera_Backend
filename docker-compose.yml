@@ -32,6 +32,7 @@ services:
 
   web:
     build: .
+    restart: always
     expose:
       - 8000
     env_file:
