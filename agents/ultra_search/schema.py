@@ -41,7 +41,7 @@ class ProductDetail(BaseModel):
     currency: str = Field(description="Currency symbol for the price (default is Naira '₦')")
     description: str = Field(description="Detailed description of the product")
     current_price: float = Field(description="Current selling price of the product")
-    original_price: float = Field('', description="Original price before any discount")
+    original_price: float = Field(0.0, description="Original price before any discount")
     discount: float = Field(0.0, description="Discount amount applied to the product")
     url: str = Field(description="Direct URL to the product page")
     image: str = Field(description="URL of the product image")
