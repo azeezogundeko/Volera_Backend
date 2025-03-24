@@ -188,8 +188,12 @@ class ResearchAgent(BaseAgent):
                 self.process_search_result(search_result, search_config, model_config, state, llm_semaphore)
                 for search_result in search_results
             ]
-            # Gather results concurrently
-            results = await asyncio.gather(*tasks)
+            # Gather results concurrently with 1 minute timeout
+            try:
+                results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=90)
+            except asyncio.TimeoutError:
+                logger.warning("Timeout occurred while gathering LLM responses")
+                results = [None] * len(tasks)  # Fill with None values for timed out tasks
 
             # Filter out None results and combine all product dictionaries
             for product_dicts in results:
