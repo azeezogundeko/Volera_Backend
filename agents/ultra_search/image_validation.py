@@ -80,8 +80,8 @@ class ImageValidationAgent(BaseAgent):
             )
 
             # Extract the image URL from the LLM response
-            if response and response.data and response.data.get('image_url'):
-                new_image_url = response.data['image_url']
+            if response and hasattr(response.data, 'image_url'):
+                new_image_url = response.data.image_url
                 # Make sure the URL is absolute
                 if not bool(urlparse(new_image_url).netloc):
                     new_image_url = urljoin(product['url'], new_image_url)
