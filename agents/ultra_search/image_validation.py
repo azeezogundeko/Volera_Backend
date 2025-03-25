@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 from ..legacy.base import BaseAgent
 from ..config import agent_manager
 from ..state import State
-from .schema import ImageValidationSchema
+from .schema import ImageValidationSchema, ProductImage
 from .prompt import image_validation_prompt
 from utils._craw4ai import CrawlerManager
 from utils.logging import logger
@@ -72,22 +72,15 @@ class ImageValidationAgent(BaseAgent):
             }
 
             response = await self.call_llm(
-                user_id="system",  # Since this is an internal operation
+                user_id="system",
                 user_prompt=str(prompt),
                 type="text",
+                result_type=ProductImage,  # Use single-product schema
                 model='google-gla:gemini-2.0-flash-exp',
                 deps=ScrapingDependencies
             )
-
-            # Extract the image URL from the LLM response
-            if response and hasattr(response.data, 'image_url'):
-                new_image_url = response.data.image_url
-                # Make sure the URL is absolute
-                if not bool(urlparse(new_image_url).netloc):
-                    new_image_url = urljoin(product['url'], new_image_url)
-                return new_image_url
             
-            return product.get('image', '')
+            return response.image_url if response else ''
         except Exception as e:
             logger.error(f"Error fixing image URL: {str(e)}")
             return product.get('image', '')
@@ -99,15 +92,9 @@ class ImageValidationAgent(BaseAgent):
         
         if not all_products:
             return ImageValidationSchema(
-                validated_product_ids=[],
-                fixed_count=0,
-                failed_count=0,
+                products=[],
                 comment="No products to validate"
             )
-
-        fixed_count = 0
-        failed_count = 0
-        validated_product_ids = []
 
         # Create a semaphore to limit concurrent operations
         semaphore = asyncio.Semaphore(5)
@@ -115,23 +102,23 @@ class ImageValidationAgent(BaseAgent):
         async def process_product(product: Dict):
             async with semaphore:
                 try:
-                    is_valid = await self.validate_image_url(product.get('image', ''))
+                    image_url = product.get('image', '')
+                    is_valid = await self.validate_image_url(image_url)
                     
                     if not is_valid:
                         # Try to fix the image URL
-                        new_image_url = await self.fix_image_url(product)
-                        is_valid = await self.validate_image_url(new_image_url)
-                        
-                        if is_valid:
-                            nonlocal fixed_count
-                            fixed_count += 1
-                            product['image'] = new_image_url
-                        else:
-                            nonlocal failed_count
-                            failed_count += 1
+                        fixed_url = await self.fix_image_url(product)
+                        if fixed_url:
+                            image_url = fixed_url
+                            is_valid = await self.validate_image_url(image_url)
                     
                     if is_valid:
-                        return product.get('product_id')  # Return only the product ID if validation succeeded
+                        # Update the product's image URL directly
+                        product['image'] = image_url
+                        return ProductImage(
+                            image_url=image_url,
+                            product_id=product.get('product_id', '')
+                        )
                     return None
                 except Exception as e:
                     logger.error(f"Error processing product: {str(e)}")
@@ -141,10 +128,10 @@ class ImageValidationAgent(BaseAgent):
         tasks = [process_product(product) for product in all_products]
         results = await asyncio.gather(*tasks)
         
-        # Filter out None values and collect valid product IDs
-        validated_product_ids = [pid for pid in results if pid is not None]
+        # Filter out None values and collect valid products
+        validated_products = [product for product in results if product is not None]
 
-        comment = f"Validated {len(all_products)} products. Fixed {fixed_count} image URLs. Failed to fix {failed_count} URLs."
+        comment = f"Validated {len(validated_products)} out of {len(all_products)} products."
         
         await self.websocket_manager.send_progress(
             state['ws_id'],
@@ -153,9 +140,7 @@ class ImageValidationAgent(BaseAgent):
         )
 
         return ImageValidationSchema(
-            validated_product_ids=validated_product_ids,
-            fixed_count=fixed_count,
-            failed_count=failed_count,
+            products=validated_products,
             comment=comment
         )
 
@@ -164,16 +149,37 @@ class ImageValidationAgent(BaseAgent):
         try:
             result = await self.run(state, config)
             
-            # Continue to the next agent in the chain
-            all_products = state['agent_results'][agent_manager.summary_agent].get("all_products", [])
-            summary_agent_results = state['agent_results'][agent_manager.summary_agent]['content']
+            # Safely get state data with defaults
+            agent_results = state.get('agent_results', {})
+            summary_results = agent_results.get(agent_manager.summary_agent, {})
+            all_products = summary_results.get("all_products", [])
+            content = summary_results.get('content', {})
+            
+            if not all_products:
+                logger.warning("No products found in state")
+                return Command(goto=agent_manager.end, update=state)
 
-            validated_products = [product for product in all_products if product['product_id'] in result.validated_product_ids]
-            await self.send_signals(state, content=summary_agent_results['response'], products=validated_products)
+            # Create a mapping of product IDs to validated image URLs
+            validated_images = {p.product_id: p.image_url for p in result.products}
+            
+            # Update product images in the state
+            for product in all_products:
+                product_id = product.get('product_id')
+                if product_id in validated_images:
+                    product['image'] = validated_images[product_id]
+            
+            # Update the state with validated products
+            if agent_manager.summary_agent in agent_results:
+                agent_results[agent_manager.summary_agent]['all_products'] = all_products
+            
+            await self.send_signals(
+                state, 
+                content=content.get('response', ''),
+                products=all_products
+            )
             return Command(goto=agent_manager.end, update=state)
         except Exception as e:
             logger.error(f"Image validation failed: {str(e)}", exc_info=True)
-            # On error, still try to continue the chain
             return Command(goto=agent_manager.end, update=state)
 
 image_validation_agent = ImageValidationAgent() 

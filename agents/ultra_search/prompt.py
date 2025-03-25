@@ -272,9 +272,10 @@ Instructions:
 
 Your output must follow the ImageValidationSchema format:
 {
-    "validated_products": [List of ProductDetail objects with validated image URLs],
-    "fixed_count": Number of image URLs that were fixed,
-    "failed_count": Number of image URLs that could not be fixed,
+    "product": {
+        "image_url": "URL of the product image",
+        "product_id": "ID of the product"
+    },
     "comment": "A human-friendly summary of the validation process"
 }
 """
