@@ -55,11 +55,10 @@ class ResponseAgent(BaseAgent):
             type="text"
 
         )
-
         return response
 
     async def __call__(self, state: State, config: Dict[str, Any] = {}) -> Command[
-        Literal[agent_manager.human_node, agent_manager.end]]:
+        Literal[agent_manager.human_node, agent_manager.image_validation_agent]]:
         try:
             response = await self.run(state, config)
 
@@ -77,8 +76,9 @@ class ResponseAgent(BaseAgent):
                 filtered_products = self.filter_products(state, product_ids)
 
 
-            await self.send_signals(state, content=result.response, products=filtered_products)
-            return Command(goto=agent_manager.end, update=state)
+            # await self.send_signals(state, content=result.response, products=filtered_products)
+            state['agent_results'][agent_manager.summary_agent]['all_products'] = filtered_products
+            return Command(goto=agent_manager.image_validation_agent, update=state)
             # return await self.go_to_user_node(
             #     state, 
             #     ai_response=result.response, 
@@ -87,8 +87,7 @@ class ResponseAgent(BaseAgent):
             #     )
         except Exception as e:
             logger.error(e, exc_info=True)
-    
-        
+      
 
 
     def filter_products(self, state, product_ids: List[str]):

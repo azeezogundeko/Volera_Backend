@@ -3,6 +3,7 @@ from .researcher import researcher_agent
 from .reviewer import reviewer_agent
 from .human_node import ultra_search_human_node
 from .response import response_agent
+from .image_validation import image_validation_agent
 from utils.memory import store
 
 from ..config import agent_manager
@@ -19,6 +20,7 @@ nodes = {
     agent_manager.research_agent: researcher_agent,
     agent_manager.human_node: ultra_search_human_node,
     agent_manager.summary_agent: response_agent,
+    agent_manager.image_validation_agent: image_validation_agent,
 }
 
 for node_name, node_func in nodes.items():

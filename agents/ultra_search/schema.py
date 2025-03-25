@@ -65,3 +65,9 @@ class IntentAnalysis(BaseModel):
 class ResultSchema(BaseSchema):
     reviewed_query: str
     # intent_analysis: IntentAnalysis
+
+class ImageValidationSchema(BaseModel):
+    validated_product_ids: List[str] = Field(description="List of product IDs that have valid image URLs")
+    fixed_count: int = Field(description="Number of image URLs that were successfully fixed")
+    failed_count: int = Field(description="Number of image URLs that could not be fixed")
+    comment: str = Field(description="Summary of the validation process")

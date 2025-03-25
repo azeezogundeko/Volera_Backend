@@ -17,9 +17,36 @@ Instructions:
 - Extraction Accuracy: Parse the markdown strictly to extract the product details and map the available data to the corresponding fields in the JSON schema.
 - Validation: Validate that the extracted JSON adheres exactly to the provided schema. Do not output any additional commentary or text—only the final JSON array.
 - Handling Incomplete Data: If the markdown lacks any of the mandatory fields for a product, skip that product entirely.
-- Image Collection Priority: The image collection is extremely important. Ensure you extract at least one valid image URL for each product. If a valid image URL is not available, skip that product.
-- Price Details: Please ensure you return the price value and currency.
-- Ensure to extract a valid image URL for each product.
+
+URL and Image Extraction Rules:
+1. Product URL Requirements:
+   - Must be a complete, valid URL (e.g., "https://www.example.com/product/123")
+   - Remove any extraneous characters like <, >, or quotes
+   - Fix common URL issues:
+     * Remove duplicate domains (e.g., "www.jumia.com.ng/www.jumia.com.ng/")
+     * Remove malformed path segments (e.g., "/mlp-category/</product.html>")
+     * Ensure proper URL encoding for special characters
+   - Examples:
+     * INVALID: "https://www.jumia.com.ng/mlp-iphone-13-pro-max/</apple-iphone.html>"
+     * VALID: "https://www.jumia.com.ng/apple-iphone-13-pro-max-6-7-256gb-rom-6gb-ram-4352ma-gold-271241363.html"
+
+2. Image URL Requirements:
+   - Must be a direct link to an image file
+   - Common image extensions: .jpg, .jpeg, .png, .webp, .gif
+   - Must be a complete, absolute URL
+   - For e-commerce sites, prefer high-resolution product images
+   - Examples:
+     * INVALID: "https://www.jumia.com.ng/mlp-iphone-13-pro-max/"
+     * INVALID: "https://creativecdn.com/tags?type=img&id=pr_6M0aPFLBg5RMEV8vAvz0_offer_6465823&id=pr_6M0aPFLBg5RMEV8vAvz0_uid_unknown"
+     * VALID: "https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/36/312172/1.jpg"
+
+3. URL Validation Steps:
+   - Check if the URL starts with http:// or https://
+   - Verify it contains a valid domain name
+   - Remove any HTML tags or malformed segments
+   - Ensure proper URL encoding
+   - For image URLs, verify they point to an actual image file
+
 
 ### Example
 {{
@@ -33,8 +60,8 @@ Instructions:
         "current_price": 99.99,
         "original_price": 149.99,
         "discount": "33%",
-        "url": "https://example.com/product-page",
-        "image": "https://example.com/product-image.jpg",
+        "url": "https://www.amazon.com/dp/B08L5TNJHG",
+        "image": "https://m.media-amazon.com/images/I/71ZOtNdaZCL._AC_SL1500_.jpg",
         "source": "Amazon",
         "rating": 4.5,
         "rating_count": 150,
@@ -64,7 +91,7 @@ Your responsibilities are as follows:
 1. **Clarify Requirements Efficiently:** Ask only essential clarifying questions (using __user__) to understand the user's shopping needs (e.g., product specifications, price range, preferred ecommerce store, etc.). Avoid asking multiple or redundant questions.
 2. **SEO-Friendly Query Formatting:** Analyze the user's original query and convert it into an SEO-friendly format following this structure: `<BRAND> <NAME> <REGION>`. For example, if the query is "best lenovo laptop", format it as "lenovo laptop", ensuring the brand, product name, and preferred ecommerce store are properly represented.
 3. **Drop Reviewer Instructions:** Once all necessary details are gathered, include specific instructions for the reviewer agent in the `researcher_agent_instructions` field to review the upcoming search results.
-4. **Output a Summary Comment:** Include a `comment` field in your final JSON output. This field should provide a summary of the actions taken, such as clarifying the user’s needs efficiently, converting the query to the SEO-friendly format, and specifying reviewer instructions.
+4. **Output a Summary Comment:** Include a `comment` field in your final JSON output. This field should provide a summary of the actions taken, such as clarifying the user's needs efficiently, converting the query to the SEO-friendly format, and specifying reviewer instructions.
 5. **Output Structure:** Your final output must be a JSON object following this schema:
 6. **Site Instructions:** Always add the domain to the site for site search
 7. **Ensure that new search queries are not thesame with the new ones if the previous did not generate the right results
@@ -107,7 +134,7 @@ Your responsibilities are as follows:
     "researcher_agent_instructions": "Go through each product in the search results to confirm it meets all the essential requirements. 
     The user is specifically searching for Lenovo laptops that match their criteria—correct brand, product type, features, price range, 
     and availability on their preferred eCommerce store. Carefully check each product against these specifications. 
-    If a product doesn’t meet even one requirement, exclude it. Make sure to note any discrepancies or deviations in your review.""
+    If a product doesn't meet even one requirement, exclude it. Make sure to note any discrepancies or deviations in your review.""
 
     "search_quries": [
             {{
@@ -212,4 +239,42 @@ Key Instructions:
 ###NB
     - Passed or Reviewed products are products which meet the user search Query
     - Incase no relevant products were discovered, inform the user of the situation and that they can try again in a very friendly manner.
+"""
+
+image_validation_prompt = """
+You are an AI agent specialized in validating and fixing product image URLs. Your task is to analyze product pages and extract valid image URLs when the original ones are broken or invalid.
+
+Instructions:
+1. **Image URL Validation:**
+   - Verify if the provided image URL is accessible and returns a valid image
+   - Check for common issues like missing protocols, relative paths, or CDN-specific formats
+
+2. **Image URL Extraction:**
+   - When an image URL is invalid, analyze the product page to find the correct image URL
+   - Use source-specific selectors to locate product images
+   - Handle different image URL formats (relative paths, CDN URLs, etc.)
+   - Ensure extracted URLs are absolute and properly formatted
+
+3. **Output Requirements:**
+   - Return a list of ProductDetail objects with validated/fixed image URLs
+   - Track statistics about fixed and failed image URLs
+   - Provide clear comments about the validation process
+
+4. **Source-Specific Handling:**
+   - Apply different extraction strategies based on the product source (e.g., Jumia, Konga, etc.)
+   - Use appropriate selectors and attributes for each source
+   - Handle source-specific URL patterns and formats
+
+5. **Error Handling:**
+   - Gracefully handle network errors, timeouts, and invalid responses
+   - Maintain the original URL if a fix attempt fails
+   - Log detailed error information for debugging
+
+Your output must follow the ImageValidationSchema format:
+{
+    "validated_products": [List of ProductDetail objects with validated image URLs],
+    "fixed_count": Number of image URLs that were fixed,
+    "failed_count": Number of image URLs that could not be fixed,
+    "comment": "A human-friendly summary of the validation process"
+}
 """

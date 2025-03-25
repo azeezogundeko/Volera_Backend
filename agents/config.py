@@ -22,6 +22,7 @@ class AgentClass:
         self.followup = "followup_agent"
         self.summary_agent = "summary_agent"
         self.research_agent = "research_agent"
+        self.image_validation_agent = "image_validation_agent"
 
 
         self.copilot_planner = "copilot_planner_agent"
