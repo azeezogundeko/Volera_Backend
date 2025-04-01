@@ -66,6 +66,9 @@ class ResultSchema(BaseSchema):
     reviewed_query: str
     # intent_analysis: IntentAnalysis
 
+class ValidationResult(BaseModel):
+    image_url: str = Field(description="URL of the product image")
+
 class ProductImage(BaseModel):
     image_url: str = Field(description="URL of the product image")
     product_id: str = Field(description="ID of the product")

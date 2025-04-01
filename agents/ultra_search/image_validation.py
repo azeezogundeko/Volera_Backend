@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 from ..legacy.base import BaseAgent
 from ..config import agent_manager
 from ..state import State
-from .schema import ImageValidationSchema, ProductImage
+from .schema import ImageValidationSchema, ProductImage, ValidationResult
 from .prompt import image_validation_prompt
 from utils._craw4ai import CrawlerManager
 from utils.logging import logger
@@ -18,7 +18,7 @@ class ImageValidationAgent(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(
             model='google-gla:gemini-2.0-flash-exp',
-            result_type=ImageValidationSchema,
+            result_type=ValidationResult,
             system_prompt=image_validation_prompt,
             name=agent_manager.image_validation_agent
         )
@@ -78,8 +78,8 @@ class ImageValidationAgent(BaseAgent):
                 model='google-gla:gemini-2.0-flash-exp',
                 deps=ScrapingDependencies
             )
-            
-            return response.image_url if response else ''
+            return response.data.image_url
+        
         except Exception as e:
             logger.error(f"Error fixing image URL: {str(e)}")
             return product.get('image', '')
