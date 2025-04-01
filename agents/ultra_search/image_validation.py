@@ -75,7 +75,6 @@ class ImageValidationAgent(BaseAgent):
                 user_id="system",
                 user_prompt=str(prompt),
                 type="text",
-                result_type=ProductImage,  # Use single-product schema
                 model='google-gla:gemini-2.0-flash-exp',
                 deps=ScrapingDependencies
             )
