@@ -1,60 +1,125 @@
-## Chrome Storage Setup
+# 🛍️ Volera — AI-Powered Shopping Research Assistant
 
-### Local Development
-1. Copy `craw4ai_config/state.template.json` to `craw4ai_config/state.json`
-2. Update the values in `state.json` according to your needs
-3. Do not commit `state.json` to version control as it contains sensitive information
+<img src="./vector.svg" width="100%">
 
-### Production Deployment
-1. Initial Setup on VPS:
-```bash
-# Create directory for Chrome storage
-mkdir -p /app/craw4ai_config
+Volera is an **AI-based shopping research platform** that helps users make **smarter and faster buying decisions**.  
+It gathers product data from multiple sources using **Google's Custom Search API**, analyzes the content through **AI-powered chunking and insight generation**, and presents **meaningful comparisons** so users can choose the best options confidently.
 
-# Copy template file
-cp craw4ai_config/state.template.json /app/craw4ai_config/state.json
+---
 
-# Set proper permissions
-chmod 600 /app/craw4ai_config/state.json
-```
+## 🚀 Features
 
-2. Configuration:
-- The storage state is mounted at `/app/craw4ai_config/state.json` in all containers that need browser access
-- Uses a named Docker volume `chrome_storage` for persistence
-- Environment variable `CHROME_STORAGE_PATH=/app/craw4ai_config/state.json` is set in all relevant services
+- **Smart Product Search** — Search across multiple e-commerce platforms via Google Custom Search JSON API.  
+- **AI Insight Generation** — Automatically summarizes reviews, specifications, and pros/cons.  
+- **Multi-Source Comparison** — Aggregates results from several sites to help users compare prices and quality.  
+- **User Authentication** — Secure environment ensuring every user’s data and searches are protected.  
+- **Scalable Architecture** — Built for integration with future plugins (e.g., agents, product trackers, recommendation engines).
 
-3. Managing the Storage:
-```bash
-# View current storage state
-docker-compose exec web cat /app/craw4ai_config/state.json
+---
 
-# Edit storage state
-docker-compose exec web vi /app/craw4ai_config/state.json
+## 🧠 Tech Stack
 
-# Backup storage state
-docker-compose exec web cat /app/craw4ai_config/state.json > backup_state.json
+| Layer | Technology |
+|-------|-------------|
+| **Backend** | Python (FastAPI / Django) |
+| **Frontend** | Node.js (React / Next.js) |
+| **Database** | PostgreSQL / SQLite |
+| **AI Layer** | Custom chunking + semantic insight generation |
+| **External API** | Google Custom Search JSON API |
+| **Auth** | Appwrite or JWT-based authentication |
+| **Deployment** | Docker / Cloud platform (optional) |
 
-# Restore from backup
-docker cp backup_state.json <container_id>:/app/craw4ai_config/state.json
-```
+---
 
-4. Troubleshooting:
-- If browser automation fails, check storage permissions and content
-- Verify the storage path matches `CHROME_STORAGE_PATH` environment variable
-- Ensure the storage volume is properly mounted in all services that need it
-- Check container logs for any storage-related errors 
+## ⚙️ Installation & Setup
 
-## Submodules
-
-This project uses Git submodules. After cloning the repository, run:
+### 1. Clone the repository
 
 ```bash
-# Initialize submodules
-git submodule init
+git clone https://github.com/<your-username>/volera.git
+cd volera
+2. Set up environment variables
+Create a .env file in your backend directory and fill in the required configuration:
 
-# Update submodules
-git submodule update
+env
+Copy code
+GOOGLE_API_KEY=your_google_api_key
+GOOGLE_CSE_ID=your_custom_search_engine_id
+DATABASE_URL=sqlite:///volera.db
+APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+APPWRITE_PROJECT_ID=your_project_id
+SECRET_KEY=your_secret_key
+3. Backend setup (Python)
+bash
+Copy code
+cd backend
+python -m venv venv
+source venv/bin/activate  # (Windows: venv\Scripts\activate)
+pip install -r requirements.txt
+uvicorn main:app --reload
+4. Frontend setup (Node.js)
+bash
+Copy code
+cd frontend
+npm install
+npm run dev
+🧩 Project Structure
+arduino
+Copy code
+volera/
+├── backend/
+│   ├── core/
+│   ├── models/
+│   ├── routes/
+│   ├── utils/
+│   ├── tests/
+│   └── main.py
+├── frontend/
+│   ├── components/
+│   ├── pages/
+│   ├── public/
+│   └── utils/
+├── .env
+├── README.md
+└── requirements.txt
+🔒 Security
+Volera runs in a secure environment — all endpoints require user authentication.
+Tokens and API keys are safely stored in environment variables.
+Sensitive data such as user history and preferences are encrypted.
 
-# Or do both in one command
-git submodule update --init --recursive
-``` 
+📈 Roadmap
+ Add user dashboard with saved searches
+
+ Integrate browser extension for quick product analysis
+
+ Introduce AI shopping agents for personalized recommendations
+
+ Implement price tracking and alert system
+
+ Enable social product sharing
+
+🧑‍💻 Contributing
+Contributions are welcome!
+If you'd like to improve Volera:
+
+Fork the repo
+
+Create your feature branch (git checkout -b feature/new-feature)
+
+Commit your changes (git commit -m 'Add new feature')
+
+Push to the branch (git push origin feature/new-feature)
+
+Open a Pull Request
+
+📜 License
+This project is licensed under the MIT License.
+See the LICENSE file for details.
+
+👤 Author
+Abdulazeez Ogundeko
+Founder & Developer of Volera
+🌍 Nigeria
+💼 LinkedIn | 💻 GitHub
+
+Volera — Helping you buy smarter, every time.
