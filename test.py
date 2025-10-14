@@ -3,194 +3,169 @@ import time
 
 from db import user_db
 from utils.email_manager  import manager
-
-
 from appwrite.query import Query
 
-
-
 def get_html_content(name: str):
-    return f"""
+    return f'''
     <!DOCTYPE html>
     <html>
     <head>
+        <title>Start Shopping on Volera Today!</title>
         <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                margin: 0;
-                padding: 0;
+            body {{ font-family: Arial, sans-serif; color: #333; background-color: #f9fafb; }}
+            .container {{ 
+                width: 100%; 
+                max-width: 600px; 
+                margin: auto; 
+                padding: 20px; 
             }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-            }}
-            .header {{
-                background-color: #059669;
-                color: white;
-                padding: 30px;
-                text-align: center;
-                border-radius: 8px 8px 0 0;
-            }}
-            .content {{
-                padding: 30px;
-                background-color: #ffffff;
+            .main-card {{ 
+                background: white; 
+                padding: 30px; 
+                border-radius: 12px;
                 border: 1px solid #e5e7eb;
             }}
-            .features {{
-                background-color: #f3f4f6;
-                padding: 20px;
-                margin: 20px 0;
+            .header {{
+                text-align: center;
+                margin-bottom: 30px;
+            }}
+            .feature-highlights {{
+                display: flex;
+                justify-content: space-around;
+                flex-wrap: wrap;
+                margin: 30px 0;
+                text-align: center;
+            }}
+            .highlight {{
+                flex: 1;
+                min-width: 120px;
+                margin: 10px;
+                padding: 15px;
+                background: #f8fafc;
                 border-radius: 8px;
             }}
-            .feature-item {{
-                margin: 10px 0;
-                color: #374151;
+            .benefits {{
+                margin: 30px 0;
+                padding: 20px;
+                background: #f8fafc;
+                border-radius: 8px;
             }}
-            .button {{
-                display: inline-block;
-                background-color: #059669;
-                color: white;
-                padding: 12px 25px;
-                text-decoration: none;
-                border-radius: 5px;
-                margin: 20px 0;
+            .benefit {{ 
+                font-size: 17px; 
+                margin-bottom: 15px;
+                padding-left: 10px;
+                border-left: 4px solid #10B981;
             }}
-            .footer {{
-                background: linear-gradient(to right, #059669, #047857);
-                color: white;
-                padding: 30px;
+            .cta {{ 
                 text-align: center;
-                border-radius: 0 0 8px 8px;
+                margin: 30px 0;
             }}
-            .footer-content {{
-                max-width: 500px;
-                margin: 0 auto;
+            .btn {{ 
+                display: inline-block; 
+                padding: 12px 25px; 
+                color: white; 
+                background-color: #10B981; 
+                text-decoration: none; 
+                border-radius: 6px;
+                font-weight: bold;
             }}
             .social-links {{
-                margin: 25px auto;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 15px;
-                flex-wrap: wrap;
-                max-width: 400px;
-            }}
-            .social-links a {{
-                color: white;
-                text-decoration: none;
-                background-color: rgba(255, 255, 255, 0.1);
-                padding: 12px 20px;
-                border-radius: 5px;
-                transition: all 0.3s ease;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                min-width: 120px;
+                margin: 30px 0 20px;
                 text-align: center;
-                border: 1px solid rgba(255, 255, 255, 0.2);
             }}
-            .social-links a:hover {{
-                background-color: rgba(255, 255, 255, 0.2);
-                transform: translateY(-2px);
-                border-color: rgba(255, 255, 255, 0.4);
-            }}
-            .social-icon {{
-                width: 20px;
-                height: 20px;
-                display: inline-block;
-                vertical-align: middle;
-            }}
-            .footer-divider {{
-                border-top: 1px solid rgba(255, 255, 255, 0.2);
-                margin: 20px 0;
-            }}
-            .footer-text {{
-                color: rgba(255, 255, 255, 0.9);
+            .footer {{ 
+                text-align: center;
+                margin-top: 20px;
+                padding-top: 20px;
+                border-top: 1px solid #e5e7eb;
+                color: #6b7280;
                 font-size: 14px;
-                margin: 10px 0;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="header">
-                <h1>Discover the New Volera Experience!</h1>
-            </div>
-            
-            <div class="content">
-                <p>Dear {name},</p>
-                
-                <p>We're excited to announce our latest features at Volera designed to make your shopping experience smarter and more dynamic than ever before!</p>
-                
-                <div class="features">
-                    <h2>Discover What's New:</h2>
-                    <div class="feature-item">✓ Choose your chat model: <strong>Deepseek</strong> or <strong>Google Gemini</strong> for personalized assistance</div>
-                    <div class="feature-item">✓ Experience <strong>Ultra Search</strong>: our AI-powered deep search scours the entire internet for detailed product descriptions</div>
-                    <div class="feature-item">✓ Expanded eCommerce network: now search across <strong>Shopinverse, Kara, Supermart, Parkway, and Slot</strong></div>
-                    <div class="feature-item">✓ Enjoy smart shopping with real-time price tracking and tailored recommendations</div>
+            <div class="main-card">
+                <div class="header">
+                    <h1 style="color: #10B981; margin-bottom: 10px;">Hey {name}, ready to shop? 🛍️</h1>
+                    <p style="font-size: 18px; color: #374151;">Discover and shop your favorite products all in one place.</p>
                 </div>
+
+                <h2 style="color: #10B981; margin: 25px 0;">Why Shop on Volera?</h2>
+                <p style="font-size: 17px; line-height: 1.6;">At Volera, we bring you the best deals, the widest selection, and an AI-driven experience that makes shopping a breeze. Say goodbye to endless browsing and hello to smart, seamless shopping!</p>
                 
-                <p>Ready to explore these powerful new tools?</p>
-                
-                <center>
-                    <a href="https://www.volera.app/login" class="button">Login to Your Account</a>
-                </center>
-                
-                <div class="signature">
-                    <p>Best regards,</p>
-                    <p><strong>Ogundeko Abdulazeez</strong><br>
-                    CEO/Founder of Volera</p>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <div class="footer-content">
-                    <h3 style="margin: 0; font-size: 20px; color: white;">Connect with Volera</h3>
-                    <p class="footer-text" style="color: rgba(255, 255, 255, 0.9);">Join our community and stay updated with the latest features and exclusive deals</p>
-                    
-                    <div class="social-links">
-                        <a href="https://x.com/volera4727" style="flex: 1;">
-                            <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                            </svg>
-                            X (Twitter)
-                        </a>
-                        <a href="https://www.youtube.com/@volera1-v4i" style="flex: 1;">
-                            <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                            </svg>
-                            YouTube
-                        </a>
-                        <a href="https://www.linkedin.com/company/volera" style="flex: 1;">
-                            <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                            </svg>
-                            LinkedIn
-                        </a>
+                <div class="feature-highlights">
+                    <div class="highlight">
+                        <h3>🔍 Curated Picks</h3>
+                        <p>Hand-picked by AI</p>
                     </div>
-                    
-                    <div class="footer-divider"></div>
-                    
-                    <p class="footer-text" style="margin-bottom: 0;">© 2025 Volera. All rights reserved.</p>
-                    <p class="footer-text" style="font-size: 12px; margin-top: 5px;">
-                        Shop with Artificial Intelligence
-                    </p>
+                    <div class="highlight">
+                        <h3>⚡ Fast Checkout</h3>
+                        <p>Secure & seamless</p>
+                    </div>
+                    <div class="highlight">
+                        <h3>💰 Best Prices</h3>
+                        <p>Compare & save</p>
+                    </div>
+                </div>
+
+                <div class="benefits">
+                    <div class="benefit">🛒 One-stop shop across top retailers</div>
+                    <div class="benefit">💡 Personalized recommendations just for you</div>
+                    <div class="benefit">📦 Real-time stock & price updates</div>
+                    <div class="benefit">🔒 Protected payments & buyer support</div>
+                </div>
+
+                <div class="cta">
+                    <h3 style="color: #10B981;">Ready to Start Shopping?</h3>
+                    <p style="font-size: 17px; line-height: 1.6;">Click below to explore deals and products curated by Volera's AI.</p>
+                    <a href="https://www.volera.app/shop" class="btn">Shop Now on Volera</a>
+                </div>
+                
+                <div class="social-links">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                        <tr>
+                            <td align="center">
+                                <table border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td align="center" style="padding: 0 10px;">
+                                            <a href="https://x.com/volera4727" title="Follow us on X">
+                                                <img src="https://about.twitter.com/content/dam/about-twitter/x/brand-toolkit/logo-black.png.twimg.1920.png" alt="X" width="32" height="32" style="display: block;">
+                                            </a>
+                                        </td>
+                                        <td align="center" style="padding: 0 10px;">
+                                            <a href="https://www.youtube.com/@volera1-v4i" title="Subscribe on YouTube">
+                                                <img src="https://www.youtube.com/s/desktop/7c155e84/img/favicon_144x144.png" alt="YouTube" width="32" height="32" style="display: block;">
+                                            </a>
+                                        </td>
+                                        <td align="center" style="padding: 0 10px;">
+                                            <a href="https://www.linkedin.com/company/volera" title="Connect on LinkedIn">
+                                                <img src="https://static.licdn.com/aero-v1/sc/h/al2o9zrvru7aqj8e1x2rzsrca" alt="LinkedIn" width="32" height="32" style="display: block;">
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="footer">
+                    <p>© 2025 Volera. All rights reserved.</p>
                 </div>
             </div>
         </div>
     </body>
     </html>
-    """
+    '''
+
 
 
 def get_all_users():
     all_users = user_db.list([Query.limit(100)])
 
     users = all_users['users']
-    # print(len(users))
+    print(len(users))
     result = [{
         'email': user['email'],
         'name': user['name'].split('_')[0]
@@ -198,7 +173,7 @@ def get_all_users():
     return result[3:]
     # return [
     #     {
-    #         'email': 'azeezogundeko@volera.app',
+    #         'email': 'azeezogundeko19@gmail.com',
     #         'name': 'azeez'
     #     }
     # ]
@@ -207,21 +182,32 @@ def get_all_users():
 def send_email():
     users = get_all_users()
     manager.choose_account('azeez_volera')
-    for user in users:
-        try:
-            manager.send_email(
-                user['email'],
-                subject='Volera Unveils Next-Level Features: Enhanced Chat and Deep Internet Search',
-                html_content=get_html_content(user['name'])
-            )
+    
+    users = [user for user in users if user['email']]
+    
+    max_retries = 3
+    sleep_time = 5
 
-            print(f'sent email to {user["email"]}')
-            print('sleeping for 5 seconds')
-            time.sleep(5)
-        except Exception as e:
-            print('could not send email to:', user['email'], str(e))
-            continue
+    for user in users:
+        retries = 0
+        while retries < max_retries:
+            try:
+                manager.send_email(
+                    user['email'],
+                    subject='Unlock Exclusive Savings on Volera Today!',
+                    html_content=get_html_content(user['name'])
+                )
+                print(f'Successfully sent email to {user["email"]} (attempt {retries + 1})')
+                print(f'sleeping for {sleep_time} seconds')
+                time.sleep(sleep_time)
+                break
+            except Exception as e:
+                retries += 1
+                if retries < max_retries:
+                    print(f'Failed to send email to {user["email"]}, attempt {retries} of {max_retries}: {str(e)}')
+                    time.sleep(sleep_time * 2)
+                else:
+                    print(f'All retries failed for {user["email"]}: {str(e)}')
 
 if __name__ == '__main__':
     send_email()
-

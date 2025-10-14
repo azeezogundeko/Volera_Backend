@@ -1,7 +1,7 @@
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any
 import aiohttp
-from urllib.parse import urljoin, urlparse
+# from urllib.parse import urljoin, urlparse
 
 from ..legacy.base import BaseAgent
 from ..config import agent_manager
@@ -11,7 +11,7 @@ from .prompt import image_validation_prompt
 from utils._craw4ai import CrawlerManager
 from utils.logging import logger
 from schema import ScrapingDependencies
-from langgraph.types import Command, Literal
+from langgraph.types import Command
 from crawl4ai import CrawlerRunConfig, DefaultMarkdownGenerator
 
 class ImageValidationAgent(BaseAgent):

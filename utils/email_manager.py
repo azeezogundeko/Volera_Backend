@@ -73,6 +73,14 @@ class EmailAccountManager:
                 login_email=os.environ.get("BREVO_SMTP_EMAIL"),
                 smtp_port=587,
                 smtp_server="smtp-relay.brevo.com"
+            ),
+            "abdulmumin_volera": EmailAccount(
+                name="Abdulmumin from Volera",
+                from_email="abdulmumin@volera.app",
+                smtp_password=os.getenv("BREVO_SMTP_PASSWORD"),
+                login_email=os.environ.get("BREVO_SMTP_EMAIL"),
+                smtp_port=587,
+                smtp_server="smtp-relay.brevo.com"
             )
         }
         self.current_account = None
